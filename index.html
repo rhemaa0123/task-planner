@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Task Planner</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <dialog id="assign-dialog" class="dialog">
+      <form method="dialog" id="assign-form" class="dialog-card">
+        <p class="dialog-eyebrow">This week</p>
+        <h2 id="assign-title" class="dialog-title">Assign days</h2>
+        <p class="dialog-copy">
+          Pick the days you will work on this. Choosing more than one day splits
+          it into subtasks.
+        </p>
+        <div id="assign-days" class="day-chips"></div>
+        <div class="dialog-actions">
+          <button type="button" class="ghost-btn" data-assign="clear">Unassign</button>
+          <div class="dialog-actions-right">
+            <button type="submit" value="cancel" class="ghost-btn">Cancel</button>
+            <button type="submit" value="save" class="accent-btn">Save</button>
+          </div>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
