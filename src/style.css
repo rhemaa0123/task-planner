@@ -278,7 +278,7 @@ button {
 }
 
 .progress-track {
-  height: 4px;
+  height: 6px;
   background: var(--line);
   width: 100%;
   margin-bottom: 8px;
