@@ -27,25 +27,31 @@ export function Board() {
   return (
     <>
       <div className="toolbar">
-        <div className="toolbar-left">
-          <button className="icon-btn" onClick={() => setWeekStart(addDays(weekStart, -7))}>‹</button>
-
+        <div className="toolbar-left" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button className="icon-btn" onClick={() => setWeekStart(addDays(weekStart, -7))}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+          
           <div className="week-date-box">
             {weekText && (
               <span className="week-title" style={{
-                color: weekText === 'This week' ? 'var(--good)' : 'var(--ink)',
-                fontWeight: 'bold',
-                textTransform: 'capitalize'
+                color: weekText === 'This week' ? '#779d72' : 'var(--ink-faint)',
+                fontWeight: '600',
+                fontSize: '1.05rem'
               }}>
                 {weekText}
               </span>
             )}
-            <span className="week-dates">{formatWeekRange(weekStart)}</span>
+            <span className="week-dates" style={{fontFamily: 'var(--mono)', color: 'var(--ink-soft)', letterSpacing: '0.05em'}}>
+              {formatWeekRange(weekStart)}
+            </span>
           </div>
 
-          <button className="icon-btn" onClick={() => setWeekStart(addDays(weekStart, 7))}>›</button>
-
-          <span className="today-link" onClick={() => {
+          <button className="icon-btn" onClick={() => setWeekStart(addDays(weekStart, 7))}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
+          
+          <span className="today-link" style={{fontSize: '1.05rem', color: 'var(--ink-faint)', marginLeft: '12px'}} onClick={() => {
             const d = new Date()
             d.setHours(0,0,0,0)
             const day = d.getDay()

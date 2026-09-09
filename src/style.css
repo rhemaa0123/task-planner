@@ -205,28 +205,27 @@ button {
 }
 
 .week-date-box {
-  background: var(--paper);
-  padding: 6px 16px;
+  background: var(--bg);
+  padding: 8px 20px;
   border-radius: 999px;
   border: 1px solid var(--line);
   display: flex;
   align-items: center;
-  gap: 10px;
+  min-width: 260px;
+  justify-content: space-between;
 }
 
 .icon-btn {
   background: transparent;
   border: none;
-  color: var(--ink-soft);
+  color: var(--ink-faint);
   width: 32px;
   height: 32px;
-  border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 1.6rem;
-  line-height: 1;
+  transition: color 0.15s ease;
 }
-.icon-btn:hover { background: var(--line); color: var(--ink); }
+.icon-btn:hover { color: var(--ink); background: transparent; }
 
 .week-title {
   color: var(--good);
