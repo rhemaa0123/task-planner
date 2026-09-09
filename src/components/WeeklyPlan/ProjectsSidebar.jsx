@@ -81,6 +81,8 @@ export function ProjectsSidebar() {
   const [draggedIdx, setDraggedIdx] = useState(null)
   const [dragOverIdx, setDragOverIdx] = useState(null)
   const [focusTaskId, setFocusTaskId] = useState(null)
+  const cardRefs = useRef([])
+  const sidebarRef = useRef(null)
 
   const handleCreateProject = async () => {
     await addProject('')
@@ -91,25 +93,98 @@ export function ProjectsSidebar() {
     if (id) setFocusTaskId(id)
   }
 
-  const onDragStart = (e, index) => {
-    setDraggedIdx(index)
-    e.dataTransfer.effectAllowed = 'move'
-  }
-  const onDragOver = (e, index) => {
-    e.preventDefault()
-    setDragOverIdx(index)
-  }
-  const onDrop = (e, index) => {
-    e.preventDefault()
-    if (draggedIdx !== null && draggedIdx !== index) {
-      reorderProjects(draggedIdx, index)
-    }
+  const resetDrag = () => {
     setDraggedIdx(null)
     setDragOverIdx(null)
   }
 
+  const onDragStart = (e, index) => {
+    setDraggedIdx(index)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', String(index))
+  }
+
+  // Resolved from the pointer against untransformed layout positions. Asking
+  // which element the event fired on would feed back on itself: shifting a card
+  // moves it out from under the cursor, cancelling the hover that caused it.
+  const indexAtPointer = (clientY) => {
+    const sidebar = sidebarRef.current
+    const els = cardRefs.current
+    if (!sidebar || !els.length) return null
+    const originTop = sidebar.getBoundingClientRect().top - sidebar.offsetTop
+    for (let i = 0; i < els.length; i++) {
+      const el = els[i]
+      if (!el) continue
+      if (clientY < originTop + el.offsetTop + el.offsetHeight / 2) return i
+    }
+    return els.length - 1
+  }
+
+  const onDragOver = (e) => {
+    if (draggedIdx === null) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    const idx = indexAtPointer(e.clientY)
+    if (idx !== null && idx !== dragOverIdx) setDragOverIdx(idx)
+  }
+
+  const onDrop = (e) => {
+    e.preventDefault()
+    if (draggedIdx !== null && dragOverIdx !== null && draggedIdx !== dragOverIdx) {
+      reorderProjects(draggedIdx, dragOverIdx)
+    }
+    resetDrag()
+  }
+
+  // Measured rather than assumed: cards vary in height with their task count
+  const slotGap = () => {
+    const els = cardRefs.current.filter(Boolean)
+    if (els.length < 2) return 0
+    return Math.max(0, els[1].offsetTop - (els[0].offsetTop + els[0].offsetHeight))
+  }
+
+  // Siblings slide by exactly the dragged card's footprint, so the space it
+  // vacates matches the slot its ghost moves into. offsetTop is used over
+  // getBoundingClientRect because it ignores the transforms we're applying.
+  const dragTransform = (index) => {
+    if (draggedIdx === null || dragOverIdx === null || draggedIdx === dragOverIdx) return 'none'
+    const dragged = cardRefs.current[draggedIdx]
+    const target = cardRefs.current[dragOverIdx]
+    if (!dragged || !target) return 'none'
+
+    if (index === draggedIdx) {
+      const delta = draggedIdx < dragOverIdx
+        ? (target.offsetTop + target.offsetHeight) - (dragged.offsetTop + dragged.offsetHeight)
+        : target.offsetTop - dragged.offsetTop
+      return `translateY(${delta}px)`
+    }
+
+    const footprint = dragged.offsetHeight + slotGap()
+    if (draggedIdx < dragOverIdx && index > draggedIdx && index <= dragOverIdx) {
+      return `translateY(${-footprint}px)`
+    }
+    if (draggedIdx > dragOverIdx && index >= dragOverIdx && index < draggedIdx) {
+      return `translateY(${footprint}px)`
+    }
+    return 'none'
+  }
+
   return (
-    <aside className="sidebar">
+    <aside
+      className="sidebar"
+      ref={sidebarRef}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragLeave={(e) => {
+        // Chromium nulls relatedTarget during a drag, so leaving is decided by
+        // coordinates. Only a real exit returns cards to their resting slots.
+        const r = e.currentTarget.getBoundingClientRect()
+        const outside =
+          e.clientX < r.left || e.clientX > r.right ||
+          e.clientY < r.top || e.clientY > r.bottom
+        if (outside) setDragOverIdx(null)
+      }}
+    >
       <div className="sidebar-header">
         <span className="eyebrow">PROJECTS</span>
         <div className="header-links">
@@ -124,22 +199,16 @@ export function ProjectsSidebar() {
         const pct = total === 0 ? 0 : Math.round((done / total) * 100)
 
         const isDragging = draggedIdx === index
-        const isDragOver = dragOverIdx === index
 
         return (
           <div
             key={p.id}
-            className="project-card"
+            ref={el => { cardRefs.current[index] = el }}
+            className={`project-card ${isDragging ? 'dragging' : ''}`}
             draggable
             onDragStart={(e) => onDragStart(e, index)}
-            onDragOver={(e) => onDragOver(e, index)}
-            onDrop={(e) => onDrop(e, index)}
-            onDragLeave={() => setDragOverIdx(null)}
-            style={{
-              opacity: isDragging ? 0.5 : 1,
-              transform: isDragOver ? (draggedIdx < index ? 'translateY(-4px)' : 'translateY(4px)') : 'none',
-              transition: 'transform 0.2s ease, opacity 0.2s'
-            }}
+            onDragEnd={resetDrag}
+            style={{ transform: dragTransform(index) }}
           >
             <div className="project-card-head" style={{display: 'flex', alignItems: 'center', gap: 12}}>
 
