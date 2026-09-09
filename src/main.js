@@ -307,7 +307,7 @@ function renderHeader() {
   const isPlans = state.route === '#/' || state.route.startsWith('#/plan')
   const isStats = state.route === '#/stats'
 
-  const authMenu = state.user 
+  const authMenu = state.user
     ? `
       <div class="user-avatar">${userInitials()}</div>
       <button class="logout-btn" data-action="logout">Log out</button>
@@ -726,13 +726,13 @@ async function toggleTask(taskId, completed) {
     const task = (p.tasks ?? []).find((t) => String(t.id) === String(taskId))
     if (task) { task.completed = completed; break }
   }
-  
+
   if (!state.user) {
     saveLocal()
     render()
     return
   }
-  
+
   render() // Optimistic UI
   const { error } = await supabase.from('tasks').update({ completed }).eq('id', taskId)
   if (error) { showToast(error.message, 'error'); await load() }
