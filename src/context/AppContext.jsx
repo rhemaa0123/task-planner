@@ -134,23 +134,71 @@ export function AppProvider({ children }) {
     if (err) { showToast(err.message, 'error'); await loadData() }
   }
 
-  const addTask = async (projectId, title, dayDate = null) => {
+  const addTask = async (projectId, title = '', dayDate = null) => {
     if (!user) {
+      const newId = generateId()
       const updated = projects.map(p => {
         if (String(p.id) === String(projectId)) {
           return {
             ...p,
-            tasks: [...(p.tasks || []), { id: generateId(), project_id: projectId, title, day_date: dayDate, completed: false }]
+            tasks: [...(p.tasks || []), { id: newId, project_id: projectId, title, day_date: dayDate, completed: false }]
           }
         }
         return p
       })
       saveLocal(updated)
+      return newId
+    }
+    const { data, error: err } = await supabase
+      .from('tasks')
+      .insert({ project_id: projectId, title, day_date: dayDate, completed: false })
+      .select()
+      .single()
+    if (err) { showToast(err.message, 'error'); return null }
+    await loadData()
+    return data?.id ?? null
+  }
+
+  const updateTaskTitle = async (taskId, title) => {
+    const updated = projects.map(p => ({
+      ...p,
+      tasks: (p.tasks || []).map(t => String(t.id) === String(taskId) ? { ...t, title } : t)
+    }))
+    setProjects(updated)
+    if (!user) {
+      saveLocal(updated)
       return
     }
-    const { error: err } = await supabase.from('tasks').insert({ project_id: projectId, title, day_date: dayDate, completed: false })
-    if (err) throw err
-    await loadData()
+    const { error: err } = await supabase.from('tasks').update({ title }).eq('id', taskId)
+    if (err) { showToast(err.message, 'error') }
+  }
+
+  const setTaskDay = async (taskId, dayDate) => {
+    const updated = projects.map(p => ({
+      ...p,
+      tasks: (p.tasks || []).map(t => String(t.id) === String(taskId) ? { ...t, day_date: dayDate } : t)
+    }))
+    setProjects(updated)
+    if (!user) {
+      saveLocal(updated)
+      return
+    }
+    const { error: err } = await supabase.from('tasks').update({ day_date: dayDate }).eq('id', taskId)
+    if (err) { showToast(err.message, 'error'); await loadData() }
+  }
+
+  const deleteTask = async (taskId) => {
+    const updated = projects.map(p => ({
+      ...p,
+      tasks: (p.tasks || []).filter(t => String(t.id) !== String(taskId))
+    }))
+    setProjects(updated)
+    if (!user) {
+      saveLocal(updated)
+      return
+    }
+    const { error: err } = await supabase.from('tasks').delete().eq('id', taskId)
+    if (err) { showToast(err.message, 'error'); await loadData() }
   }
 
   const toggleTask = async (taskId, completed) => {
@@ -196,7 +244,8 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       user, authInitialized, projects, loading, error, weekStart, setWeekStart,
       toasts, showToast,
-      addProject, updateProjectName, deleteProject, reorderProjects, addTask, toggleTask, setProjectDeadline, loadData
+      addProject, updateProjectName, deleteProject, reorderProjects,
+      addTask, updateTaskTitle, setTaskDay, deleteTask, toggleTask, setProjectDeadline, loadData
     }}>
       {children}
     </AppContext.Provider>

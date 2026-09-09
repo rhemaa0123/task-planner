@@ -385,7 +385,7 @@ button {
   background: transparent;
   border: none;
   outline: none;
-  color: var(--ink);
+  color: var(--ink-soft);
   font-size: 0.85rem;
   flex: 1;
   min-width: 0;
@@ -393,6 +393,70 @@ button {
 }
 .task-name-input::placeholder {
   color: var(--ink-faint);
+}
+.task-name-input.done {
+  text-decoration: line-through;
+  color: var(--ink-faint);
+}
+
+/* Hover actions on a task row */
+.task-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.task-item:hover .task-actions,
+.task-item.has-day .task-actions,
+.task-actions:focus-within {
+  opacity: 1;
+}
+
+.assign-date {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.assign-date .cal-box {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r);
+}
+.assign-date .hidden-date {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.task-del {
+  background: transparent;
+  border: none;
+  color: var(--ink-faint);
+  display: grid;
+  place-items: center;
+  padding: 2px;
+}
+.task-del:hover {
+  color: var(--ink);
+  background: transparent;
 }
 
 .proj-meta {
@@ -492,7 +556,7 @@ button {
 /* ---- Task Items ---- */
 .task-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   padding: 6px 0;
 }
@@ -506,7 +570,6 @@ button {
   border-radius: 50%;
   background: transparent;
   cursor: pointer;
-  margin-top: 2px;
 }
 .task-check:checked {
   background: var(--ink-faint);
