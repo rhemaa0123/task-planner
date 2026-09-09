@@ -1,42 +1,40 @@
 import React, { useState } from 'react'
 import { useApp } from '../../context/AppContext'
-import { addDays, toISODate, WEEKDAYS } from '../../utils'
 
-function InlineTaskForm({ projectId, onCancel, onSave, weekStart }) {
+function InlineTaskInput({ onSave, onClose }) {
   const [title, setTitle] = useState('')
-  const [day, setDay] = useState('')
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!title.trim()) return
-    onSave(projectId, title.trim(), day || null)
+  const commit = () => {
+    const t = title.trim()
+    if (t) onSave(t)
+    onClose()
   }
 
-  // Generate options for the current week
-  const dayOptions = WEEKDAYS.map((name, i) => {
-    const d = addDays(weekStart, i)
-    return { name, value: toISODate(d) }
-  })
-
   return (
-    <form className="inline-form" onSubmit={handleSubmit} style={{marginTop: 8}}>
+    <div className="task-item">
+      <input type="checkbox" className="task-check" disabled style={{ opacity: 0.4 }} />
       <input
         autoFocus
         type="text"
-        placeholder="Task title..."
+        className="task-name-input"
+        placeholder="Task name..."
         value={title}
         onChange={e => setTitle(e.target.value)}
-        style={{width: '100%', marginBottom: 6}}
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            const t = title.trim()
+            if (t) {
+              onSave(t)
+              setTitle('')
+            }
+          } else if (e.key === 'Escape') {
+            onClose()
+          }
+        }}
+        onBlur={commit}
       />
-      <div style={{display: 'flex', gap: 6}}>
-        <select value={day} onChange={e => setDay(e.target.value)} style={{flex: 1, padding: 4}}>
-          <option value="">No day (Backlog)</option>
-          {dayOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.name}</option>)}
-        </select>
-        <button type="submit" className="accent-btn" style={{padding: '4px 10px'}}>Add</button>
-        <button type="button" className="ghost-btn" onClick={onCancel} style={{padding: '4px 10px'}}>Cancel</button>
-      </div>
-    </form>
+    </div>
   )
 }
 
@@ -57,15 +55,10 @@ function EditableTitle({ initialName, onSave }) {
 }
 
 export function ProjectsSidebar() {
-  const { projects, weekStart, addProject, updateProjectName, deleteProject, reorderProjects, addTask, toggleTask, setProjectDeadline } = useApp()
+  const { projects, addProject, updateProjectName, deleteProject, reorderProjects, addTask, toggleTask, setProjectDeadline } = useApp()
   const [addingTaskTo, setAddingTaskTo] = useState(null)
   const [draggedIdx, setDraggedIdx] = useState(null)
   const [dragOverIdx, setDragOverIdx] = useState(null)
-
-  const handleSaveTask = (projectId, title, dayDate) => {
-    addTask(projectId, title, dayDate)
-    setAddingTaskTo(null)
-  }
 
   const handleCreateProject = async () => {
     await addProject('')
@@ -131,11 +124,13 @@ export function ProjectsSidebar() {
               </div>
 
               <div style={{display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0}}>
-                <div style={{display: 'flex', alignItems: 'center', gap: 6}}>
-                  <div style={{width: 32, height: 4, background: 'var(--line)', borderRadius: 2}}>
-                    <div style={{width: `${pct}%`, height: '100%', background: pct === 100 ? 'var(--accent)' : 'var(--good)', borderRadius: 2}}></div>
+                {total > 0 && (
+                  <div style={{display: 'flex', alignItems: 'center', gap: 6}}>
+                    <div style={{width: 32, height: 4, background: 'var(--line)', borderRadius: 2}}>
+                      <div style={{width: `${pct}%`, height: '100%', background: pct === 100 ? 'var(--accent)' : 'var(--good)', borderRadius: 2}}></div>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div className="proj-hover-action" style={{display: 'flex', alignItems: 'center', gap: 8}}>
                   <label style={{cursor: 'pointer', display: 'flex', alignItems: 'center', color: p.deadline ? 'var(--accent)' : 'var(--ink-faint)'}}>
@@ -171,29 +166,18 @@ export function ProjectsSidebar() {
                     onChange={(e) => toggleTask(t.id, e.target.checked)}
                   />
                   <span className={`task-name ${t.completed ? 'done' : ''}`}>{t.title}</span>
-                  <div className="task-meta-right">
-                    {t.day_date ? (
-                      <span className="day-count" style={{background: 'var(--line)', color: 'var(--ink-faint)'}}>
-                        {t.day_date.substring(5)}
-                      </span>
-                    ) : (
-                      <span className="day-count" style={{color: 'var(--accent)'}}>ASSIGN</span>
-                    )}
-                  </div>
                 </div>
               ))}
+
+              {addingTaskTo === p.id && (
+                <InlineTaskInput
+                  onSave={(title) => addTask(p.id, title, null)}
+                  onClose={() => setAddingTaskTo(null)}
+                />
+              )}
             </div>
 
-            {addingTaskTo === p.id ? (
-              <InlineTaskForm
-                projectId={p.id}
-                weekStart={weekStart}
-                onCancel={() => setAddingTaskTo(null)}
-                onSave={handleSaveTask}
-              />
-            ) : (
-              <button className="add-task-btn" onClick={() => setAddingTaskTo(p.id)}>+ add task</button>
-            )}
+            <button className="add-task-btn" onClick={() => setAddingTaskTo(p.id)}>+ add task</button>
           </div>
         )
       })}

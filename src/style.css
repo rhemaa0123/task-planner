@@ -379,8 +379,20 @@ button {
   color: var(--ink-faint);
   font-weight: 500;
 }
-.proj-title-input:focus {
-  border-bottom: 1px solid var(--accent);
+
+/* Inline task name entry — plain typing space, no box */
+.task-name-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--ink);
+  font-size: 0.85rem;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+}
+.task-name-input::placeholder {
+  color: var(--ink-faint);
 }
 
 .proj-meta {
