@@ -109,7 +109,7 @@ export function ProjectsSidebar() {
           <a href="#">Copy plan</a><span className="sep">•</span><a href="#">Paste plan</a>
         </div>
       </div>
-      
+
       {projects.map((p, index) => {
         const tasks = p.tasks || []
         const total = tasks.length
@@ -120,22 +120,22 @@ export function ProjectsSidebar() {
         const isDragOver = dragOverIdx === index
 
         return (
-          <div 
-            key={p.id} 
+          <div
+            key={p.id}
             className="project-card"
             draggable
             onDragStart={(e) => onDragStart(e, index)}
             onDragOver={(e) => onDragOver(e, index)}
             onDrop={(e) => onDrop(e, index)}
             onDragLeave={() => setDragOverIdx(null)}
-            style={{ 
-              opacity: isDragging ? 0.5 : 1, 
+            style={{
+              opacity: isDragging ? 0.5 : 1,
               transform: isDragOver ? (draggedIdx < index ? 'translateY(-4px)' : 'translateY(4px)') : 'none',
               transition: 'transform 0.2s ease, opacity 0.2s'
             }}
           >
             <div className="project-card-head" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-              
+
               <div style={{display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden'}}>
                 <div className="proj-hover-action" style={{cursor: 'grab', color: 'var(--ink-faint)', display: 'flex'}}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
@@ -144,7 +144,7 @@ export function ProjectsSidebar() {
                   {p.name}
                 </h3>
               </div>
-              
+
               <div style={{display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0}}>
                 <div style={{display: 'flex', alignItems: 'center', gap: 6}}>
                   <div style={{width: 32, height: 4, background: 'var(--line)', borderRadius: 2}}>
@@ -157,15 +157,15 @@ export function ProjectsSidebar() {
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
                     </svg>
-                    <input 
-                      type="date" 
-                      value={p.deadline || ''} 
+                    <input
+                      type="date"
+                      value={p.deadline || ''}
                       onChange={e => setProjectDeadline(p.id, e.target.value)}
                       style={{position: 'absolute', opacity: 0, width: 14, height: 14, cursor: 'pointer', zIndex: 10}}
                     />
                   </label>
-                  <button 
-                    className="icon-btn" 
+                  <button
+                    className="icon-btn"
                     onClick={() => deleteProject(p.id)}
                     style={{width: 20, height: 20, fontSize: '1.2rem', padding: 0}}
                   >
