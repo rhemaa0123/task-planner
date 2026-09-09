@@ -412,10 +412,11 @@ input[type="text"].proj-title-input {
   border: none;
   color: var(--ink);
   font-size: var(--fs-title);
-  /* `normal` matches the font metrics an empty input uses for its caret;
-     any taller value makes the caret jump once the first character lands */
   line-height: normal;
   font-weight: var(--w-title);
+  /* A radius on a borderless field clips the caret at x=0, where it sits while
+     the field is empty - the corner curve eats nearly the full line height */
+  border-radius: 0;
   width: 100%;
   outline: none;
   padding: 0;
@@ -436,6 +437,7 @@ input[type="text"].task-name-input {
   font-size: var(--fs-row);
   line-height: normal;
   font-weight: var(--w-row);
+  border-radius: 0;
   flex: 1;
   min-width: 0;
   padding: 0;
