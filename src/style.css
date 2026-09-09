@@ -283,12 +283,13 @@ button {
   background: var(--line);
   width: 100%;
   margin-bottom: 8px;
-  border-radius: 2px;
+  border-radius: 999px;
+  overflow: hidden;
 }
 .progress-fill {
   height: 100%;
   background: var(--ink-soft);
-  border-radius: 2px;
+  border-radius: 999px;
   transition: width 0.4s ease;
 }
 
@@ -408,13 +409,6 @@ input[type="text"].task-name-input {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-.task-item:hover .task-actions,
-.task-item.has-day .task-actions,
-.task-actions:focus-within {
-  opacity: 1;
 }
 
 .assign-date {
@@ -429,6 +423,40 @@ input[type="text"].task-name-input {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.assign-date,
+.task-del {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.task-item:hover .assign-date,
+.task-item:hover .task-del,
+.task-item.has-day .assign-date,
+.task-actions:focus-within .assign-date,
+.task-actions:focus-within .task-del {
+  opacity: 1;
+}
+
+/* Undated tasks keep the "assign date" wording on the row; its button only on hover */
+.task-item:not(.has-day) .assign-date {
+  opacity: 1;
+  color: var(--ink-faint);
+}
+.task-item:not(.has-day):hover .assign-date,
+.task-item:not(.has-day) .assign-date:focus-within {
+  color: var(--accent);
+}
+.task-item:not(.has-day) .assign-date .arrow,
+.task-item:not(.has-day) .assign-date .cal-box {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.task-item:not(.has-day):hover .assign-date .arrow,
+.task-item:not(.has-day):hover .assign-date .cal-box,
+.task-item:not(.has-day) .assign-date:focus-within .arrow,
+.task-item:not(.has-day) .assign-date:focus-within .cal-box {
+  opacity: 1;
 }
 .assign-date .cal-box {
   display: grid;
@@ -475,8 +503,9 @@ input[type="text"].task-name-input {
   border: none;
   color: var(--ink-soft);
   text-align: left;
-  font-size: 0.8rem;
-  padding: 4px 26px;
+  font-size: 1rem;
+  line-height: 1.5;
+  padding: 6px 0 6px 26px;
 }
 .add-task-btn:hover { color: var(--ink); }
 
@@ -562,6 +591,11 @@ input[type="text"].task-name-input {
   align-items: center;
   gap: 10px;
   padding: 6px 0;
+  transform-origin: left center;
+  transition: transform 0.15s ease;
+}
+.task-item:hover {
+  transform: scale(1.04);
 }
 
 .task-check {
