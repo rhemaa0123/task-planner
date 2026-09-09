@@ -31,7 +31,7 @@ export function Board() {
           <button className="icon-btn" onClick={() => setWeekStart(addDays(weekStart, -7))}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
           </button>
-          
+
           <div className="week-date-box">
             {weekText && (
               <span className="week-title" style={{
@@ -50,7 +50,7 @@ export function Board() {
           <button className="icon-btn" onClick={() => setWeekStart(addDays(weekStart, 7))}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </button>
-          
+
           <span className="today-link" style={{fontSize: '1.05rem', color: 'var(--ink-faint)', marginLeft: '12px'}} onClick={() => {
             const d = new Date()
             d.setHours(0,0,0,0)
