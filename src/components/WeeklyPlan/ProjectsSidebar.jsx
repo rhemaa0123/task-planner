@@ -1,15 +1,28 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
 
 function EditableText({ value, onSave, placeholder, className, autoFocus }) {
   const [text, setText] = useState(value || '')
+  const ref = useRef(null)
 
   useEffect(() => {
     setText(value || '')
   }, [value])
 
+  // Focusing before the webfont settles leaves the caret sized to the fallback
+  // font until the first keystroke forces a relayout
+  useEffect(() => {
+    if (!autoFocus) return
+    let cancelled = false
+    document.fonts.ready.then(() => {
+      if (!cancelled) ref.current?.focus()
+    })
+    return () => { cancelled = true }
+  }, [autoFocus])
+
   return (
     <input
+      ref={ref}
       type="text"
       className={className}
       value={text}
@@ -18,7 +31,6 @@ function EditableText({ value, onSave, placeholder, className, autoFocus }) {
       onBlur={() => {
         if ((text || '') !== (value || '')) onSave(text)
       }}
-      autoFocus={autoFocus}
     />
   )
 }

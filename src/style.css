@@ -26,12 +26,11 @@
   --warn: #f87171;
   --warn-soft: rgba(248, 113, 113, 0.15);
 
-  --sans: 'Mononoki', ui-monospace, Consolas, monospace;
+  --sans: 'Raleway', system-ui, -apple-system, sans-serif;
   --display: var(--sans);
-  --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  --mono: 'Space Mono', ui-monospace, Consolas, monospace;
 
-  /* Mononoki ships 400 and 700 only - 600 would synthesize a fake bold */
-  --w-title: 700;
+  --w-title: 600;
   --w-row: 400;
 
   --sp-1: 4px;
@@ -92,7 +91,7 @@ input[type="text"], input[type="email"], input[type="password"], select, textare
   padding: 6px 10px;
   border-radius: var(--r);
   color: var(--ink);
-  caret-color: var(--accent);
+  caret-color: var(--ink);
   transition: border-color 0.15s;
 }
 input[type="text"]:focus, select:focus {
@@ -413,7 +412,9 @@ input[type="text"].proj-title-input {
   border: none;
   color: var(--ink);
   font-size: var(--fs-title);
-  line-height: 1.5;
+  /* `normal` matches the font metrics an empty input uses for its caret;
+     any taller value makes the caret jump once the first character lands */
+  line-height: normal;
   font-weight: var(--w-title);
   width: 100%;
   outline: none;
@@ -433,7 +434,7 @@ input[type="text"].task-name-input {
   outline: none;
   color: var(--ink-soft);
   font-size: var(--fs-row);
-  line-height: 1.5;
+  line-height: normal;
   font-weight: var(--w-row);
   flex: 1;
   min-width: 0;
