@@ -61,6 +61,7 @@ input[type="text"], input[type="email"], input[type="password"], select, textare
   padding: 6px 10px;
   border-radius: var(--r);
   color: var(--ink);
+  caret-color: var(--accent);
   transition: border-color 0.15s;
 }
 input[type="text"]:focus, select:focus {
@@ -368,6 +369,7 @@ input[type="text"].proj-title-input {
   border: none;
   color: var(--ink);
   font-size: 1.1rem;
+  line-height: 1.5;
   font-weight: 600;
   width: 100%;
   outline: none;
@@ -386,7 +388,8 @@ input[type="text"].task-name-input {
   border: none;
   outline: none;
   color: var(--ink-soft);
-  font-size: 1.1rem;
+  font-size: 1rem;
+  line-height: 1.5;
   flex: 1;
   min-width: 0;
   padding: 0;
