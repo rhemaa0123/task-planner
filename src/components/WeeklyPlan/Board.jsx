@@ -29,9 +29,22 @@ export function Board() {
       <div className="toolbar">
         <div className="toolbar-left">
           <button className="icon-btn" onClick={() => setWeekStart(addDays(weekStart, -7))}>‹</button>
-          <span className="week-title">{weekText}</span>
-          <span className="week-dates">{formatWeekRange(weekStart)}</span>
+          
+          <div className="week-date-box">
+            {weekText && (
+              <span className="week-title" style={{
+                color: weekText === 'This week' ? 'var(--good)' : 'var(--ink)',
+                fontWeight: 'bold',
+                textTransform: 'capitalize'
+              }}>
+                {weekText}
+              </span>
+            )}
+            <span className="week-dates">{formatWeekRange(weekStart)}</span>
+          </div>
+
           <button className="icon-btn" onClick={() => setWeekStart(addDays(weekStart, 7))}>›</button>
+          
           <span className="today-link" onClick={() => {
             const d = new Date()
             d.setHours(0,0,0,0)

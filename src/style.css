@@ -202,22 +202,29 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.week-date-box {
   background: var(--paper);
-  padding: 4px 6px;
+  padding: 6px 16px;
   border-radius: 999px;
   border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .icon-btn {
   background: transparent;
   border: none;
   color: var(--ink-soft);
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 1.2rem;
+  font-size: 1.6rem;
+  line-height: 1;
 }
 .icon-btn:hover { background: var(--line); color: var(--ink); }
 
