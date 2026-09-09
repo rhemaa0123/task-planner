@@ -146,11 +146,22 @@ export function AppProvider({ children }) {
     if (err) { showToast(err.message, 'error'); await loadData() }
   }
 
+  const setProjectDeadline = async (projectId, deadline) => {
+    const updated = projects.map(p => String(p.id) === String(projectId) ? { ...p, deadline } : p)
+    if (!user) {
+      saveLocal(updated)
+      return
+    }
+    setProjects(updated)
+    const { error: err } = await supabase.from('projects').update({ deadline }).eq('id', projectId)
+    if (err) { showToast(err.message, 'error'); await loadData() }
+  }
+
   return (
     <AppContext.Provider value={{
       user, authInitialized, projects, loading, error, weekStart, setWeekStart,
       toasts, showToast,
-      addProject, addTask, toggleTask, loadData
+      addProject, addTask, toggleTask, setProjectDeadline, loadData
     }}>
       {children}
     </AppContext.Provider>
