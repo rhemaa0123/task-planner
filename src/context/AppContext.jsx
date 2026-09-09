@@ -4,11 +4,23 @@ import { startOfWeek, toISODate } from '../utils'
 
 const AppContext = createContext(null)
 
+// Projects saved before weeks existed surface in the real current week
+const readGuestProjects = () => {
+  try {
+    const stored = JSON.parse(localStorage.getItem('task-planner-guest')) || []
+    const thisWeekIso = toISODate(startOfWeek())
+    return stored.map(p => ({ ...p, week_start: p.week_start || thisWeekIso }))
+  } catch {
+    return []
+  }
+}
+
 export function AppProvider({ children }) {
   const [user, setUser] = useState(null)
   const [authInitialized, setAuthInitialized] = useState(false)
-  const [allProjects, setAllProjects] = useState([])
-  const [loading, setLoading] = useState(true)
+  // Seeded from localStorage so guest planning renders without waiting on the session check
+  const [allProjects, setAllProjects] = useState(readGuestProjects)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [weekStart, setWeekStart] = useState(() => startOfWeek())
   const [toasts, setToasts] = useState([])
@@ -43,19 +55,13 @@ export function AppProvider({ children }) {
     setLoading(true)
     setError('')
 
-    // Projects saved before weeks existed surface in the real current week
-    const thisWeekIso = toISODate(startOfWeek())
-
     if (!user) {
-      try {
-        const stored = JSON.parse(localStorage.getItem('task-planner-guest')) || []
-        setAllProjects(stored.map(p => ({ ...p, week_start: p.week_start || thisWeekIso })))
-      } catch {
-        setAllProjects([])
-      }
+      setAllProjects(readGuestProjects())
       setLoading(false)
       return
     }
+
+    const thisWeekIso = toISODate(startOfWeek())
 
     const { data, error: err } = await supabase
       .from('projects')

@@ -28,7 +28,6 @@ export function Header({ route }) {
       </nav>
       <div className="header-spacer"></div>
       <div className="user-menu">
-        <a href="#" className="support-link">♥ Support</a>
         {user ? (
           <>
             <span className="guest-badge">{userInitials()}</span>

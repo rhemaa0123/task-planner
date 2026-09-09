@@ -3,34 +3,35 @@
    ============================================================ */
 
 :root {
-  /* Warm paper theme */
-  --bg: #f4f1ea;
-  --paper: #fbfaf6;
-  --paper-hover: #f6f3ec;
+  /* Dark Navy Theme */
+  --bg: #0b1120;
+  --paper: #131a2b;
+  --paper-hover: #1b2438;
 
-  --ink: #1c1a17;
-  --ink-soft: #56514a;
-  --ink-faint: #71695e;
+  --ink: #f8fafc;
+  --ink-soft: #94a3b8;
+  --ink-faint: #475569;
 
-  --line: #e2ddd2;
-  --line-strong: #d2ccbe;
+  --line: #1e293b;
+  --line-strong: #334155;
 
-  --hover-neutral: #f6f3ec;
-  --hover-accent: #f7ece8;
+  --hover-neutral: #1b2438;
+  --hover-accent: rgba(249, 115, 22, 0.12);
 
-  --accent: #a74127;
-  --accent-soft: #efe0d9;
+  --accent: #f97316;
+  --accent-soft: rgba(249, 115, 22, 0.15);
 
-  --good: #317527;
-  --good-soft: #dcead9;
-  --warn: #a74127;
-  --warn-soft: #efe0d9;
+  --good: #4ade80;
+  --good-soft: rgba(74, 222, 128, 0.15);
+  --warn: #f87171;
+  --warn-soft: rgba(248, 113, 113, 0.15);
 
-  --sans: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
+  --sans: 'Mononoki', ui-monospace, Consolas, monospace;
   --display: var(--sans);
   --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
 
-  --w-title: 600;
+  /* Mononoki ships 400 and 700 only - 600 would synthesize a fake bold */
+  --w-title: 700;
   --w-row: 400;
 
   --sp-1: 4px;
@@ -59,9 +60,9 @@
   --check-size: 18px;
   --icon-size: 13px;
 
-  --shadow-float: 0 6px 20px #1c1a171a;
-  --shadow-card: none;
-  --scrim: #1c1a1780;
+  --shadow-float: 0 6px 20px rgba(0, 0, 0, 0.45);
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --scrim: rgba(0, 0, 0, 0.6);
 }
 
 * {
@@ -169,15 +170,6 @@ button {
   gap: 12px;
   font-size: 0.8rem;
 }
-
-.support-link {
-  color: var(--ink-soft);
-  text-decoration: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.support-link:hover { color: var(--ink); }
 
 .guest-badge {
   display: flex;
@@ -516,7 +508,7 @@ input[type="text"].task-name-input {
   width: 22px;
   height: 22px;
   border: 1px solid var(--accent);
-  border-radius: var(--r);
+  border-radius: var(--r-chip);
 }
 .assign-date .hidden-date {
   position: absolute;
