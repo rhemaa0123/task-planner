@@ -110,6 +110,17 @@ export function AppProvider({ children }) {
     await loadData()
   }
 
+  const deleteProject = async (projectId) => {
+    const updated = projects.filter(p => String(p.id) !== String(projectId))
+    if (!user) {
+      saveLocal(updated)
+      return
+    }
+    setProjects(updated)
+    const { error: err } = await supabase.from('projects').delete().eq('id', projectId)
+    if (err) { showToast(err.message, 'error'); await loadData() }
+  }
+
   const addTask = async (projectId, title, dayDate = null) => {
     if (!user) {
       const updated = projects.map(p => {
@@ -157,11 +168,22 @@ export function AppProvider({ children }) {
     if (err) { showToast(err.message, 'error'); await loadData() }
   }
 
+  const reorderProjects = (fromIndex, toIndex) => {
+    const reordered = Array.from(projects)
+    const [moved] = reordered.splice(fromIndex, 1)
+    reordered.splice(toIndex, 0, moved)
+    setProjects(reordered)
+    if (!user) {
+      saveLocal(reordered)
+    }
+    // Note: Supabase persistence of project order would require a sort_order column
+  }
+
   return (
     <AppContext.Provider value={{
       user, authInitialized, projects, loading, error, weekStart, setWeekStart,
       toasts, showToast,
-      addProject, addTask, toggleTask, setProjectDeadline, loadData
+      addProject, deleteProject, reorderProjects, addTask, toggleTask, setProjectDeadline, loadData
     }}>
       {children}
     </AppContext.Provider>

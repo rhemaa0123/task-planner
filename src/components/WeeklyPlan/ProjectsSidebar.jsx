@@ -68,9 +68,11 @@ function InlineProjectForm({ onCancel, onSave }) {
 }
 
 export function ProjectsSidebar() {
-  const { projects, weekStart, addProject, addTask, toggleTask, setProjectDeadline } = useApp()
+  const { projects, weekStart, addProject, deleteProject, reorderProjects, addTask, toggleTask, setProjectDeadline } = useApp()
   const [addingTaskTo, setAddingTaskTo] = useState(null)
   const [addingProject, setAddingProject] = useState(false)
+  const [draggedIdx, setDraggedIdx] = useState(null)
+  const [dragOverIdx, setDragOverIdx] = useState(null)
 
   const handleSaveTask = (projectId, title, dayDate) => {
     addTask(projectId, title, dayDate)
@@ -82,6 +84,23 @@ export function ProjectsSidebar() {
     setAddingProject(false)
   }
 
+  const onDragStart = (e, index) => {
+    setDraggedIdx(index)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+  const onDragOver = (e, index) => {
+    e.preventDefault()
+    setDragOverIdx(index)
+  }
+  const onDrop = (e, index) => {
+    e.preventDefault()
+    if (draggedIdx !== null && draggedIdx !== index) {
+      reorderProjects(draggedIdx, index)
+    }
+    setDraggedIdx(null)
+    setDragOverIdx(null)
+  }
+
   return (
     <aside className="sidebar">
       <div className="sidebar-header">
@@ -90,21 +109,42 @@ export function ProjectsSidebar() {
           <a href="#">Copy plan</a><span className="sep">•</span><a href="#">Paste plan</a>
         </div>
       </div>
-
-      {projects.map(p => {
+      
+      {projects.map((p, index) => {
         const tasks = p.tasks || []
         const total = tasks.length
         const done = tasks.filter(t => t.completed).length
         const pct = total === 0 ? 0 : Math.round((done / total) * 100)
 
-        return (
-          <div key={p.id} className="project-card">
-            <div className="project-card-head" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-              <h3 className="proj-title" style={{margin: 0, paddingRight: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1}}>
-                {p.name}
-              </h3>
+        const isDragging = draggedIdx === index
+        const isDragOver = dragOverIdx === index
 
-              {/* Progress & Deadline Right Aligned */}
+        return (
+          <div 
+            key={p.id} 
+            className="project-card"
+            draggable
+            onDragStart={(e) => onDragStart(e, index)}
+            onDragOver={(e) => onDragOver(e, index)}
+            onDrop={(e) => onDrop(e, index)}
+            onDragLeave={() => setDragOverIdx(null)}
+            style={{ 
+              opacity: isDragging ? 0.5 : 1, 
+              transform: isDragOver ? (draggedIdx < index ? 'translateY(-4px)' : 'translateY(4px)') : 'none',
+              transition: 'transform 0.2s ease, opacity 0.2s'
+            }}
+          >
+            <div className="project-card-head" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+              
+              <div style={{display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden'}}>
+                <div className="proj-hover-action" style={{cursor: 'grab', color: 'var(--ink-faint)', display: 'flex'}}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                </div>
+                <h3 className="proj-title" style={{margin: 0, paddingRight: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
+                  {p.name}
+                </h3>
+              </div>
+              
               <div style={{display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0}}>
                 <div style={{display: 'flex', alignItems: 'center', gap: 6}}>
                   <div style={{width: 32, height: 4, background: 'var(--line)', borderRadius: 2}}>
@@ -112,17 +152,26 @@ export function ProjectsSidebar() {
                   </div>
                 </div>
 
-                <label style={{cursor: 'pointer', display: 'flex', alignItems: 'center', color: p.deadline ? 'var(--accent)' : 'var(--ink-faint)'}}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
-                  </svg>
-                  <input
-                    type="date"
-                    value={p.deadline || ''}
-                    onChange={e => setProjectDeadline(p.id, e.target.value)}
-                    style={{position: 'absolute', opacity: 0, width: 14, height: 14, cursor: 'pointer', zIndex: 10}}
-                  />
-                </label>
+                <div className="proj-hover-action" style={{display: 'flex', alignItems: 'center', gap: 8}}>
+                  <label style={{cursor: 'pointer', display: 'flex', alignItems: 'center', color: p.deadline ? 'var(--accent)' : 'var(--ink-faint)'}}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    <input 
+                      type="date" 
+                      value={p.deadline || ''} 
+                      onChange={e => setProjectDeadline(p.id, e.target.value)}
+                      style={{position: 'absolute', opacity: 0, width: 14, height: 14, cursor: 'pointer', zIndex: 10}}
+                    />
+                  </label>
+                  <button 
+                    className="icon-btn" 
+                    onClick={() => deleteProject(p.id)}
+                    style={{width: 20, height: 20, fontSize: '1.2rem', padding: 0}}
+                  >
+                    ×
+                  </button>
+                </div>
               </div>
             </div>
 

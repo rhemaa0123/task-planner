@@ -207,12 +207,20 @@ button {
 .week-date-box {
   background: var(--bg);
   padding: 8px 20px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   display: flex;
   align-items: center;
   min-width: 260px;
   justify-content: space-between;
+}
+
+.proj-hover-action {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.project-card:hover .proj-hover-action {
+  opacity: 1;
 }
 
 .icon-btn {
@@ -270,7 +278,7 @@ button {
 }
 
 .progress-track {
-  height: 2px;
+  height: 4px;
   background: var(--line);
   width: 100%;
   margin-bottom: 8px;
