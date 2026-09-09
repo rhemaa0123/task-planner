@@ -129,7 +129,7 @@ export function ProjectsSidebar() {
               transition: 'transform 0.2s ease, opacity 0.2s'
             }}
           >
-            <div className="project-card-head" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+            <div className="project-card-head" style={{display: 'flex', alignItems: 'center', gap: 12}}>
 
               <div style={{display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1}}>
                 <div className="proj-hover-action" style={{cursor: 'grab', color: 'var(--ink-faint)', display: 'flex'}}>

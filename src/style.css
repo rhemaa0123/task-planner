@@ -353,8 +353,8 @@ button {
 
 .project-card-head {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  gap: 12px;
 }
 
 .proj-title {
@@ -363,7 +363,7 @@ button {
   color: var(--ink);
 }
 
-.proj-title-input {
+input[type="text"].proj-title-input {
   background: transparent;
   border: none;
   color: var(--ink);
@@ -381,7 +381,7 @@ button {
 }
 
 /* Inline task name entry — plain typing space, no box */
-.task-name-input {
+input[type="text"].task-name-input {
   background: transparent;
   border: none;
   outline: none;
