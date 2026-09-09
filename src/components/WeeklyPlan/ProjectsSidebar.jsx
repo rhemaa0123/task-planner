@@ -35,6 +35,93 @@ function EditableText({ value, onSave, placeholder, className, autoFocus }) {
   )
 }
 
+const isoToDisplay = (iso) => {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-')
+  return y && m && d ? `${d}/${m}/${y}` : ''
+}
+
+const displayToIso = (text) => {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec((text || '').trim())
+  if (!m) return null
+  const [, d, mo, y] = m
+  const date = new Date(Number(y), Number(mo) - 1, Number(d))
+  // rejects rolled-over dates like 31/02/2026
+  if (date.getFullYear() !== Number(y) || date.getMonth() !== Number(mo) - 1 || date.getDate() !== Number(d)) {
+    return null
+  }
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+}
+
+function DeadlineDialog({ project, onSave, onClose }) {
+  const [text, setText] = useState(isoToDisplay(project.deadline))
+  const pickerRef = useRef(null)
+
+  const iso = displayToIso(text)
+  const invalid = text.trim() !== '' && iso === null
+
+  const openCalendar = () => {
+    const el = pickerRef.current
+    if (!el) return
+    if (typeof el.showPicker === 'function') el.showPicker()
+    else el.click()
+  }
+
+  const submit = (e) => {
+    e.preventDefault()
+    if (invalid) return
+    onSave(text.trim() === '' ? null : iso)
+  }
+
+  return (
+    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <form className="modal-card" onSubmit={submit}>
+        <div className="modal-eyebrow">PROJECT DEADLINE</div>
+        <h2 className="modal-title">{project.name || 'Untitled project'}</h2>
+
+        <div className="deadline-row">
+          <input
+            className={`deadline-input ${invalid ? 'invalid' : ''}`}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="DD/MM/YYYY"
+            inputMode="numeric"
+            autoFocus
+          />
+          <button type="button" className="deadline-cal" onClick={openCalendar} title="Pick from calendar">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+            <input
+              ref={pickerRef}
+              type="date"
+              className="deadline-native"
+              value={iso || ''}
+              onChange={(e) => setText(isoToDisplay(e.target.value))}
+              tabIndex={-1}
+            />
+          </button>
+        </div>
+        <div className="deadline-hint">
+          {invalid ? 'Enter a real date as DD/MM/YYYY' : 'Type a date, or pick one from the calendar'}
+        </div>
+
+        <div className="modal-actions">
+          {project.deadline && (
+            <button type="button" className="btn-ghost" onClick={() => onSave(null)}>Clear</button>
+          )}
+          <span style={{ flex: 1 }} />
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn-primary" disabled={invalid}>Save</button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 function TaskRow({ task, autoFocus, onRename, onToggle, onAssignDay, onDelete }) {
   return (
     <div className={`task-item ${task.day_date ? 'has-day' : ''}`}>
@@ -81,8 +168,11 @@ export function ProjectsSidebar() {
   const [draggedIdx, setDraggedIdx] = useState(null)
   const [dragOverIdx, setDragOverIdx] = useState(null)
   const [focusTaskId, setFocusTaskId] = useState(null)
+  const [deadlineFor, setDeadlineFor] = useState(null)
   const cardRefs = useRef([])
   const sidebarRef = useRef(null)
+
+  const deadlineProject = projects.find(p => String(p.id) === String(deadlineFor)) || null
 
   const handleCreateProject = async () => {
     await addProject('')
@@ -170,7 +260,8 @@ export function ProjectsSidebar() {
   }
 
   return (
-    <aside
+    <>
+      <aside
       className="sidebar"
       ref={sidebarRef}
       onDragOver={onDragOver}
@@ -236,17 +327,16 @@ export function ProjectsSidebar() {
                 )}
 
                 <div className="proj-hover-action" style={{display: 'flex', alignItems: 'center', gap: 8}}>
-                  <label style={{cursor: 'pointer', display: 'flex', alignItems: 'center', color: p.deadline ? 'var(--accent)' : 'var(--ink-faint)'}}>
+                  <button
+                    className="icon-btn"
+                    onClick={() => setDeadlineFor(p.id)}
+                    title={p.deadline ? `Deadline ${isoToDisplay(p.deadline)}` : 'Set deadline'}
+                    style={{width: 20, height: 20, padding: 0, color: p.deadline ? 'var(--accent)' : 'var(--ink-faint)'}}
+                  >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
                     </svg>
-                    <input
-                      type="date"
-                      value={p.deadline || ''}
-                      onChange={e => setProjectDeadline(p.id, e.target.value)}
-                      style={{position: 'absolute', opacity: 0, width: 14, height: 14, cursor: 'pointer', zIndex: 10}}
-                    />
-                  </label>
+                  </button>
                   <button
                     className="icon-btn"
                     onClick={() => deleteProject(p.id)}
@@ -282,6 +372,19 @@ export function ProjectsSidebar() {
       })}
 
       <button className="add-project-dashed" onClick={handleCreateProject}>+ ADD PROJECT</button>
-    </aside>
+      </aside>
+
+      {deadlineProject && (
+        <DeadlineDialog
+          key={deadlineProject.id}
+          project={deadlineProject}
+          onClose={() => setDeadlineFor(null)}
+          onSave={(iso) => {
+            setProjectDeadline(deadlineProject.id, iso)
+            setDeadlineFor(null)
+          }}
+        />
+      )}
+    </>
   )
 }
