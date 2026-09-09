@@ -4,8 +4,21 @@ export function addDays(date, days) {
   return d
 }
 
+// Local calendar date — toISOString() would shift a day in UTC-negative zones,
+// which must match the YYYY-MM-DD values coming from <input type="date">
 export function toISODate(date) {
-  return date.toISOString().split('T')[0]
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+export function startOfWeek(date = new Date()) {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  const day = d.getDay()
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+  return new Date(d.setDate(diff))
 }
 
 export function formatWeekRange(startDate) {

@@ -1,22 +1,20 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../supabase'
+import { startOfWeek, toISODate } from '../utils'
 
 const AppContext = createContext(null)
 
 export function AppProvider({ children }) {
   const [user, setUser] = useState(null)
   const [authInitialized, setAuthInitialized] = useState(false)
-  const [projects, setProjects] = useState([])
+  const [allProjects, setAllProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [weekStart, setWeekStart] = useState(() => {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    const day = d.getDay()
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-    return new Date(d.setDate(diff))
-  })
+  const [weekStart, setWeekStart] = useState(() => startOfWeek())
   const [toasts, setToasts] = useState([])
+
+  const weekStartIso = toISODate(weekStart)
+  const projects = allProjects.filter(p => p.week_start === weekStartIso)
 
   const generateId = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)
 
@@ -45,11 +43,15 @@ export function AppProvider({ children }) {
     setLoading(true)
     setError('')
 
+    // Projects saved before weeks existed surface in the real current week
+    const thisWeekIso = toISODate(startOfWeek())
+
     if (!user) {
       try {
-        setProjects(JSON.parse(localStorage.getItem('task-planner-guest')) || [])
+        const stored = JSON.parse(localStorage.getItem('task-planner-guest')) || []
+        setAllProjects(stored.map(p => ({ ...p, week_start: p.week_start || thisWeekIso })))
       } catch {
-        setProjects([])
+        setAllProjects([])
       }
       setLoading(false)
       return
@@ -58,7 +60,7 @@ export function AppProvider({ children }) {
     const { data, error: err } = await supabase
       .from('projects')
       .select(`
-        id, name, description, deadline, color_tag, created_at,
+        id, name, description, deadline, color_tag, created_at, week_start,
         tasks (
           id, title, day_date, completed, sort_order,
           subtasks (
@@ -71,10 +73,11 @@ export function AppProvider({ children }) {
 
     if (err) {
       setError(err.message)
-      setProjects([])
+      setAllProjects([])
     } else {
-      setProjects((data ?? []).map((p) => ({
+      setAllProjects((data ?? []).map((p) => ({
         ...p,
+        week_start: p.week_start || thisWeekIso,
         tasks: (p.tasks ?? []).map((t) => ({
           ...t,
           subtasks: (t.subtasks ?? []).map((s) => ({
@@ -95,7 +98,7 @@ export function AppProvider({ children }) {
 
   const saveLocal = (newProjects) => {
     localStorage.setItem('task-planner-guest', JSON.stringify(newProjects))
-    setProjects(newProjects)
+    setAllProjects(newProjects)
   }
 
   // Mutations
@@ -103,18 +106,18 @@ export function AppProvider({ children }) {
     const newName = name.trim() || ''
     const tempId = generateId()
     if (!user) {
-      saveLocal([...projects, { id: tempId, name: newName, tasks: [] }])
+      saveLocal([...allProjects, { id: tempId, name: newName, week_start: weekStartIso, tasks: [] }])
       return tempId
     }
-    const { data, error: err } = await supabase.from('projects').insert({ name: newName }).select().single()
+    const { data, error: err } = await supabase.from('projects').insert({ name: newName, week_start: weekStartIso }).select().single()
     if (err) { showToast(err.message, 'error'); return null }
     await loadData()
     return data.id
   }
 
   const updateProjectName = async (projectId, name) => {
-    const updated = projects.map(p => String(p.id) === String(projectId) ? { ...p, name } : p)
-    setProjects(updated)
+    const updated = allProjects.map(p => String(p.id) === String(projectId) ? { ...p, name } : p)
+    setAllProjects(updated)
     if (!user) {
       saveLocal(updated)
       return
@@ -124,12 +127,12 @@ export function AppProvider({ children }) {
   }
 
   const deleteProject = async (projectId) => {
-    const updated = projects.filter(p => String(p.id) !== String(projectId))
+    const updated = allProjects.filter(p => String(p.id) !== String(projectId))
     if (!user) {
       saveLocal(updated)
       return
     }
-    setProjects(updated)
+    setAllProjects(updated)
     const { error: err } = await supabase.from('projects').delete().eq('id', projectId)
     if (err) { showToast(err.message, 'error'); await loadData() }
   }
@@ -137,7 +140,7 @@ export function AppProvider({ children }) {
   const addTask = async (projectId, title = '', dayDate = null) => {
     if (!user) {
       const newId = generateId()
-      const updated = projects.map(p => {
+      const updated = allProjects.map(p => {
         if (String(p.id) === String(projectId)) {
           return {
             ...p,
@@ -160,11 +163,11 @@ export function AppProvider({ children }) {
   }
 
   const updateTaskTitle = async (taskId, title) => {
-    const updated = projects.map(p => ({
+    const updated = allProjects.map(p => ({
       ...p,
       tasks: (p.tasks || []).map(t => String(t.id) === String(taskId) ? { ...t, title } : t)
     }))
-    setProjects(updated)
+    setAllProjects(updated)
     if (!user) {
       saveLocal(updated)
       return
@@ -174,11 +177,11 @@ export function AppProvider({ children }) {
   }
 
   const setTaskDay = async (taskId, dayDate) => {
-    const updated = projects.map(p => ({
+    const updated = allProjects.map(p => ({
       ...p,
       tasks: (p.tasks || []).map(t => String(t.id) === String(taskId) ? { ...t, day_date: dayDate } : t)
     }))
-    setProjects(updated)
+    setAllProjects(updated)
     if (!user) {
       saveLocal(updated)
       return
@@ -188,11 +191,11 @@ export function AppProvider({ children }) {
   }
 
   const deleteTask = async (taskId) => {
-    const updated = projects.map(p => ({
+    const updated = allProjects.map(p => ({
       ...p,
       tasks: (p.tasks || []).filter(t => String(t.id) !== String(taskId))
     }))
-    setProjects(updated)
+    setAllProjects(updated)
     if (!user) {
       saveLocal(updated)
       return
@@ -203,7 +206,7 @@ export function AppProvider({ children }) {
 
   const toggleTask = async (taskId, completed) => {
     // Optimistic UI
-    const updated = projects.map(p => ({
+    const updated = allProjects.map(p => ({
       ...p,
       tasks: (p.tasks || []).map(t => String(t.id) === String(taskId) ? { ...t, completed } : t)
     }))
@@ -212,28 +215,33 @@ export function AppProvider({ children }) {
       saveLocal(updated)
       return
     }
-    setProjects(updated)
+    setAllProjects(updated)
 
     const { error: err } = await supabase.from('tasks').update({ completed }).eq('id', taskId)
     if (err) { showToast(err.message, 'error'); await loadData() }
   }
 
   const setProjectDeadline = async (projectId, deadline) => {
-    const updated = projects.map(p => String(p.id) === String(projectId) ? { ...p, deadline } : p)
+    const updated = allProjects.map(p => String(p.id) === String(projectId) ? { ...p, deadline } : p)
     if (!user) {
       saveLocal(updated)
       return
     }
-    setProjects(updated)
+    setAllProjects(updated)
     const { error: err } = await supabase.from('projects').update({ deadline }).eq('id', projectId)
     if (err) { showToast(err.message, 'error'); await loadData() }
   }
 
   const reorderProjects = (fromIndex, toIndex) => {
-    const reordered = Array.from(projects)
-    const [moved] = reordered.splice(fromIndex, 1)
-    reordered.splice(toIndex, 0, moved)
-    setProjects(reordered)
+    // Indices come from the visible week, so reorder that slice and lay it back
+    // into the week's slots, leaving other weeks untouched
+    const weekOrder = Array.from(projects)
+    const [moved] = weekOrder.splice(fromIndex, 1)
+    weekOrder.splice(toIndex, 0, moved)
+
+    let slot = 0
+    const reordered = allProjects.map(p => p.week_start === weekStartIso ? weekOrder[slot++] : p)
+    setAllProjects(reordered)
     if (!user) {
       saveLocal(reordered)
     }

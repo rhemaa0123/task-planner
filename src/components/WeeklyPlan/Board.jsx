@@ -2,7 +2,7 @@ import React from 'react'
 import { useApp } from '../../context/AppContext'
 import { ProjectsSidebar } from './ProjectsSidebar'
 import { WeekGrid } from './WeekGrid'
-import { addDays, weekLabel, formatWeekRange } from '../../utils'
+import { addDays, weekLabel, formatWeekRange, startOfWeek } from '../../utils'
 
 export function Board() {
   const { projects, weekStart, setWeekStart } = useApp()
@@ -10,15 +10,12 @@ export function Board() {
 
   let done = 0
   let total = 0
-  const startIso = weekStart.toISOString().split('T')[0]
-  const endIso = addDays(weekStart, 6).toISOString().split('T')[0]
 
+  // `projects` is already scoped to the visible week, so every task counts
   projects.forEach(p => {
     (p.tasks || []).forEach(t => {
-      if (t.day_date && t.day_date >= startIso && t.day_date <= endIso) {
-        total++
-        if (t.completed) done++
-      }
+      total++
+      if (t.completed) done++
     })
   })
 
@@ -51,13 +48,7 @@ export function Board() {
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </button>
 
-          <span className="today-link" style={{fontSize: '1.05rem', color: 'var(--ink-faint)', marginLeft: '12px'}} onClick={() => {
-            const d = new Date()
-            d.setHours(0,0,0,0)
-            const day = d.getDay()
-            const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-            setWeekStart(new Date(d.setDate(diff)))
-          }}>Today</span>
+          <span className="today-link" style={{fontSize: '1.05rem', color: 'var(--ink-faint)', marginLeft: '12px'}} onClick={() => setWeekStart(startOfWeek())}>Today</span>
         </div>
         <div className="toolbar-right">
           <button>Move work</button>

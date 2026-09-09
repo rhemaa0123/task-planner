@@ -3,36 +3,65 @@
    ============================================================ */
 
 :root {
-  /* Dark Navy Theme */
-  --bg: #0b1120;
-  --paper: #131a2b;
-  --paper-hover: #1b2438;
+  /* Warm paper theme */
+  --bg: #f4f1ea;
+  --paper: #fbfaf6;
+  --paper-hover: #f6f3ec;
 
-  --ink: #f8fafc;
-  --ink-soft: #94a3b8;
-  --ink-faint: #475569;
+  --ink: #1c1a17;
+  --ink-soft: #56514a;
+  --ink-faint: #71695e;
 
-  --line: #1e293b;
-  --line-strong: #334155;
+  --line: #e2ddd2;
+  --line-strong: #d2ccbe;
 
-  /* Primary accents */
-  --accent: #f97316; /* Orange accent mimicking BeaverPlans */
-  --accent-soft: rgba(249, 115, 22, 0.15);
+  --hover-neutral: #f6f3ec;
+  --hover-accent: #f7ece8;
 
-  --good: #4ade80;
-  --good-soft: rgba(74, 222, 128, 0.15);
-  --warn: #f87171;
-  --warn-soft: rgba(248, 113, 113, 0.15);
+  --accent: #a74127;
+  --accent-soft: #efe0d9;
 
-  --sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --good: #317527;
+  --good-soft: #dcead9;
+  --warn: #a74127;
+  --warn-soft: #efe0d9;
+
+  --sans: 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
   --display: var(--sans);
-  --mono: ui-monospace, monospace;
+  --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
 
-  --r: 8px;
-  --r-card: 12px;
+  --w-title: 600;
+  --w-row: 400;
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
   --r-chip: 6px;
+  --r: 10px;
+  --r-card: 12px;
+  --r-focus: 3px;
 
-  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --fs-micro: 9px;
+  --fs-mini: 10px;
+  --fs-label: 11px;
+  --fs-chrome: 12px;
+  --fs-body: 13px;
+  --fs-row: 14px;
+  --fs-section: 15px;
+  --fs-title: 16px;
+  --fs-figure: 20px;
+
+  --grip-size: 16px;
+  --check-size: 18px;
+  --icon-size: 13px;
+
+  --shadow-float: 0 6px 20px #1c1a171a;
+  --shadow-card: none;
+  --scrim: #1c1a1780;
 }
 
 * {
@@ -45,7 +74,8 @@ html, body {
   min-height: 100%;
   background: var(--bg);
   color: var(--ink-soft);
-  font: 13px/1.5 var(--sans);
+  font: 16px/1.5 var(--sans);
+  font-weight: var(--w-row);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -206,12 +236,13 @@ button {
 }
 
 .week-date-box {
-  background: var(--bg);
-  padding: 8px 20px;
-  border-radius: 8px;
+  background: var(--paper);
+  padding: 6px 16px;
+  border-radius: var(--r-chip);
   border: 1px solid var(--line);
   display: flex;
   align-items: center;
+  gap: var(--sp-3);
   min-width: 260px;
   justify-content: space-between;
 }
@@ -261,15 +292,17 @@ button {
   gap: 12px;
 }
 .toolbar-right button {
-  background: transparent;
-  border: 1px solid var(--line);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
   color: var(--ink-soft);
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 0.8rem;
+  padding: 6px 12px;
+  border-radius: var(--r-chip);
+  font-size: var(--fs-body);
+  font-weight: 500;
+  transition: 0.15s;
 }
 .toolbar-right button:hover {
-  background: var(--paper);
+  background: var(--hover-neutral);
   color: var(--ink);
 }
 
@@ -279,18 +312,18 @@ button {
 }
 
 .progress-track {
-  height: 7px;
-  background: var(--line);
+  height: 6px;
+  background: var(--line-strong);
   width: 100%;
-  margin-bottom: 8px;
+  margin-bottom: var(--sp-2);
   border-radius: 999px;
   overflow: hidden;
 }
 .progress-fill {
   height: 100%;
-  background: var(--ink-soft);
+  background: var(--good);
   border-radius: 999px;
-  transition: width 0.4s ease;
+  transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .progress-stats {
@@ -319,11 +352,11 @@ button {
 
 /* Sidebar (Projects) */
 .sidebar {
-  width: 320px;
+  width: 400px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--sp-3);
 }
 
 .sidebar-header {
@@ -347,16 +380,34 @@ button {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--r-card);
-  padding: 16px;
+  padding: var(--sp-3) var(--sp-4);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sp-3);
 }
 
 .project-card-head {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.proj-progress-track {
+  width: 32px;
+  height: 4px;
+  flex-shrink: 0;
+  background: var(--line-strong);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.proj-progress-fill {
+  height: 100%;
+  background: var(--good);
+  border-radius: 999px;
+  transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.35s ease;
+}
+.proj-progress-fill.complete {
+  background: var(--accent);
 }
 
 .proj-title {
@@ -369,9 +420,9 @@ input[type="text"].proj-title-input {
   background: transparent;
   border: none;
   color: var(--ink);
-  font-size: 1.1rem;
+  font-size: var(--fs-title);
   line-height: 1.5;
-  font-weight: 600;
+  font-weight: var(--w-title);
   width: 100%;
   outline: none;
   padding: 0;
@@ -389,8 +440,9 @@ input[type="text"].task-name-input {
   border: none;
   outline: none;
   color: var(--ink-soft);
-  font-size: 1rem;
+  font-size: var(--fs-row);
   line-height: 1.5;
+  font-weight: var(--w-row);
   flex: 1;
   min-width: 0;
   padding: 0;
@@ -502,42 +554,44 @@ input[type="text"].task-name-input {
 .add-task-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--sp-2);
   width: 100%;
   background: transparent;
   border: none;
   color: var(--ink-faint);
   text-align: left;
-  font-size: 1rem;
+  font-size: var(--fs-body);
   line-height: 1.5;
-  padding: 6px 0;
-  transform-origin: left center;
-  transition: color 0.15s ease, transform 0.15s ease;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r);
+  transition: background-color 0.12s, color 0.12s;
 }
 .add-task-plus {
-  width: 16px;
+  width: var(--check-size);
   flex-shrink: 0;
   display: grid;
   place-items: center;
 }
 .add-task-btn:hover {
   color: var(--ink-soft);
-  transform: scale(1.04);
+  background: var(--hover-neutral);
 }
 
 .add-project-dashed {
   background: transparent;
   border: 1px dashed var(--line-strong);
-  color: var(--ink-soft);
-  padding: 16px;
-  border-radius: var(--r-card);
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+  padding: var(--sp-3);
+  border-radius: var(--r);
+  font-family: var(--mono);
+  font-size: var(--fs-chrome);
+  letter-spacing: 0.6px;
   text-transform: uppercase;
+  transition: border-color 0.15s, color 0.15s;
 }
 .add-project-dashed:hover {
-  border-color: var(--ink-soft);
-  color: var(--ink);
+  border-color: var(--ink-faint);
+  color: var(--ink-soft);
 }
 
 /* Week Grid (Days) */
@@ -602,31 +656,50 @@ input[type="text"].task-name-input {
 }
 
 /* ---- Task Items ---- */
+/* Indented so tasks read as sublines of the project name (14px handle + 8px gap) */
+.proj-tasks {
+  padding-left: 12px;
+}
+
 .task-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 6px 0;
-  transform-origin: left center;
-  transition: transform 0.15s ease;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r);
+  transition: background-color 0.12s;
 }
 .task-item:hover {
-  transform: scale(1.04);
+  background: var(--hover-neutral);
 }
 
 .task-check {
   appearance: none;
-  width: 16px;
-  height: 16px;
+  width: var(--check-size);
+  height: var(--check-size);
   flex-shrink: 0;
   border: 1px solid var(--line-strong);
-  border-radius: 50%;
-  background: transparent;
+  border-radius: var(--r-chip);
+  background: var(--paper);
   cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: 0.15s;
+}
+.task-check:hover {
+  border-color: var(--ink-faint);
 }
 .task-check:checked {
-  background: var(--ink-faint);
-  border-color: var(--ink-faint);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.task-check:checked::after {
+  content: '';
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid var(--paper);
+  border-bottom: 2px solid var(--paper);
+  transform: rotate(-45deg) translate(1px, -1px);
 }
 
 .task-name {

@@ -146,10 +146,11 @@ export function ProjectsSidebar() {
 
               <div style={{display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0}}>
                 {total > 0 && (
-                  <div style={{display: 'flex', alignItems: 'center', gap: 6}}>
-                    <div style={{width: 32, height: 4, background: 'var(--line)', borderRadius: 2}}>
-                      <div style={{width: `${pct}%`, height: '100%', background: pct === 100 ? 'var(--accent)' : 'var(--good)', borderRadius: 2}}></div>
-                    </div>
+                  <div className="proj-progress-track">
+                    <div
+                      className={`proj-progress-fill ${pct === 100 ? 'complete' : ''}`}
+                      style={{width: `${pct}%`}}
+                    ></div>
                   </div>
                 )}
 
