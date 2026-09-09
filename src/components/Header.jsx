@@ -20,7 +20,7 @@ export function Header({ route }) {
 
   return (
     <header className="header">
-      <div className="brand">beaver<span>plans.</span></div>
+      <div className="brand">grace<span>fullness</span></div>
       <nav className="nav-tabs">
         <a href="#/" className={`nav-tab ${isPlans ? 'active' : ''}`}>PLAN</a>
         <a href="#/stats" className={`nav-tab ${isStats ? 'active' : ''}`}>STATS</a>
