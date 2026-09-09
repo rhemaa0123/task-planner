@@ -352,7 +352,6 @@ button {
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
-  font-family: var(--mono);
   /* Scrolls on its own so a long project list never drags the page with it */
   min-height: 0;
   overflow-y: auto;
@@ -373,6 +372,9 @@ button {
   justify-content: space-between;
   align-items: center;
   padding: 0 4px;
+}
+.sidebar-header .eyebrow {
+  font-family: var(--mono);
 }
 
 .header-links {
