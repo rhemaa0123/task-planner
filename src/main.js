@@ -118,31 +118,30 @@ window.addEventListener('hashchange', () => {
 })
 
 // ============================================================
-// Auth
+// Auth & Guest Mode
 // ============================================================
+function saveLocal() {
+  localStorage.setItem('task-planner-guest', JSON.stringify(state.projects))
+}
+
+function generateId() {
+  return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)
+}
+
 async function initAuth() {
   const { data: { session } } = await supabase.auth.getSession()
   state.user = session?.user ?? null
 
   supabase.auth.onAuthStateChange((_event, session) => {
     state.user = session?.user ?? null
-    if (state.user && (state.route === '#/login' || state.route === '#/')) {
+    if (state.user && (state.route === '#/login')) {
       navigate('#/')
-      load()
-    } else if (!state.user) {
-      navigate('#/login')
     }
-    render()
+    load()
   })
 
-  if (!state.user) {
-    state.loading = false
-    navigate('#/login')
-    render()
-  } else {
-    parseRoute()
-    await load()
-  }
+  parseRoute()
+  await load()
 }
 
 async function handleAuth(email, password) {
@@ -163,12 +162,12 @@ async function handleLogout() {
   await supabase.auth.signOut()
   state.projects = []
   state.user = null
-  navigate('#/login')
-  render()
+  navigate('#/')
+  load()
 }
 
 function userInitials() {
-  if (!state.user) return '?'
+  if (!state.user) return 'Guest'
   const email = state.user.email || ''
   return email.substring(0, 2).toUpperCase()
 }
@@ -183,6 +182,19 @@ async function load() {
   }
   state.error = ''
 
+  if (!state.user) {
+    // Guest Mode - load from LocalStorage
+    try {
+      state.projects = JSON.parse(localStorage.getItem('task-planner-guest')) || []
+    } catch {
+      state.projects = []
+    }
+    state.loading = false
+    render()
+    return
+  }
+
+  // Authenticated Mode - load from Supabase
   const { data, error } = await supabase
     .from('projects')
     .select(`
@@ -265,11 +277,6 @@ function render() {
   const app = document.getElementById('app')
   if (!app) return
 
-  if (!state.user && state.route !== '#/login') {
-    navigate('#/login')
-    return
-  }
-
   if (state.route === '#/login') {
     app.innerHTML = renderLogin()
     return
@@ -300,6 +307,16 @@ function renderHeader() {
   const isPlans = state.route === '#/' || state.route.startsWith('#/plan')
   const isStats = state.route === '#/stats'
 
+  const authMenu = state.user 
+    ? `
+      <div class="user-avatar">${userInitials()}</div>
+      <button class="logout-btn" data-action="logout">Log out</button>
+    `
+    : `
+      <a href="#/login" class="nav-tab">Log in</a>
+      <a href="#/login" class="add-project-btn" style="text-decoration: none; padding: 5px 12px; margin-left: 0;">Sign up</a>
+    `
+
   return `
     <header class="header">
       <div class="brand">Task Planner</div>
@@ -309,8 +326,7 @@ function renderHeader() {
       </nav>
       <div class="header-spacer"></div>
       <div class="user-menu">
-        <div class="user-avatar">${userInitials()}</div>
-        <button class="logout-btn" data-action="logout">Log out</button>
+        ${authMenu}
       </div>
     </header>
   `
@@ -639,6 +655,12 @@ async function addProject() {
   // Fallback: prompt
   const name = prompt('Project name')
   if (!name?.trim()) return
+  if (!state.user) {
+    state.projects.push({ id: generateId(), name: name.trim(), tasks: [] })
+    saveLocal()
+    render()
+    return
+  }
   const { error } = await supabase.from('projects').insert({ name: name.trim() })
   if (error) { showToast(error.message, 'error'); return }
   await load()
@@ -647,27 +669,46 @@ async function addProject() {
 async function saveProject(formData) {
   const name = formData.get('name')?.toString().trim()
   if (!name) return
-  const { error } = await supabase.from('projects').insert({
-    name,
-    description: formData.get('description')?.toString().trim() || null,
-    deadline: formData.get('deadline')?.toString() || null,
-    color_tag: formData.get('color_tag')?.toString().trim() || null,
-  })
+  const description = formData.get('description')?.toString().trim() || null
+  const deadline = formData.get('deadline')?.toString() || null
+  const color_tag = formData.get('color_tag')?.toString().trim() || null
+
+  if (!state.user) {
+    state.projects.push({ id: generateId(), name, description, deadline, color_tag, tasks: [] })
+    saveLocal()
+    render()
+    return
+  }
+  const { error } = await supabase.from('projects').insert({ name, description, deadline, color_tag })
   if (error) { showToast(error.message, 'error'); return }
   await load()
 }
 
 async function deleteProject(projectId) {
   if (!confirm('Delete this project and all its tasks?')) return
+  if (!state.user) {
+    state.projects = state.projects.filter(p => String(p.id) !== String(projectId))
+    saveLocal()
+    render()
+    return
+  }
   const { error } = await supabase.from('projects').delete().eq('id', projectId)
   if (error) { showToast(error.message, 'error'); return }
   await load()
 }
 
 async function addTask(projectId, title, dayDate = null) {
-  const { error } = await supabase.from('tasks').insert({
-    project_id: projectId, title, day_date: dayDate, completed: false,
-  })
+  if (!state.user) {
+    const p = state.projects.find(p => String(p.id) === String(projectId))
+    if (p) {
+      if (!p.tasks) p.tasks = []
+      p.tasks.push({ id: generateId(), project_id: projectId, title, day_date: dayDate, completed: false })
+      saveLocal()
+      render()
+    }
+    return
+  }
+  const { error } = await supabase.from('tasks').insert({ project_id: projectId, title, day_date: dayDate, completed: false })
   if (error) throw error
 }
 
@@ -676,22 +717,36 @@ async function addTaskForDay(projectId, dayDate) {
   if (!title?.trim()) return
   try {
     await addTask(projectId, title.trim(), dayDate)
-    await load()
+    if (state.user) await load()
   } catch (err) { showToast(err.message, 'error') }
 }
 
 async function toggleTask(taskId, completed) {
-  // Optimistic update
   for (const p of state.projects) {
     const task = (p.tasks ?? []).find((t) => String(t.id) === String(taskId))
     if (task) { task.completed = completed; break }
   }
-  render()
+  
+  if (!state.user) {
+    saveLocal()
+    render()
+    return
+  }
+  
+  render() // Optimistic UI
   const { error } = await supabase.from('tasks').update({ completed }).eq('id', taskId)
   if (error) { showToast(error.message, 'error'); await load() }
 }
 
 async function deleteTask(taskId) {
+  if (!state.user) {
+    for (const p of state.projects) {
+      if (p.tasks) p.tasks = p.tasks.filter(t => String(t.id) !== String(taskId))
+    }
+    saveLocal()
+    render()
+    return
+  }
   const { error } = await supabase.from('tasks').delete().eq('id', taskId)
   if (error) { showToast(error.message, 'error'); return }
   await load()
