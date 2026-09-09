@@ -99,15 +99,28 @@ export function AppProvider({ children }) {
   }
 
   // Mutations
-  const addProject = async (name) => {
-    if (!name?.trim()) return
+  const addProject = async (name = '') => {
+    const newName = name.trim() || ''
+    const tempId = generateId()
     if (!user) {
-      saveLocal([...projects, { id: generateId(), name: name.trim(), tasks: [] }])
+      saveLocal([...projects, { id: tempId, name: newName, tasks: [] }])
+      return tempId
+    }
+    const { data, error: err } = await supabase.from('projects').insert({ name: newName }).select().single()
+    if (err) { showToast(err.message, 'error'); return null }
+    await loadData()
+    return data.id
+  }
+
+  const updateProjectName = async (projectId, name) => {
+    const updated = projects.map(p => String(p.id) === String(projectId) ? { ...p, name } : p)
+    setProjects(updated)
+    if (!user) {
+      saveLocal(updated)
       return
     }
-    const { error: err } = await supabase.from('projects').insert({ name: name.trim() })
-    if (err) { showToast(err.message, 'error'); return }
-    await loadData()
+    const { error: err } = await supabase.from('projects').update({ name }).eq('id', projectId)
+    if (err) { showToast(err.message, 'error') }
   }
 
   const deleteProject = async (projectId) => {
@@ -183,7 +196,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       user, authInitialized, projects, loading, error, weekStart, setWeekStart,
       toasts, showToast,
-      addProject, deleteProject, reorderProjects, addTask, toggleTask, setProjectDeadline, loadData
+      addProject, updateProjectName, deleteProject, reorderProjects, addTask, toggleTask, setProjectDeadline, loadData
     }}>
       {children}
     </AppContext.Provider>

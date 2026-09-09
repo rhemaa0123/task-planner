@@ -40,37 +40,25 @@ function InlineTaskForm({ projectId, onCancel, onSave, weekStart }) {
   )
 }
 
-function InlineProjectForm({ onCancel, onSave }) {
-  const [name, setName] = useState('')
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!name.trim()) return
-    onSave(name.trim())
-  }
-
+function EditableTitle({ initialName, onSave }) {
+  const [name, setName] = useState(initialName || '')
   return (
-    <form className="project-card inline-form" onSubmit={handleSubmit}>
-      <input
-        autoFocus
-        type="text"
-        placeholder="Project name..."
-        value={name}
-        onChange={e => setName(e.target.value)}
-        style={{width: '100%', marginBottom: 8}}
-      />
-      <div style={{display: 'flex', gap: 6, justifyContent: 'flex-end'}}>
-        <button type="button" className="ghost-btn" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="accent-btn">Save</button>
-      </div>
-    </form>
+    <input 
+      type="text" 
+      className="proj-title-input" 
+      value={name} 
+      onChange={e => setName(e.target.value)} 
+      onBlur={() => onSave(name)}
+      placeholder="Project name..."
+      style={{flex: 1, minWidth: 0, paddingRight: 8}}
+      autoFocus={!initialName}
+    />
   )
 }
 
 export function ProjectsSidebar() {
-  const { projects, weekStart, addProject, deleteProject, reorderProjects, addTask, toggleTask, setProjectDeadline } = useApp()
+  const { projects, weekStart, addProject, updateProjectName, deleteProject, reorderProjects, addTask, toggleTask, setProjectDeadline } = useApp()
   const [addingTaskTo, setAddingTaskTo] = useState(null)
-  const [addingProject, setAddingProject] = useState(false)
   const [draggedIdx, setDraggedIdx] = useState(null)
   const [dragOverIdx, setDragOverIdx] = useState(null)
 
@@ -79,9 +67,8 @@ export function ProjectsSidebar() {
     setAddingTaskTo(null)
   }
 
-  const handleSaveProject = (name) => {
-    addProject(name)
-    setAddingProject(false)
+  const handleCreateProject = async () => {
+    await addProject('')
   }
 
   const onDragStart = (e, index) => {
@@ -136,13 +123,11 @@ export function ProjectsSidebar() {
           >
             <div className="project-card-head" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
 
-              <div style={{display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden'}}>
+              <div style={{display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1}}>
                 <div className="proj-hover-action" style={{cursor: 'grab', color: 'var(--ink-faint)', display: 'flex'}}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
                 </div>
-                <h3 className="proj-title" style={{margin: 0, paddingRight: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>
-                  {p.name}
-                </h3>
+                <EditableTitle initialName={p.name} onSave={(newName) => updateProjectName(p.id, newName)} />
               </div>
 
               <div style={{display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0}}>
@@ -167,9 +152,10 @@ export function ProjectsSidebar() {
                   <button
                     className="icon-btn"
                     onClick={() => deleteProject(p.id)}
-                    style={{width: 20, height: 20, fontSize: '1.2rem', padding: 0}}
+                    style={{width: 20, height: 20, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'}}
+                    title="Delete Project"
                   >
-                    ×
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                   </button>
                 </div>
               </div>
@@ -212,14 +198,7 @@ export function ProjectsSidebar() {
         )
       })}
 
-      {addingProject ? (
-        <InlineProjectForm
-          onCancel={() => setAddingProject(false)}
-          onSave={handleSaveProject}
-        />
-      ) : (
-        <button className="add-project-dashed" onClick={() => setAddingProject(true)}>+ ADD PROJECT</button>
-      )}
+      <button className="add-project-dashed" onClick={handleCreateProject}>+ ADD PROJECT</button>
     </aside>
   )
 }

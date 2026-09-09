@@ -360,7 +360,28 @@ button {
 .proj-title {
   font-size: 1.05rem;
   font-weight: 600;
+  margin: 0;
   color: var(--ink);
+}
+
+.proj-title-input {
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 1.05rem;
+  font-weight: 600;
+  width: 100%;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  text-overflow: ellipsis;
+}
+.proj-title-input::placeholder {
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+.proj-title-input:focus {
+  border-bottom: 1px solid var(--accent);
 }
 
 .proj-meta {
