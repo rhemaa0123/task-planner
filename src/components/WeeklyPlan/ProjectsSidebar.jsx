@@ -20,12 +20,12 @@ function InlineTaskForm({ projectId, onCancel, onSave, weekStart }) {
 
   return (
     <form className="inline-form" onSubmit={handleSubmit} style={{marginTop: 8}}>
-      <input 
+      <input
         autoFocus
-        type="text" 
-        placeholder="Task title..." 
-        value={title} 
-        onChange={e => setTitle(e.target.value)} 
+        type="text"
+        placeholder="Task title..."
+        value={title}
+        onChange={e => setTitle(e.target.value)}
         style={{width: '100%', marginBottom: 6}}
       />
       <div style={{display: 'flex', gap: 6}}>
@@ -51,11 +51,11 @@ function InlineProjectForm({ onCancel, onSave }) {
 
   return (
     <form className="project-card inline-form" onSubmit={handleSubmit}>
-      <input 
+      <input
         autoFocus
-        type="text" 
-        placeholder="Project name..." 
-        value={name} 
+        type="text"
+        placeholder="Project name..."
+        value={name}
         onChange={e => setName(e.target.value)}
         style={{width: '100%', marginBottom: 8}}
       />
@@ -90,7 +90,7 @@ export function ProjectsSidebar() {
           <a href="#">Copy plan</a><span className="sep">•</span><a href="#">Paste plan</a>
         </div>
       </div>
-      
+
       {projects.map(p => {
         const tasks = p.tasks || []
         const total = tasks.length
@@ -103,7 +103,7 @@ export function ProjectsSidebar() {
               <h3 className="proj-title" style={{margin: 0, paddingRight: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1}}>
                 {p.name}
               </h3>
-              
+
               {/* Progress & Deadline Right Aligned */}
               <div style={{display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0}}>
                 <div style={{display: 'flex', alignItems: 'center', gap: 6}}>
@@ -116,9 +116,9 @@ export function ProjectsSidebar() {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
                   </svg>
-                  <input 
-                    type="date" 
-                    value={p.deadline || ''} 
+                  <input
+                    type="date"
+                    value={p.deadline || ''}
                     onChange={e => setProjectDeadline(p.id, e.target.value)}
                     style={{position: 'absolute', opacity: 0, width: 14, height: 14, cursor: 'pointer', zIndex: 10}}
                   />
@@ -129,11 +129,11 @@ export function ProjectsSidebar() {
             <div className="proj-tasks">
               {tasks.map(t => (
                 <div key={t.id} className="task-item">
-                  <input 
-                    type="checkbox" 
-                    className="task-check" 
-                    checked={t.completed} 
-                    onChange={(e) => toggleTask(t.id, e.target.checked)} 
+                  <input
+                    type="checkbox"
+                    className="task-check"
+                    checked={t.completed}
+                    onChange={(e) => toggleTask(t.id, e.target.checked)}
                   />
                   <span className={`task-name ${t.completed ? 'done' : ''}`}>{t.title}</span>
                   <div className="task-meta-right">
@@ -150,11 +150,11 @@ export function ProjectsSidebar() {
             </div>
 
             {addingTaskTo === p.id ? (
-              <InlineTaskForm 
-                projectId={p.id} 
+              <InlineTaskForm
+                projectId={p.id}
                 weekStart={weekStart}
-                onCancel={() => setAddingTaskTo(null)} 
-                onSave={handleSaveTask} 
+                onCancel={() => setAddingTaskTo(null)}
+                onSave={handleSaveTask}
               />
             ) : (
               <button className="add-task-btn" onClick={() => setAddingTaskTo(p.id)}>+ add task</button>
@@ -164,9 +164,9 @@ export function ProjectsSidebar() {
       })}
 
       {addingProject ? (
-        <InlineProjectForm 
-          onCancel={() => setAddingProject(false)} 
-          onSave={handleSaveProject} 
+        <InlineProjectForm
+          onCancel={() => setAddingProject(false)}
+          onSave={handleSaveProject}
         />
       ) : (
         <button className="add-project-dashed" onClick={() => setAddingProject(true)}>+ ADD PROJECT</button>
