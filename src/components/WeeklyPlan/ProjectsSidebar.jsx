@@ -43,11 +43,11 @@ function InlineTaskForm({ projectId, onCancel, onSave, weekStart }) {
 function EditableTitle({ initialName, onSave }) {
   const [name, setName] = useState(initialName || '')
   return (
-    <input 
-      type="text" 
-      className="proj-title-input" 
-      value={name} 
-      onChange={e => setName(e.target.value)} 
+    <input
+      type="text"
+      className="proj-title-input"
+      value={name}
+      onChange={e => setName(e.target.value)}
       onBlur={() => onSave(name)}
       placeholder="Project name..."
       style={{flex: 1, minWidth: 0, paddingRight: 8}}
