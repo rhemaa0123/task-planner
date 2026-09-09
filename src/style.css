@@ -278,7 +278,7 @@ button {
 }
 
 .progress-track {
-  height: 6px;
+  height: 9px;
   background: var(--line);
   width: 100%;
   margin-bottom: 8px;
@@ -358,8 +358,7 @@ button {
 }
 
 .proj-title {
-  font-size: 1.05rem;
-  font-weight: 600;
+  font-size: 1rem;
   margin: 0;
   color: var(--ink);
 }
@@ -368,7 +367,7 @@ button {
   background: transparent;
   border: none;
   color: var(--ink);
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 600;
   width: 100%;
   outline: none;
