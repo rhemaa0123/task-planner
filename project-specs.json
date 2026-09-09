@@ -1,0 +1,260 @@
+{
+  "project": {
+    "name": "task-planner",
+    "description": "A hierarchical task planner (Year -> Month -> Week -> Day) with project-based weekly planning, deadline tracking, and animated progress bars, deployed on Cloudflare's free plan with Supabase as the backend.",
+    "primary_view": "weekly_plan",
+    "hosting": {
+      "platform": "Cloudflare Pages + Cloudflare Workers (free plan)",
+      "constraints": [
+        "Stay within Cloudflare Pages free tier: 500 builds/month, unlimited static requests.",
+        "If using Cloudflare Workers for API routes, stay within 100,000 requests/day free tier limit.",
+        "Avoid Durable Objects / paid-only Cloudflare features.",
+        "Do not rely on Cloudflare KV/D1 for primary data storage — Supabase is the system of record.",
+        "Keep bundle size small; prefer edge-friendly frameworks (e.g. Astro, SvelteKit, Next.js on Pages, or plain Vite + React)."
+      ]
+    },
+    "backend": {
+      "provider": "Supabase",
+      "usage": [
+        "Postgres database for all planning data (years, months, weeks, projects, tasks, subtasks, sub-subtasks).",
+        "Supabase Auth for user login (email/password or magic link).",
+        "Row Level Security (RLS) enabled on all tables, scoped to auth.uid().",
+        "Supabase client SDK called directly from the frontend where possible to avoid needing a custom backend server (keeps Cloudflare usage minimal)."
+      ]
+    }
+  },
+
+  "design_system": {
+    "color_palette": {
+      "deep_navy": {
+        "hex": "#112E81",
+        "usage": "Primary brand color. Header background, primary buttons, active nav state, dark text on light surfaces."
+      },
+      "indigo": {
+        "hex": "#4647AE",
+        "usage": "Secondary accent. Hover/active states, progress bar fill (mid-tone), project markers, focus rings."
+      },
+      "sky_blue": {
+        "hex": "#4382DF",
+        "usage": "Interactive accent. Links, '<' '>' navigation buttons, add-project button, badges, progress bar highlight."
+      },
+      "pale_aqua": {
+        "hex": "#AACCD6",
+        "usage": "Background / surface tint. Card backgrounds, hover backgrounds, dividers, disabled states, subtle fills."
+      },
+      "notes": [
+        "Use deep_navy + white text for header for strong contrast.",
+        "Use pale_aqua as the main app background (very light tint, e.g. mixed with white) so cards in indigo/sky_blue pop.",
+        "Progress bar fill can use a gradient from sky_blue to indigo as it fills, sitting on a pale_aqua track.",
+        "Ensure WCAG AA contrast for all text/background combinations; do not rely on color alone to signal task completion (also use checkmarks/strikethrough)."
+      ]
+    },
+    "typography": "Clean sans-serif (e.g. Inter or system-ui). Clear size hierarchy: Year/Month labels largest, project titles medium, task/subtask text smaller.",
+    "spacing": "Card-based layout with generous padding, rounded corners (8-12px), soft shadows for project cards."
+  },
+
+  "information_architecture": {
+    "hierarchy": "Yearly Plan -> Monthly Plan -> Weekly Plan -> Daily Plan",
+    "levels": {
+      "yearly_plan": {
+        "scope": "Current year only (no multi-year switch required in v1).",
+        "purpose": "High-level overview: shows months as tiles, each summarizing completion stats for that month.",
+        "navigates_to": "monthly_plan"
+      },
+      "monthly_plan": {
+        "purpose": "Shows the weeks within the selected month as tiles/rows, each summarizing that week's completion stats.",
+        "navigates_to": "weekly_plan"
+      },
+      "weekly_plan": {
+        "purpose": "THE CORE / DEFAULT VIEW of the app. Shows projects and their tasks laid out across the 7 days of the week (Monday start).",
+        "is_default_landing_view": true,
+        "navigates_to": "daily_plan (implicit, via day columns within the week view)"
+      },
+      "daily_plan": {
+        "purpose": "Within a week, each day column shows that day's tasks. Users can drill into a single day for a focused view if desired, but the primary interaction happens inline within the weekly view.",
+        "implementation_note": "Daily plan can be either (a) an inline column within weekly_plan, or (b) an optional expanded/focused single-day view triggered by clicking a day header. Implement (a) as the default and (b) as a stretch enhancement."
+      }
+    },
+    "week_definition": {
+      "start_day": "Monday",
+      "end_day": "Sunday"
+    }
+  },
+
+  "layout": {
+    "header": {
+      "position": "fixed/sticky top",
+      "background": "#112E81",
+      "text_color": "#FFFFFF",
+      "contents": [
+        {
+          "element": "app_logo_or_name",
+          "position": "left"
+        },
+        {
+          "element": "nav_tabs",
+          "position": "center_or_right",
+          "items": [
+            {
+              "label": "Plans",
+              "description": "Opens the planning hierarchy: Yearly / Monthly / Weekly (default) view switcher.",
+              "behavior": "Clicking 'Plans' returns user to the last-viewed planning level, defaulting to Weekly."
+            },
+            {
+              "label": "Stats",
+              "description": "Opens a stats/analytics view: completion rates over time, per-project progress, streaks, etc.",
+              "behavior": "Separate page/route showing aggregated charts (e.g. tasks completed per week, per month, per project)."
+            }
+          ]
+        },
+        {
+          "element": "user_menu",
+          "position": "right",
+          "contents": ["avatar/initials", "logout"]
+        }
+      ]
+    },
+
+    "week_navigator": {
+      "position": "Directly below header, right-aligned, sitting above the main weekly planning area.",
+      "components": [
+        {
+          "element": "prev_button",
+          "label": "<",
+          "color": "#4382DF",
+          "action": "Navigate to the previous week (week_offset - 1). Loads that week's projects/tasks from Supabase."
+        },
+        {
+          "element": "week_label",
+          "description": "Shows the currently viewed week, e.g. 'Sep 8 - Sep 14, 2026'. Optionally shows 'This Week' badge when offset = 0.",
+          "position": "between prev and next buttons, or just left of them"
+        },
+        {
+          "element": "next_button",
+          "label": ">",
+          "color": "#4382DF",
+          "action": "Navigate to the next week (week_offset + 1). Loads that week's projects/tasks from Supabase."
+        }
+      ],
+      "behavior_notes": [
+        "Navigation must work for both past weeks (view/edit historical tasks) and future weeks (plan ahead).",
+        "Preserve scroll position / avoid layout shift when switching weeks.",
+        "Disable or visually de-emphasize navigation only if there's a hard bound (v1: no hard bound, allow unlimited past/future navigation)."
+      ]
+    },
+
+    "week_progress_bar": {
+      "position": "Directly below the week navigator, above the main weekly planning grid.",
+      "type": "horizontal fill bar with animation",
+      "track_color": "#AACCD6",
+      "fill_color": "gradient from #4382DF to #4647AE",
+      "calculation": {
+        "formula": "completed_tasks_in_week / total_tasks_in_week",
+        "definition_of_task": "Counts top-level project tasks scheduled within the current week (see data_model.tasks). Whether subtasks/sub-subtasks also count toward this ratio is configurable (default: only top-level tasks count, to keep the math simple and predictable).",
+        "example": "A week with 1 total task fills 100% when that 1 task is completed. A week with 3 total tasks fills 33.3% per completed task, reaching 100% only when all 3 are completed.",
+        "edge_case_zero_tasks": "If a week has 0 tasks, show the bar empty (0%) and optionally display 'No tasks planned this week' instead of a percentage."
+      },
+      "animation": {
+        "trigger": "Fires whenever a task's completed state changes, or when switching weeks (bar animates from 0 to the target fill on load).",
+        "style": "CSS transition on width (or transform: scaleX) over ~400-600ms with an ease-out curve.",
+        "micro_interaction": "On reaching 100%, play a subtle celebratory pulse/glow animation using the palette (e.g. brief glow in #4382DF)."
+      },
+      "display": "Show the percentage or 'x / y tasks' label near the bar."
+    },
+
+    "weekly_main_planning_area": {
+      "position": "Below the progress bar; this is the primary content area of the app.",
+      "structure": "A board of Projects, each project expandable to show its Tasks distributed across the 7 day-columns of the current week (Mon-Sun).",
+      "add_project": {
+        "element": "add_project_button",
+        "label": "+ Add Project",
+        "icon": "plus",
+        "color": "#4382DF on white, or filled #112E81 button with white text",
+        "action": "Opens a form/modal to create a new project: name, optional description, optional deadline (date picker), optional color tag.",
+        "position": "Top of the weekly planning area, above or alongside the project list."
+      },
+      "project_card": {
+        "fields_shown": ["project name", "deadline (if set, with countdown or overdue indicator)", "progress (tasks completed / total tasks for this project within the week, or overall)"],
+        "actions": ["edit project", "delete project", "set/change deadline", "add task"],
+        "deadline_display": {
+          "overdue": "Highlight in a warning tone (e.g. red/orange accent, kept distinct from the 4-color brand palette for clarity as a status color) if deadline has passed and project isn't complete.",
+          "upcoming": "Show days remaining, e.g. 'Due in 3 days'."
+        }
+      },
+      "task_layout_within_project": {
+        "structure": "Each project displays a 7-column (Mon-Sun) mini-grid or a day-grouped list. Tasks are assigned to a specific day of the current week.",
+        "add_task": "Each day column within a project has an 'add task' affordance (small plus icon) to create a task for that project on that specific day.",
+        "task_fields": ["title", "completed (checkbox)", "day assigned", "optional time/priority"],
+        "task_completion_effect": "Toggling a task's checkbox updates the week_progress_bar calculation in real time (optimistic UI update, then persist to Supabase)."
+      },
+      "subtask_layout": {
+        "description": "Each task (already scoped to a specific day) can be expanded to reveal sub-tasks, further breaking down the work for that day.",
+        "add_subtask": "Plus button within an expanded task row: 'add sub-task'.",
+        "fields": ["title", "completed (checkbox)"],
+        "nesting_note": "Sub-tasks belong to a single day (inherited from their parent task's day) — they do not get independently reassigned to a different day."
+      },
+      "sub_subtask_layout": {
+        "description": "Each sub-task can itself be expanded to add sub-sub-tasks — a third level of granularity for the project task on that day.",
+        "add_sub_subtask": "Plus button within an expanded sub-task row: 'add sub-sub-task'.",
+        "fields": ["title", "completed (checkbox)"],
+        "depth_limit": "v1 supports exactly 3 levels: Task -> Sub-task -> Sub-sub-task. Do not implement unlimited recursive nesting; hardcode 3 levels for simplicity and UI clarity."
+      }
+    }
+  },
+
+  "data_model": {
+    "notes": "All tables include id (uuid, pk), user_id (uuid, fk to auth.users, RLS scoped), created_at, updated_at.",
+    "tables": {
+      "projects": {
+        "columns": ["id", "user_id", "name", "description (nullable)", "deadline (date, nullable)", "color_tag (nullable)", "created_at", "updated_at"]
+      },
+      "tasks": {
+        "columns": ["id", "user_id", "project_id (fk -> projects.id)", "title", "day_date (date — the specific calendar day within the week this task is assigned to)", "completed (boolean, default false)", "sort_order (int)", "created_at", "updated_at"],
+        "notes": "day_date determines both which week AND which day column the task appears in. Week is derived from day_date (Mon-Sun range), not stored separately."
+      },
+      "subtasks": {
+        "columns": ["id", "user_id", "task_id (fk -> tasks.id)", "title", "completed (boolean, default false)", "sort_order (int)", "created_at", "updated_at"]
+      },
+      "sub_subtasks": {
+        "columns": ["id", "user_id", "subtask_id (fk -> subtasks.id)", "title", "completed (boolean, default false)", "sort_order (int)", "created_at", "updated_at"]
+      }
+    },
+    "derived_views_or_queries": [
+      "week_stats: given a Monday date, SUM(tasks WHERE day_date BETWEEN monday AND sunday), COUNT completed vs total -> feeds week_progress_bar.",
+      "month_stats: aggregate week_stats across all weeks overlapping the given month -> feeds monthly_plan tiles.",
+      "year_stats: aggregate month_stats across the current year -> feeds yearly_plan tiles.",
+      "project_stats: per-project completed/total across all its tasks (optionally scoped to current week or all-time) -> feeds project_card progress and the Stats page."
+    ],
+    "row_level_security": "Enable RLS on all four tables; policy: user_id = auth.uid() for select/insert/update/delete."
+  },
+
+  "pages_and_routes": [
+    { "route": "/", "view": "weekly_plan", "note": "Default landing page after login." },
+    { "route": "/plan/year", "view": "yearly_plan" },
+    { "route": "/plan/month/:monthId", "view": "monthly_plan" },
+    { "route": "/plan/week/:weekStartDate", "view": "weekly_plan", "note": "weekStartDate is the Monday of the target week; drives the '<' '>' navigation." },
+    { "route": "/stats", "view": "stats_dashboard" },
+    { "route": "/login", "view": "auth_screen", "note": "Supabase Auth (email/password or magic link)." }
+  ],
+
+  "interaction_and_animation_requirements": [
+    "Progress bar fill animates smoothly on any task toggle and on week change (see week_progress_bar.animation).",
+    "Checking off a task gives immediate visual feedback (checkmark animation, strikethrough on title).",
+    "Adding a project/task/subtask/sub-subtask opens a lightweight modal or inline form — avoid full page reloads (SPA-style state updates).",
+    "Week navigation ('<' / '>') should transition content smoothly (e.g. slight fade or slide) rather than an abrupt re-render."
+  ],
+
+  "non_functional_requirements": [
+    "Responsive design: usable on both desktop and mobile (the 7-day grid should collapse to a scrollable/stacked layout on narrow screens).",
+    "Optimistic UI updates with Supabase writes in the background; handle and surface errors gracefully (toast/snackbar).",
+    "Keep API/database calls minimal per view to respect Cloudflare Workers free-tier request limits — batch queries per week/month/year rather than per-task.",
+    "Accessible: keyboard navigable, proper ARIA labels on buttons like '<' '>' and add-project/add-task controls."
+  ],
+
+  "out_of_scope_for_v1": [
+    "Multi-year view/switching (only current year required).",
+    "Team/multi-user collaboration on the same project (single-user data model for now).",
+    "Recurring tasks / repeating projects.",
+    "Native mobile app (web-responsive only)."
+  ]
+}

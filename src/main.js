@@ -1,17 +1,27 @@
 import { supabase } from './supabase.js'
 
+// ============================================================
+// Constants
+// ============================================================
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
+// ============================================================
+// State
+// ============================================================
 const state = {
+  user: null,
   projects: [],
-  view: 'plans',
   weekStart: startOfWeek(new Date()),
-  assigning: null,
-  selectedDays: new Set(),
+  route: '#/',
   loading: true,
+  authMode: 'login', // 'login' | 'signup'
+  authError: '',
   error: '',
 }
 
+// ============================================================
+// Date Utilities
+// ============================================================
 function startOfWeek(date) {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
   const day = d.getDay()
@@ -56,6 +66,19 @@ function weekLabel(start) {
   return 'Week of'
 }
 
+function deadlineText(deadline) {
+  if (!deadline) return null
+  const d = parseISODate(deadline)
+  if (!d) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const diff = Math.ceil((d - today) / (1000 * 60 * 60 * 24))
+  if (diff < 0) return { text: `Overdue by ${Math.abs(diff)}d`, cls: 'overdue' }
+  if (diff === 0) return { text: 'Due today', cls: 'urgent' }
+  if (diff <= 3) return { text: `Due in ${diff}d`, cls: 'urgent' }
+  return { text: `Due in ${diff}d`, cls: 'upcoming' }
+}
+
 function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -64,25 +87,95 @@ function escapeHtml(value) {
     .replaceAll('"', '&quot;')
 }
 
-function flattenSubtasks() {
-  const rows = []
-  for (const project of state.projects) {
-    for (const task of project.tasks ?? []) {
-      for (const subtask of task.subtasks ?? []) {
-        rows.push({ project, task, subtask })
-      }
-    }
+function getMonthName(m) {
+  return ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'][m]
+}
+
+// ============================================================
+// Router
+// ============================================================
+function navigate(hash) {
+  window.location.hash = hash
+}
+
+function parseRoute() {
+  const hash = window.location.hash || '#/'
+  state.route = hash
+  const weekMatch = hash.match(/#\/plan\/week\/(\d{4}-\d{2}-\d{2})/)
+  if (weekMatch) {
+    const d = parseISODate(weekMatch[1])
+    if (d) state.weekStart = startOfWeek(d)
   }
-  return rows
 }
 
-function projectProgress(project) {
-  const subtasks = (project.tasks ?? []).flatMap((t) => t.subtasks ?? [])
-  const total = subtasks.length
-  const done = subtasks.filter((s) => s.is_completed).length
-  return { done, total }
+window.addEventListener('hashchange', () => {
+  parseRoute()
+  render()
+  if (state.user && (state.route === '#/' || state.route.startsWith('#/plan/week'))) {
+    load()
+  }
+})
+
+// ============================================================
+// Auth
+// ============================================================
+async function initAuth() {
+  const { data: { session } } = await supabase.auth.getSession()
+  state.user = session?.user ?? null
+
+  supabase.auth.onAuthStateChange((_event, session) => {
+    state.user = session?.user ?? null
+    if (state.user && (state.route === '#/login' || state.route === '#/')) {
+      navigate('#/')
+      load()
+    } else if (!state.user) {
+      navigate('#/login')
+    }
+    render()
+  })
+
+  if (!state.user) {
+    state.loading = false
+    navigate('#/login')
+    render()
+  } else {
+    parseRoute()
+    await load()
+  }
 }
 
+async function handleAuth(email, password) {
+  state.authError = ''
+  let result
+  if (state.authMode === 'signup') {
+    result = await supabase.auth.signUp({ email, password })
+  } else {
+    result = await supabase.auth.signInWithPassword({ email, password })
+  }
+  if (result.error) {
+    state.authError = result.error.message
+    render()
+  }
+}
+
+async function handleLogout() {
+  await supabase.auth.signOut()
+  state.projects = []
+  state.user = null
+  navigate('#/login')
+  render()
+}
+
+function userInitials() {
+  if (!state.user) return '?'
+  const email = state.user.email || ''
+  return email.substring(0, 2).toUpperCase()
+}
+
+// ============================================================
+// Data Loading
+// ============================================================
 async function load() {
   if (state.projects.length === 0) {
     state.loading = true
@@ -92,33 +185,32 @@ async function load() {
 
   const { data, error } = await supabase
     .from('projects')
-    .select(
-      `
-      id,
-      name,
+    .select(`
+      id, name, description, deadline, color_tag, created_at,
       tasks (
-        id,
-        title,
+        id, title, day_date, completed, sort_order,
         subtasks (
-          id,
-          title,
-          assigned_date,
-          is_completed
+          id, title, completed, sort_order,
+          sub_subtasks (
+            id, title, completed, sort_order
+          )
         )
       )
-    `,
-    )
+    `)
     .order('id')
 
   if (error) {
     state.error = error.message
     state.projects = []
   } else {
-    state.projects = (data ?? []).map((project) => ({
-      ...project,
-      tasks: (project.tasks ?? []).map((task) => ({
-        ...task,
-        subtasks: task.subtasks ?? [],
+    state.projects = (data ?? []).map((p) => ({
+      ...p,
+      tasks: (p.tasks ?? []).map((t) => ({
+        ...t,
+        subtasks: (t.subtasks ?? []).map((s) => ({
+          ...s,
+          sub_subtasks: s.sub_subtasks ?? [],
+        })),
       })),
     }))
   }
@@ -127,54 +219,235 @@ async function load() {
   render()
 }
 
+// ============================================================
+// Stats Helpers
+// ============================================================
+function projectProgress(project) {
+  const tasks = project.tasks ?? []
+  const total = tasks.length
+  const done = tasks.filter((t) => t.completed).length
+  return { done, total }
+}
+
+function weekProgress() {
+  const weekEnd = addDays(state.weekStart, 6)
+  const startISO = toISODate(state.weekStart)
+  const endISO = toISODate(weekEnd)
+  let total = 0, done = 0
+  for (const project of state.projects) {
+    for (const task of project.tasks ?? []) {
+      if (task.day_date && task.day_date >= startISO && task.day_date <= endISO) {
+        total++
+        if (task.completed) done++
+      }
+    }
+  }
+  return { done, total }
+}
+
+// ============================================================
+// Toast
+// ============================================================
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toast-container')
+  if (!container) return
+  const toast = document.createElement('div')
+  toast.className = `toast ${type}`
+  toast.textContent = message
+  container.appendChild(toast)
+  setTimeout(() => toast.remove(), 3500)
+}
+
+// ============================================================
+// Render — Main Dispatcher
+// ============================================================
 function render() {
   const app = document.getElementById('app')
-  const weekText = weekLabel(state.weekStart)
+  if (!app) return
+
+  if (!state.user && state.route !== '#/login') {
+    navigate('#/login')
+    return
+  }
+
+  if (state.route === '#/login') {
+    app.innerHTML = renderLogin()
+    return
+  }
+
+  let content = ''
+  if (state.route === '#/plan/year') {
+    content = renderYearlyPlan()
+  } else if (state.route.startsWith('#/plan/month/')) {
+    content = renderMonthlyPlan()
+  } else if (state.route === '#/stats') {
+    content = renderStats()
+  } else {
+    content = renderWeeklyPlan()
+  }
 
   app.innerHTML = `
-    <header class="topbar">
-      <div class="brand">Task Planner</div>
-      <div class="week-nav">
-        <button class="icon-btn" data-week="-1" aria-label="Previous week">‹</button>
-        <div class="week-label">
-          <strong>${weekText}</strong>
-          <span>${formatWeekRange(state.weekStart)}</span>
-        </div>
-        <button class="icon-btn" data-week="1" aria-label="Next week">›</button>
-      </div>
-      <div class="view-toggle">
-        <button data-view="plans" class="${state.view === 'plans' ? 'active' : ''}">Plans</button>
-        <button data-view="week" class="${state.view === 'week' ? 'active' : ''}">Week</button>
-      </div>
-      <button class="accent-btn" data-action="add-project">+ Project</button>
-    </header>
-    ${state.loading ? `<p class="status">Loading your week…</p>` : ''}
-    ${state.error ? `<p class="status error">${escapeHtml(state.error)}</p>` : ''}
-    ${!state.loading && !state.error ? (state.view === 'plans' ? renderPlans() : renderWeek()) : ''}
+    ${renderHeader()}
+    <main class="main-content">
+      ${state.loading ? '<p class="status">Loading your week…</p>' : ''}
+      ${state.error ? `<p class="status error">${escapeHtml(state.error)}</p>` : ''}
+      ${!state.loading ? content : ''}
+    </main>
   `
 }
 
-function renderPlans() {
-  if (!state.projects.length) {
-    return `
-      <p class="status">No projects yet. Add a class or project to start this week.</p>
-    `
-  }
+function renderHeader() {
+  const isPlans = state.route === '#/' || state.route.startsWith('#/plan')
+  const isStats = state.route === '#/stats'
 
-  return `<section class="plans">${state.projects.map(renderProject).join('')}</section>`
+  return `
+    <header class="header">
+      <div class="brand">Task Planner</div>
+      <nav class="nav-tabs">
+        <button class="nav-tab ${isPlans ? 'active' : ''}" data-nav="plans">Plans</button>
+        <button class="nav-tab ${isStats ? 'active' : ''}" data-nav="stats">Stats</button>
+      </nav>
+      <div class="header-spacer"></div>
+      <div class="user-menu">
+        <div class="user-avatar">${userInitials()}</div>
+        <button class="logout-btn" data-action="logout">Log out</button>
+      </div>
+    </header>
+  `
 }
 
-function renderProject(project) {
+// ============================================================
+// Login View
+// ============================================================
+function renderLogin() {
+  return `
+    <div class="auth-page">
+      <div class="auth-card">
+        <div class="brand">Task Planner</div>
+        <h2 class="auth-title">${state.authMode === 'signup' ? 'Create an account' : 'Welcome back'}</h2>
+        ${state.authError ? `<div class="auth-error">${escapeHtml(state.authError)}</div>` : ''}
+        <form id="auth-form">
+          <div class="auth-field">
+            <label for="auth-email">Email</label>
+            <input id="auth-email" name="email" type="email" required autocomplete="email" placeholder="you@example.com" />
+          </div>
+          <div class="auth-field">
+            <label for="auth-password">Password</label>
+            <input id="auth-password" name="password" type="password" required autocomplete="${state.authMode === 'signup' ? 'new-password' : 'current-password'}" placeholder="••••••••" minlength="6" />
+          </div>
+          <button type="submit" class="auth-submit">${state.authMode === 'signup' ? 'Sign up' : 'Log in'}</button>
+        </form>
+        <div class="auth-toggle">
+          ${state.authMode === 'signup'
+      ? 'Already have an account? <button data-auth-toggle>Log in</button>'
+      : "Don't have an account? <button data-auth-toggle>Sign up</button>"}
+        </div>
+      </div>
+    </div>
+  `
+}
+
+// ============================================================
+// Weekly Plan View
+// ============================================================
+function renderWeeklyPlan() {
+  const { done, total } = weekProgress()
+  const pct = total === 0 ? 0 : Math.round((done / total) * 100)
+  const weekText = weekLabel(state.weekStart)
+
+  let projectCards = ''
+  if (!state.projects.length) {
+    projectCards = '<p class="status">No projects yet. Add a project to start planning your week.</p>'
+  } else {
+    projectCards = `<section class="plans">${state.projects.map((p) => renderProjectCard(p)).join('')}</section>`
+  }
+
+  return `
+    <div class="breadcrumb">
+      <a href="#/plan/year">${new Date().getFullYear()}</a>
+      <span class="sep">›</span>
+      <span class="current">Week</span>
+    </div>
+    <div class="week-nav-bar">
+      <button class="icon-btn" data-week="-1" aria-label="Previous week">‹</button>
+      <div class="week-label">
+        <strong>${weekText}</strong>
+        <span>${formatWeekRange(state.weekStart)}</span>
+      </div>
+      <button class="icon-btn" data-week="1" aria-label="Next week">›</button>
+      <button class="add-project-btn" data-action="add-project">+ Add Project</button>
+    </div>
+    <div class="progress-bar-container">
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill ${pct === 100 && total > 0 ? 'complete' : ''}" style="width: ${pct}%"></div>
+      </div>
+      <span class="progress-label">${total === 0 ? 'No tasks this week' : `${done}/${total} · ${pct}%`}</span>
+    </div>
+    ${projectCards}
+  `
+}
+
+function renderProjectCard(project) {
   const { done, total } = projectProgress(project)
+  const dl = deadlineText(project.deadline)
   const tasks = project.tasks ?? []
+  const weekStart = state.weekStart
+
+  const miniGrid = WEEKDAYS.map((name, i) => {
+    const date = addDays(weekStart, i)
+    const iso = toISODate(date)
+    const isToday = iso === toISODate(new Date())
+    const dayTasks = tasks.filter((t) => t.day_date === iso)
+
+    return `
+      <div class="day-mini-col ${isToday ? 'is-today' : ''}">
+        <div class="day-header">
+          <span>${name.charAt(0)}</span>
+          <span class="date-num ${isToday ? 'today' : ''}">${date.getDate()}</span>
+        </div>
+        ${dayTasks.map((t) => `
+          <div class="day-chip-task ${t.completed ? 'done' : ''}" data-toggle-task="${t.id}">
+            ${escapeHtml(t.title)}
+          </div>
+        `).join('')}
+        <button class="day-add-btn" data-add-task-day="${iso}" data-project-id="${project.id}" title="Add task">+</button>
+      </div>
+    `
+  }).join('')
+
+  // Tasks without a day assigned
+  const unassigned = tasks.filter((t) => !t.day_date)
 
   return `
     <article class="project-card" data-project-id="${project.id}">
       <div class="project-head">
-        <h2 class="project-title">${escapeHtml(project.name)}</h2>
-        <div class="progress">${done}/${total} done</div>
+        <div>
+          <h2 class="project-title">${escapeHtml(project.name)}</h2>
+          ${dl ? `<span class="deadline-chip ${dl.cls}">${dl.text}</span>` : ''}
+        </div>
+        <div class="project-meta">
+          <span class="progress-chip">${done}/${total}</span>
+          <div class="project-actions">
+            <button class="project-action-btn" data-delete-project="${project.id}" title="Delete project">×</button>
+          </div>
+        </div>
       </div>
-      ${tasks.map((task) => renderTask(project, task)).join('') || '<p class="status">No tasks yet.</p>'}
+      <div class="day-mini-grid">${miniGrid}</div>
+      ${unassigned.length ? `
+        <div style="margin-top: 6px;">
+          ${unassigned.map((t) => `
+            <div class="task-item" data-task-id="${t.id}">
+              <div class="task-left">
+                <input type="checkbox" class="task-check" ${t.completed ? 'checked' : ''} data-toggle-task="${t.id}" />
+                <span class="task-name">${escapeHtml(t.title)}</span>
+              </div>
+              <div class="task-right">
+                <button class="delete-btn" data-delete-task="${t.id}" aria-label="Delete">×</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
       <form class="add-row" data-add="task" data-project-id="${project.id}">
         <input name="title" placeholder="+ add task" autocomplete="off" />
       </form>
@@ -182,345 +455,357 @@ function renderProject(project) {
   `
 }
 
-function renderTask(project, task) {
-  const subtasks = task.subtasks ?? []
-  return `
-    <div class="task-block" data-task-id="${task.id}">
-      <div class="task-label">${escapeHtml(task.title)}</div>
-      ${subtasks.map((subtask) => renderSubtask(project, task, subtask)).join('')}
-      <form class="add-row" data-add="subtask" data-task-id="${task.id}">
-        <input name="title" placeholder="+ add subtask" autocomplete="off" />
-      </form>
-    </div>
-  `
-}
-
-function assignedChip(subtask) {
-  const date = parseISODate(subtask.assigned_date)
-  if (!date) {
-    return `ASSIGN DAYS <span class="calendar-icon">◳</span>`
-  }
-  const label = WEEKDAYS[(date.getDay() + 6) % 7]
-  return `${label.toUpperCase()} <span class="calendar-icon">◳</span>`
-}
-
-function renderSubtask(project, task, subtask) {
-  return `
-    <div class="task-item ${subtask.is_completed ? 'is-done' : ''}" data-subtask-id="${subtask.id}">
-      <div class="task-left">
-        <span class="drag-handle" title="Reorder coming soon">⋮⋮</span>
-        <input type="checkbox" class="task-check" ${subtask.is_completed ? 'checked' : ''} />
-        <span class="task-name">${escapeHtml(subtask.title)}</span>
-      </div>
-      <div class="task-right">
-        <button type="button" class="assign-days-btn">${assignedChip(subtask)}</button>
-        <button type="button" class="delete-btn" aria-label="Delete">&times;</button>
-      </div>
-    </div>
-  `
-}
-
-function renderWeek() {
-  const rows = flattenSubtasks()
-  const start = state.weekStart
-  const columns = WEEKDAYS.map((name, i) => {
-    const date = addDays(start, i)
-    const iso = toISODate(date)
-    const items = rows.filter((row) => {
-      const assigned = parseISODate(row.subtask.assigned_date)
-      return assigned && toISODate(assigned) === iso
-    })
-    const isToday = iso === toISODate(new Date())
-    return `
-      <section class="day-col ${isToday ? 'is-today' : ''}">
-        <h3>${name}${isToday ? ' · today' : ''}</h3>
-        <div class="date-num">${date.getDate()}</div>
-        ${
-          items.length
-            ? items
-                .map(
-                  ({ project, subtask }) => `
-            <div class="day-chip-task ${subtask.is_completed ? 'done' : ''}" data-subtask-id="${subtask.id}">
-              ${escapeHtml(subtask.title)}
-              <small>${escapeHtml(project.name)}</small>
-            </div>`,
-                )
-                .join('')
-            : `<p class="status">Quiet day.</p>`
+// ============================================================
+// Yearly Plan View
+// ============================================================
+function renderYearlyPlan() {
+  const year = new Date().getFullYear()
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const monthStart = new Date(year, i, 1)
+    const monthEnd = new Date(year, i + 1, 0)
+    let total = 0, done = 0
+    for (const project of state.projects) {
+      for (const task of project.tasks ?? []) {
+        if (task.day_date) {
+          const d = parseISODate(task.day_date)
+          if (d && d >= monthStart && d <= monthEnd) {
+            total++
+            if (task.completed) done++
+          }
         }
-      </section>
-    `
-  }).join('')
-
-  const unassigned = rows.filter((row) => !row.subtask.assigned_date)
-
-  return `
-    <div class="week-board">${columns}</div>
-    <section class="unassigned">
-      <h2>Unassigned</h2>
-      <div class="unassigned-list">
-        ${
-          unassigned.length
-            ? unassigned
-                .map(
-                  ({ project, task, subtask }) => `
-            <button type="button" data-open-assign="${subtask.id}" data-task-id="${task.id}" data-project-id="${project.id}">
-              ${escapeHtml(subtask.title)} · ${escapeHtml(project.name)}
-            </button>`,
-                )
-                .join('')
-            : `<p class="status">Everything this week has a day.</p>`
-        }
-      </div>
-    </section>
-  `
-}
-
-function findSubtask(id) {
-  for (const project of state.projects) {
-    for (const task of project.tasks ?? []) {
-      const subtask = (task.subtasks ?? []).find((s) => String(s.id) === String(id))
-      if (subtask) return { project, task, subtask }
+      }
     }
-  }
-  return null
-}
-
-function weekDates() {
-  return WEEKDAYS.map((_, i) => addDays(state.weekStart, i))
-}
-
-function openAssign(subtaskId) {
-  const found = findSubtask(subtaskId)
-  if (!found) return
-  state.assigning = found
-  const assigned = parseISODate(found.subtask.assigned_date)
-  state.selectedDays = new Set()
-  if (assigned) state.selectedDays.add(toISODate(assigned))
-
-  const dialog = document.getElementById('assign-dialog')
-  document.getElementById('assign-title').textContent = found.subtask.title
-  const chips = document.getElementById('assign-days')
-  chips.innerHTML = weekDates()
-    .map((date) => {
-      const iso = toISODate(date)
-      const on = state.selectedDays.has(iso) ? 'on' : ''
-      return `<button type="button" data-day="${iso}" class="${on}">
-        <strong>${WEEKDAYS[(date.getDay() + 6) % 7]}</strong>
-        ${date.getDate()}
-      </button>`
-    })
-    .join('')
-  dialog.showModal()
-}
-
-function paintAssignChips() {
-  document.querySelectorAll('#assign-days [data-day]').forEach((btn) => {
-    btn.classList.toggle('on', state.selectedDays.has(btn.dataset.day))
+    const pct = total === 0 ? 0 : Math.round((done / total) * 100)
+    return { month: i, name: getMonthName(i), total, done, pct }
   })
+
+  return `
+    <div class="breadcrumb">
+      <span class="current">${year} Overview</span>
+    </div>
+    <div class="year-grid">
+      ${months.map((m) => `
+        <div class="month-tile" data-nav-month="${m.month}">
+          <h3>${m.name}</h3>
+          <div class="tile-bar"><div class="tile-bar-fill" style="width: ${m.pct}%"></div></div>
+          <div class="tile-stat">${m.total === 0 ? 'No tasks' : `${m.done}/${m.total} done`}</div>
+        </div>
+      `).join('')}
+    </div>
+  `
 }
 
-async function saveAssign() {
-  const found = state.assigning
-  if (!found) return
-  const days = [...state.selectedDays].sort()
-  const { task, subtask } = found
+// ============================================================
+// Monthly Plan View
+// ============================================================
+function renderMonthlyPlan() {
+  const monthMatch = state.route.match(/#\/plan\/month\/(\d+)/)
+  const monthIndex = monthMatch ? parseInt(monthMatch[1]) : new Date().getMonth()
+  const year = new Date().getFullYear()
+  const monthName = getMonthName(monthIndex)
 
-  if (days.length === 0) {
-    const { error } = await supabase
-      .from('subtasks')
-      .update({ assigned_date: null })
-      .eq('id', subtask.id)
-    if (error) throw error
-  } else {
-    const [first, ...rest] = days
-    const { error } = await supabase
-      .from('subtasks')
-      .update({ assigned_date: first })
-      .eq('id', subtask.id)
-    if (error) throw error
+  const firstDay = new Date(year, monthIndex, 1)
+  const lastDay = new Date(year, monthIndex + 1, 0)
+  const weeks = []
+  let ws = startOfWeek(firstDay)
 
-    if (rest.length) {
-      const { error: insertError } = await supabase.from('subtasks').insert(
-        rest.map((day) => ({
-          task_id: task.id,
-          title: subtask.title,
-          assigned_date: day,
-          is_completed: false,
-        })),
-      )
-      if (insertError) throw insertError
+  while (ws <= lastDay) {
+    const we = addDays(ws, 6)
+    const startISO = toISODate(ws)
+    const endISO = toISODate(we)
+    let total = 0, done = 0
+    for (const project of state.projects) {
+      for (const task of project.tasks ?? []) {
+        if (task.day_date && task.day_date >= startISO && task.day_date <= endISO) {
+          total++
+          if (task.completed) done++
+        }
+      }
     }
+    const pct = total === 0 ? 0 : Math.round((done / total) * 100)
+    weeks.push({ start: ws, startISO, range: formatWeekRange(ws), total, done, pct })
+    ws = addDays(ws, 7)
   }
+
+  return `
+    <div class="breadcrumb">
+      <a href="#/plan/year">${year}</a>
+      <span class="sep">›</span>
+      <span class="current">${monthName}</span>
+    </div>
+    <div class="month-grid">
+      ${weeks.map((w) => `
+        <div class="week-tile" data-nav-week="${w.startISO}">
+          <div>
+            <h3>${w.range}</h3>
+            <div class="tile-stat">${w.total === 0 ? 'No tasks' : `${w.done}/${w.total} done`}</div>
+          </div>
+          <div class="tile-bar"><div class="tile-bar-fill" style="width: ${w.pct}%"></div></div>
+        </div>
+      `).join('')}
+    </div>
+  `
 }
 
+// ============================================================
+// Stats View
+// ============================================================
+function renderStats() {
+  let totalTasks = 0, completedTasks = 0
+  const projectStats = []
+
+  for (const project of state.projects) {
+    const tasks = project.tasks ?? []
+    const pDone = tasks.filter((t) => t.completed).length
+    totalTasks += tasks.length
+    completedTasks += pDone
+    projectStats.push({ name: project.name, total: tasks.length, done: pDone })
+  }
+
+  const overallPct = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100)
+
+  // Last 8 weeks
+  const weeklyData = []
+  const thisWeekStart = startOfWeek(new Date())
+  for (let i = 7; i >= 0; i--) {
+    const ws = addDays(thisWeekStart, -i * 7)
+    const we = addDays(ws, 6)
+    const startISO = toISODate(ws)
+    const endISO = toISODate(we)
+    let done = 0, total = 0
+    for (const project of state.projects) {
+      for (const task of project.tasks ?? []) {
+        if (task.day_date && task.day_date >= startISO && task.day_date <= endISO) {
+          total++
+          if (task.completed) done++
+        }
+      }
+    }
+    weeklyData.push({ label: ws.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), done, total })
+  }
+
+  const maxVal = Math.max(1, ...weeklyData.map((w) => w.total))
+
+  return `
+    <div class="breadcrumb">
+      <span class="current">Stats</span>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h3>Overall Completion</h3>
+        <div class="stat-big">${overallPct}%</div>
+        <div class="stat-label">${completedTasks} of ${totalTasks} tasks completed</div>
+      </div>
+      <div class="stat-card">
+        <h3>Tasks Completed per Week</h3>
+        <div class="bar-chart">
+          ${weeklyData.map((w) => `
+            <div class="bar-chart-col">
+              <div class="bar-chart-bar" style="height: ${(w.done / maxVal) * 100}%"></div>
+              <div class="bar-chart-label">${w.label}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="stat-card">
+        <h3>Per Project</h3>
+        ${projectStats.map((ps) => {
+    const pPct = ps.total === 0 ? 0 : Math.round((ps.done / ps.total) * 100)
+    return `
+            <div style="margin-bottom: 10px;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--ink); margin-bottom: 3px;">
+                <span>${escapeHtml(ps.name)}</span>
+                <span style="color: var(--ink-faint); font-family: var(--mono); font-size: 0.72rem;">${ps.done}/${ps.total}</span>
+              </div>
+              <div class="tile-bar"><div class="tile-bar-fill" style="width: ${pPct}%"></div></div>
+            </div>
+          `
+  }).join('')}
+      </div>
+    </div>
+  `
+}
+
+// ============================================================
+// Data Mutations
+// ============================================================
 async function addProject() {
-  const name = window.prompt('Project name')
-  if (!name?.trim()) return
-  const { error } = await supabase.from('projects').insert({ name: name.trim() })
-  if (error) {
-    state.error = error.message
-    render()
+  const dialog = document.getElementById('project-dialog')
+  if (dialog) {
+    document.getElementById('project-form-inner')?.reset()
+    dialog.showModal()
     return
   }
+  // Fallback: prompt
+  const name = prompt('Project name')
+  if (!name?.trim()) return
+  const { error } = await supabase.from('projects').insert({ name: name.trim() })
+  if (error) { showToast(error.message, 'error'); return }
   await load()
 }
 
-async function addTask(projectId, title) {
-  const { data, error } = await supabase
-    .from('tasks')
-    .insert({ project_id: projectId, title })
-    .select('id')
-    .single()
-  if (error) throw error
-  const { error: subError } = await supabase.from('subtasks').insert({
-    task_id: data.id,
-    title,
-    is_completed: false,
+async function saveProject(formData) {
+  const name = formData.get('name')?.toString().trim()
+  if (!name) return
+  const { error } = await supabase.from('projects').insert({
+    name,
+    description: formData.get('description')?.toString().trim() || null,
+    deadline: formData.get('deadline')?.toString() || null,
+    color_tag: formData.get('color_tag')?.toString().trim() || null,
   })
-  if (subError) throw subError
+  if (error) { showToast(error.message, 'error'); return }
+  await load()
 }
 
-async function addSubtask(taskId, title) {
-  const { error } = await supabase.from('subtasks').insert({
-    task_id: taskId,
-    title,
-    is_completed: false,
+async function deleteProject(projectId) {
+  if (!confirm('Delete this project and all its tasks?')) return
+  const { error } = await supabase.from('projects').delete().eq('id', projectId)
+  if (error) { showToast(error.message, 'error'); return }
+  await load()
+}
+
+async function addTask(projectId, title, dayDate = null) {
+  const { error } = await supabase.from('tasks').insert({
+    project_id: projectId, title, day_date: dayDate, completed: false,
   })
   if (error) throw error
 }
 
-async function toggleComplete(subtaskId, isCompleted) {
-  const { error } = await supabase
-    .from('subtasks')
-    .update({ is_completed: isCompleted })
-    .eq('id', subtaskId)
-  if (error) throw error
-  const found = findSubtask(subtaskId)
-  if (found) found.subtask.is_completed = isCompleted
+async function addTaskForDay(projectId, dayDate) {
+  const title = prompt('Task name')
+  if (!title?.trim()) return
+  try {
+    await addTask(projectId, title.trim(), dayDate)
+    await load()
+  } catch (err) { showToast(err.message, 'error') }
 }
 
-async function deleteSubtask(subtaskId) {
-  const { error } = await supabase.from('subtasks').delete().eq('id', subtaskId)
-  if (error) throw error
-}
-
-function renderWithTransition() {
-  if (document.startViewTransition) {
-    document.startViewTransition(() => render())
-  } else {
-    render()
+async function toggleTask(taskId, completed) {
+  // Optimistic update
+  for (const p of state.projects) {
+    const task = (p.tasks ?? []).find((t) => String(t.id) === String(taskId))
+    if (task) { task.completed = completed; break }
   }
+  render()
+  const { error } = await supabase.from('tasks').update({ completed }).eq('id', taskId)
+  if (error) { showToast(error.message, 'error'); await load() }
 }
 
-document.getElementById('app').addEventListener('click', async (event) => {
-  const weekBtn = event.target.closest('[data-week]')
+async function deleteTask(taskId) {
+  const { error } = await supabase.from('tasks').delete().eq('id', taskId)
+  if (error) { showToast(error.message, 'error'); return }
+  await load()
+}
+
+// ============================================================
+// Event Listeners
+// ============================================================
+document.addEventListener('click', async (event) => {
+  const target = event.target
+
+  // Nav tabs
+  const navTab = target.closest('[data-nav]')
+  if (navTab) {
+    const dest = navTab.dataset.nav
+    if (dest === 'plans') navigate('#/')
+    else if (dest === 'stats') navigate('#/stats')
+    return
+  }
+
+  // Logout
+  if (target.closest('[data-action="logout"]')) { await handleLogout(); return }
+
+  // Auth toggle
+  if (target.closest('[data-auth-toggle]')) {
+    state.authMode = state.authMode === 'login' ? 'signup' : 'login'
+    state.authError = ''
+    render()
+    return
+  }
+
+  // Week nav
+  const weekBtn = target.closest('[data-week]')
   if (weekBtn) {
     state.weekStart = addDays(state.weekStart, Number(weekBtn.dataset.week) * 7)
-    renderWithTransition()
+    navigate(`#/plan/week/${toISODate(state.weekStart)}`)
     return
   }
 
-  const viewBtn = event.target.closest('[data-view]')
-  if (viewBtn) {
-    state.view = viewBtn.dataset.view
-    renderWithTransition()
-    return
-  }
+  // Add project
+  if (target.closest('[data-action="add-project"]')) { await addProject(); return }
 
-  if (event.target.closest('[data-action="add-project"]')) {
-    await addProject()
-    return
-  }
+  // Delete project
+  const delProject = target.closest('[data-delete-project]')
+  if (delProject) { await deleteProject(delProject.dataset.deleteProject); return }
 
-  const assignOpen = event.target.closest('[data-open-assign], .day-chip-task')
-  if (assignOpen) {
-    openAssign(assignOpen.dataset.openAssign || assignOpen.dataset.subtaskId)
-    return
-  }
+  // Add task for day
+  const addDayBtn = target.closest('[data-add-task-day]')
+  if (addDayBtn) { await addTaskForDay(addDayBtn.dataset.projectId, addDayBtn.dataset.addTaskDay); return }
 
-  const item = event.target.closest('.task-item')
-  if (!item) return
-  const id = item.dataset.subtaskId
-
-  if (event.target.closest('.assign-days-btn')) {
-    openAssign(id)
-    return
-  }
-
-  if (event.target.closest('.delete-btn')) {
-    try {
-      await deleteSubtask(id)
-      await load()
-    } catch (err) {
-      state.error = err.message
-      render()
+  // Toggle task via chip click
+  const toggleChip = target.closest('[data-toggle-task]')
+  if (toggleChip && !target.classList.contains('task-check')) {
+    const taskId = toggleChip.dataset.toggleTask
+    // Find current state
+    for (const p of state.projects) {
+      const task = (p.tasks ?? []).find((t) => String(t.id) === String(taskId))
+      if (task) { await toggleTask(taskId, !task.completed); break }
     }
+    return
+  }
+
+  // Delete task
+  const delTask = target.closest('[data-delete-task]')
+  if (delTask) { await deleteTask(delTask.dataset.deleteTask); return }
+
+  // Month tile nav
+  const monthTile = target.closest('[data-nav-month]')
+  if (monthTile) { navigate(`#/plan/month/${monthTile.dataset.navMonth}`); return }
+
+  // Week tile nav
+  const weekTile = target.closest('[data-nav-week]')
+  if (weekTile) { navigate(`#/plan/week/${weekTile.dataset.navWeek}`); return }
+})
+
+document.addEventListener('change', async (event) => {
+  const target = event.target
+  if (target.classList.contains('task-check')) {
+    const toggleAttr = target.dataset.toggleTask || target.closest('[data-toggle-task]')?.dataset.toggleTask
+    if (toggleAttr) { await toggleTask(toggleAttr, target.checked) }
   }
 })
 
-document.getElementById('app').addEventListener('change', async (event) => {
-  if (!event.target.classList.contains('task-check')) return
-  const item = event.target.closest('.task-item')
-  try {
-    await toggleComplete(item.dataset.subtaskId, event.target.checked)
-    render()
-  } catch (err) {
-    state.error = err.message
-    render()
+document.addEventListener('submit', async (event) => {
+  // Auth form
+  if (event.target.id === 'auth-form') {
+    event.preventDefault()
+    const fd = new FormData(event.target)
+    await handleAuth(fd.get('email')?.toString(), fd.get('password')?.toString())
+    return
   }
-})
 
-document.getElementById('app').addEventListener('submit', async (event) => {
+  // Project dialog
+  if (event.target.id === 'project-form-inner') {
+    event.preventDefault()
+    await saveProject(new FormData(event.target))
+    document.getElementById('project-dialog')?.close()
+    return
+  }
+
+  // Add task inline
   const form = event.target.closest('[data-add]')
   if (!form) return
   event.preventDefault()
   const title = new FormData(form).get('title')?.toString().trim()
   if (!title) return
   try {
-    if (form.dataset.add === 'task') {
-      await addTask(form.dataset.projectId, title)
-    } else {
-      await addSubtask(form.dataset.taskId, title)
-    }
+    await addTask(form.dataset.projectId, title)
     await load()
-  } catch (err) {
-    state.error = err.message
-    render()
-  }
+  } catch (err) { showToast(err.message, 'error') }
 })
 
-document.getElementById('assign-days').addEventListener('click', (event) => {
-  const btn = event.target.closest('[data-day]')
-  if (!btn) return
-  const day = btn.dataset.day
-  if (state.selectedDays.has(day)) state.selectedDays.delete(day)
-  else state.selectedDays.add(day)
-  paintAssignChips()
-})
-
-document.querySelector('[data-assign="clear"]').addEventListener('click', () => {
-  state.selectedDays = new Set()
-  paintAssignChips()
-})
-
-document.getElementById('assign-form').addEventListener('submit', async (event) => {
-  const submitter = event.submitter
-  if (submitter?.value !== 'save') {
-    state.assigning = null
-    return
-  }
-  event.preventDefault()
-  try {
-    await saveAssign()
-    document.getElementById('assign-dialog').close()
-    state.assigning = null
-    await load()
-  } catch (err) {
-    state.error = err.message
-    document.getElementById('assign-dialog').close()
-    render()
-  }
-})
-
-load()
+// ============================================================
+// Init
+// ============================================================
+parseRoute()
+initAuth()

@@ -10,24 +10,42 @@
   <body>
     <div id="app"></div>
 
-    <dialog id="assign-dialog" class="dialog">
-      <form method="dialog" id="assign-form" class="dialog-card">
-        <p class="dialog-eyebrow">This week</p>
-        <h2 id="assign-title" class="dialog-title">Assign days</h2>
-        <p class="dialog-copy">
-          Pick the days you will work on this. Choosing more than one day splits
-          it into subtasks.
-        </p>
-        <div id="assign-days" class="day-chips"></div>
+    <!-- Add Project Dialog -->
+    <dialog id="project-dialog" class="dialog">
+      <form method="dialog" id="project-form-inner" class="dialog-card">
+        <p class="dialog-eyebrow">New Project</p>
+        <h2 class="dialog-title">Create a project</h2>
+        <div class="dialog-field">
+          <label for="project-name">Name</label>
+          <input id="project-name" name="name" type="text" required placeholder="e.g. CS 101, Marketing Plan" autocomplete="off" />
+        </div>
+        <div class="dialog-field">
+          <label for="project-desc">Description (optional)</label>
+          <textarea id="project-desc" name="description" placeholder="Brief description…" rows="2"></textarea>
+        </div>
+        <div class="dialog-field">
+          <label for="project-deadline">Deadline (optional)</label>
+          <input id="project-deadline" name="deadline" type="date" />
+        </div>
+        <div class="dialog-field">
+          <label for="project-color">Color tag (optional)</label>
+          <select id="project-color" name="color_tag">
+            <option value="">None</option>
+            <option value="navy">Navy</option>
+            <option value="indigo">Indigo</option>
+            <option value="sky">Sky Blue</option>
+            <option value="aqua">Aqua</option>
+          </select>
+        </div>
         <div class="dialog-actions">
-          <button type="button" class="ghost-btn" data-assign="clear">Unassign</button>
-          <div class="dialog-actions-right">
-            <button type="submit" value="cancel" class="ghost-btn">Cancel</button>
-            <button type="submit" value="save" class="accent-btn">Save</button>
-          </div>
+          <button type="submit" value="cancel" class="ghost-btn" formnovalidate>Cancel</button>
+          <button type="submit" value="save" class="accent-btn">Create Project</button>
         </div>
       </form>
     </dialog>
+
+    <!-- Toast notifications -->
+    <div id="toast-container" class="toast-container"></div>
 
     <script type="module" src="/src/main.js"></script>
   </body>
