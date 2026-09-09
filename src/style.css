@@ -498,16 +498,32 @@ input[type="text"].task-name-input {
   margin-top: 4px;
 }
 
+/* Mirrors .task-item box exactly so adding a task just pushes this row down */
 .add-task-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
   background: transparent;
   border: none;
-  color: var(--ink-soft);
+  color: var(--ink-faint);
   text-align: left;
   font-size: 1rem;
   line-height: 1.5;
-  padding: 6px 0 6px 26px;
+  padding: 6px 0;
+  transform-origin: left center;
+  transition: color 0.15s ease, transform 0.15s ease;
 }
-.add-task-btn:hover { color: var(--ink); }
+.add-task-plus {
+  width: 16px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+.add-task-btn:hover {
+  color: var(--ink-soft);
+  transform: scale(1.04);
+}
 
 .add-project-dashed {
   background: transparent;

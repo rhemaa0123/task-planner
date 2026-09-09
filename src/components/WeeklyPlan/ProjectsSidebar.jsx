@@ -189,9 +189,12 @@ export function ProjectsSidebar() {
                   onDelete={deleteTask}
                 />
               ))}
-            </div>
 
-            <button className="add-task-btn" onClick={() => handleAddTask(p.id)}>+ add task</button>
+              <button className="add-task-btn" onClick={() => handleAddTask(p.id)}>
+                <span className="add-task-plus">+</span>
+                <span>add task</span>
+              </button>
+            </div>
           </div>
         )
       })}
