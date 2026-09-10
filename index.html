@@ -9,9 +9,23 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
     />
     <link rel="stylesheet" href="/src/style.css" />
+    <script>
+      // Stamped before first paint so the page never flashes the wrong theme
+      (function () {
+        try {
+          var saved = localStorage.getItem('task-planner-theme');
+          var mode = ['light', 'dark', 'auto'].indexOf(saved) >= 0 ? saved : 'auto';
+          var dark = mode === 'dark' || (mode === 'auto' &&
+            window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

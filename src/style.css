@@ -1,32 +1,75 @@
 /* ============================================================
-   Task Planner — Dark Navy Layout (BeaverPlans inspired)
+   Task Planner — built on #2C5EAD / #1591DC / #4BB8FA / #C4E2F5
+   Light is the base; [data-theme="dark"] overrides. A script in
+   index.html stamps the attribute before paint to avoid a flash.
    ============================================================ */
 
 :root {
-  /* Dark Navy Theme */
-  --bg: #0b1120;
-  --paper: #131a2b;
-  --paper-hover: #1b2438;
+  /* ---- Light ---- */
+  --bg: #eef6fc;
+  --paper: #ffffff;
+  --paper-hover: #e3f0fa;
 
-  --ink: #f8fafc;
-  --ink-soft: #94a3b8;
-  --ink-faint: #475569;
+  --ink: #0f2a44;
+  --ink-soft: #3b6188;
+  --ink-faint: #7ba0c0;
 
-  --line: #1e293b;
-  --line-strong: #334155;
+  --line: #d8e9f7;
+  --line-strong: #b3d5ee;
 
-  --hover-neutral: #1b2438;
-  --hover-accent: rgba(249, 115, 22, 0.12);
+  --hover-neutral: #e3f0fa;
+  --hover-accent: rgba(21, 145, 220, 0.1);
 
-  --accent: #f97316;
-  --accent-soft: rgba(249, 115, 22, 0.15);
+  --brand-deep: #2c5ead;
+  --accent: #1591dc;
+  --accent-soft: #d6ecfa;
+
+  --good: #1f8a4c;
+  --good-soft: rgba(31, 138, 76, 0.14);
+  --warn: #c0392b;
+  --warn-soft: rgba(192, 57, 43, 0.12);
+
+  --scrim: rgba(15, 42, 68, 0.45);
+  --shadow-float: 0 6px 20px rgba(20, 55, 90, 0.18);
+  --shadow-card: 0 1px 2px rgba(20, 55, 90, 0.06);
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  /* ---- Dark ---- */
+  --bg: #0a1626;
+  --paper: #10203a;
+  --paper-hover: #172c4b;
+
+  --ink: #c4e2f5;
+  --ink-soft: #8fb5d6;
+  --ink-faint: #5a7fa6;
+
+  --line: #16273f;
+  --line-strong: #24405f;
+
+  --hover-neutral: #172c4b;
+  --hover-accent: rgba(75, 184, 250, 0.12);
+
+  --brand-deep: #4bb8fa;
+  --accent: #4bb8fa;
+  --accent-soft: rgba(75, 184, 250, 0.16);
 
   --good: #4ade80;
   --good-soft: rgba(74, 222, 128, 0.15);
   --warn: #f87171;
   --warn-soft: rgba(248, 113, 113, 0.15);
 
-  --sans: 'Raleway', system-ui, -apple-system, sans-serif;
+  --scrim: rgba(5, 12, 22, 0.72);
+  --shadow-float: 0 6px 20px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  color-scheme: dark;
+}
+
+:root {
+  --sans: 'IBM Plex Sans JP', system-ui, -apple-system, sans-serif;
   --display: var(--sans);
   --mono: 'Space Mono', ui-monospace, Consolas, monospace;
 
@@ -58,11 +101,6 @@
   --grip-size: 16px;
   --check-size: 18px;
   --icon-size: 13px;
-  --header-h: 58px;
-
-  --shadow-float: 0 6px 20px rgba(0, 0, 0, 0.45);
-  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --scrim: rgba(0, 0, 0, 0.6);
 }
 
 * {
@@ -116,7 +154,7 @@ button {
 .header {
   display: flex;
   align-items: center;
-  padding: 12px 24px;
+  padding: 9px 24px;
   border-bottom: 1px solid var(--line);
   background: var(--bg);
   position: sticky;
@@ -126,10 +164,10 @@ button {
 
 .brand {
   font-family: var(--display);
-  font-size: 1.1rem;
+  font-size: var(--fs-section);
   font-weight: 700;
   color: var(--ink);
-  margin-right: 24px;
+  margin-right: 20px;
 }
 .brand span { color: var(--accent); }
 
@@ -142,8 +180,8 @@ button {
   background: transparent;
   border: none;
   color: var(--ink-faint);
-  padding: 6px 12px;
-  font-size: 0.8rem;
+  padding: 5px 10px;
+  font-size: var(--fs-chrome);
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -192,6 +230,28 @@ button {
   border-radius: 50%;
 }
 
+/* Cogwheel — spotlight hover: a soft pool of light under the cursor */
+.cog-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ink-faint);
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  transition: color 0.18s ease, background 0.25s ease, border-color 0.18s ease;
+}
+.cog-btn:hover {
+  color: var(--accent);
+  border-color: var(--line);
+  background:
+    radial-gradient(circle at 50% 45%, var(--accent-soft), transparent 72%),
+    var(--hover-neutral);
+}
+.cog-btn svg { transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.cog-btn:hover svg { transform: rotate(60deg); }
+
 .sign-in-btn, .logout-btn {
   background: transparent;
   border: 1px solid var(--line-strong);
@@ -231,14 +291,13 @@ button {
 
 .week-date-box {
   background: var(--paper);
-  padding: 6px 16px;
+  padding: 4px 14px;
   border-radius: var(--r-chip);
   border: 1px solid var(--line);
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
-  min-width: 260px;
-  justify-content: space-between;
+  /* breathing room between the week label and its date range */
+  gap: var(--sp-6);
 }
 
 .proj-hover-action {
@@ -262,20 +321,23 @@ button {
 .icon-btn:hover { color: var(--ink); background: transparent; }
 
 .week-title {
-  color: var(--good);
+  color: var(--accent);
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: var(--fs-body);
+  white-space: nowrap;
 }
 
 .week-dates {
   color: var(--ink-soft);
-  font-size: 0.85rem;
+  font-size: var(--fs-body);
   font-family: var(--mono);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .today-link {
   color: var(--ink-faint);
-  font-size: 0.85rem;
+  font-size: var(--fs-body);
   cursor: pointer;
   margin-left: 8px;
 }
@@ -493,8 +555,9 @@ input[type="text"].task-name-input {
   gap: 5px;
   cursor: pointer;
   color: var(--accent);
-  font-size: 0.68rem;
-  font-weight: 600;
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -668,8 +731,9 @@ input[type="text"].task-name-input {
 }
 
 .day-name {
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -896,6 +960,44 @@ input[type="text"].task-name-input {
   align-items: center;
   gap: var(--sp-2);
   margin-top: var(--sp-5);
+}
+
+/* ---- Settings: theme picker ---- */
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-2);
+}
+
+.theme-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-2);
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  color: var(--ink-soft);
+  font-size: var(--fs-label);
+  font-weight: 500;
+  transition: 0.18s;
+}
+.theme-option:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.theme-option.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.theme-option svg { width: 18px; height: 18px; }
+
+.settings-note {
+  font-size: var(--fs-label);
+  color: var(--ink-faint);
+  margin-top: var(--sp-3);
 }
 
 .btn-primary {

@@ -31,24 +31,21 @@ export function Board() {
 
           <div className="week-date-box">
             {weekText && (
-              <span className="week-title" style={{
-                color: weekText === 'This week' ? '#779d72' : 'var(--ink-faint)',
-                fontWeight: '600',
-                fontSize: '1.05rem'
-              }}>
+              <span
+                className="week-title"
+                style={{ color: weekText === 'This week' ? 'var(--accent)' : 'var(--ink-faint)' }}
+              >
                 {weekText}
               </span>
             )}
-            <span className="week-dates" style={{fontFamily: 'var(--mono)', color: 'var(--ink-soft)', letterSpacing: '0.05em'}}>
-              {formatWeekRange(weekStart)}
-            </span>
+            <span className="week-dates">{formatWeekRange(weekStart)}</span>
           </div>
 
           <button className="icon-btn" onClick={() => setWeekStart(addDays(weekStart, 7))}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </button>
 
-          <span className="today-link" style={{fontSize: '1.05rem', color: 'var(--ink-faint)', marginLeft: '12px'}} onClick={() => setWeekStart(startOfWeek())}>Today</span>
+          <span className="today-link" onClick={() => setWeekStart(startOfWeek())}>Today</span>
         </div>
         <div className="toolbar-right">
           <button>Move work</button>
