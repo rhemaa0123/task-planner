@@ -59,9 +59,24 @@ export function formatDeadline(iso) {
 
 export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
+// Capital initials, Mon-first. Tue/Thu and Sat/Sun share a letter by convention.
+export const DAY_INITIALS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+export const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+// The seven dates of a given week, each tagged with its initial and full name
+export function weekDayList(weekStartIso) {
+  const start = fromISODate(weekStartIso)
+  return DAY_INITIALS.map((initial, i) => ({
+    i,
+    initial,
+    name: DAY_NAMES[i],
+    date: toISODate(addDays(start, i)),
+  }))
+}
+
 /* ---- Plan codes (copy / paste a week's plan) ---- */
 
-const PLAN_FORMAT = 'beaverplans.week.v1'
+const PLAN_FORMAT = 'taskplanner.week.v1'
 const DAY_CODES = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -156,7 +171,7 @@ export function decodePlan(code) {
   }
 
   if (!data || typeof data !== 'object') return null
-  if (!String(data.format || '').startsWith('beaverplans.week.')) return null
+  if (!String(data.format || '').startsWith('taskplanner.week.')) return null
   if (!ISO_DATE.test(String(data.weekStart))) return null
   if (!Array.isArray(data.projects)) return null
 

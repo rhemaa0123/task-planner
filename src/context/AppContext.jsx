@@ -196,6 +196,33 @@ export function AppProvider({ children }) {
     if (err) { showToast(err.message, 'error'); await loadData() }
   }
 
+  // Spreads a task across weekdays. Each picked date becomes a lightweight
+  // subtask; the task's own day_date follows the earliest so the week grid still
+  // places it. Subtask scheduling and the note are guest-only for now - Supabase
+  // has no column for either, so signed-in users keep them only for the session.
+  const setTaskSchedule = async (taskId, dayDates, note) => {
+    const days = [...new Set(dayDates)].filter(Boolean).sort()
+    const updated = allProjects.map(p => ({
+      ...p,
+      tasks: (p.tasks || []).map(t => {
+        if (String(t.id) !== String(taskId)) return t
+        return {
+          ...t,
+          note: note ?? t.note ?? '',
+          day_date: days[0] ?? null,
+          subtasks: days.map(d => ({ id: generateId(), day_date: d })),
+        }
+      }),
+    }))
+    setAllProjects(updated)
+    if (!user) {
+      saveLocal(updated)
+      return
+    }
+    const { error: err } = await supabase.from('tasks').update({ day_date: days[0] ?? null }).eq('id', taskId)
+    if (err) { showToast(err.message, 'error') }
+  }
+
   const deleteTask = async (taskId) => {
     const updated = allProjects.map(p => ({
       ...p,
@@ -315,7 +342,7 @@ export function AppProvider({ children }) {
       user, authInitialized, projects, loading, error, weekStart, setWeekStart,
       toasts, showToast,
       addProject, updateProjectName, deleteProject, reorderProjects, importPlan,
-      addTask, updateTaskTitle, setTaskDay, deleteTask, toggleTask, setProjectDeadline, loadData
+      addTask, updateTaskTitle, setTaskDay, setTaskSchedule, deleteTask, toggleTask, setProjectDeadline, loadData
     }}>
       {children}
     </AppContext.Provider>

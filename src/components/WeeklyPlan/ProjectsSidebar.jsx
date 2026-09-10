@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
-import { formatDeadline } from '../../utils'
+import { formatDeadline, toISODate, weekDayList } from '../../utils'
 import { CopyPlanDialog, PastePlanDialog } from './PlanTransfer'
 
 function EditableText({ value, onSave, placeholder, className, autoFocus }) {
@@ -124,7 +124,8 @@ function DeadlineDialog({ project, onSave, onClose }) {
   )
 }
 
-function TaskRow({ task, autoFocus, onRename, onToggle, onAssignDay, onDelete }) {
+function TaskRow({ task, autoFocus, onRename, onToggle, onOpenSchedule, onDelete }) {
+  const dayCount = task.subtasks?.length || 0
   return (
     <div className={`task-item ${task.day_date ? 'has-day' : ''}`}>
       <input
@@ -140,20 +141,25 @@ function TaskRow({ task, autoFocus, onRename, onToggle, onAssignDay, onDelete })
         autoFocus={autoFocus}
         onSave={val => onRename(task.id, val)}
       />
+      {dayCount > 0 && (
+        <span className="subtask-badge" title={`Scheduled across ${dayCount} day${dayCount > 1 ? 's' : ''}`}>
+          {dayCount}
+        </span>
+      )}
       <div className="task-actions">
-        <label className="assign-date" title="Assign date">
-          <span>{task.day_date ? task.day_date.substring(5) : 'assign date'}</span>
-          <svg className="arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-          <span className="cal-box">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-          </span>
-          <input
-            type="date"
-            className="hidden-date"
-            value={task.day_date || ''}
-            onChange={e => onAssignDay(task.id, e.target.value || null)}
-          />
-        </label>
+        <button type="button" className="assign-date" onClick={() => onOpenSchedule(task.id)} title="Schedule across days">
+          {dayCount > 0 ? (
+            <span>edit days</span>
+          ) : (
+            <>
+              <span>assign date</span>
+              <svg className="arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+              <span className="cal-box">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              </span>
+            </>
+          )}
+        </button>
         <button className="task-del" onClick={() => onDelete(task.id)} title="Delete task">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
@@ -162,21 +168,114 @@ function TaskRow({ task, autoFocus, onRename, onToggle, onAssignDay, onDelete })
   )
 }
 
+function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }) {
+  const days = weekDayList(weekStartIso)
+  const seed = task.subtasks?.length
+    ? task.subtasks.map(s => s.day_date)
+    : task.day_date
+      ? [task.day_date]
+      : []
+  const [picked, setPicked] = useState(() => new Set(seed))
+  const [note, setNote] = useState(task.note || '')
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const toggle = (date) => setPicked(prev => {
+    const next = new Set(prev)
+    next.has(date) ? next.delete(date) : next.add(date)
+    return next
+  })
+
+  const pickedDays = days.filter(d => picked.has(d.date))
+
+  const submit = (e) => {
+    e.preventDefault()
+    onSave([...picked], note.trim())
+  }
+
+  return (
+    <div className="modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
+      <form className="modal-card wide" onSubmit={submit}>
+        <div className="modal-eyebrow">SCHEDULE TASK</div>
+        <h2 className="modal-title">
+          {projectName || 'Untitled project'}
+          <span className="modal-title-dates">{task.title || 'Untitled task'}</span>
+        </h2>
+        <div className="modal-divider" />
+
+        <div className="day-toggle-row">
+          {days.map(d => (
+            <button
+              type="button"
+              key={d.date}
+              className={`day-toggle ${picked.has(d.date) ? 'selected' : ''}`}
+              onClick={() => toggle(d.date)}
+              aria-pressed={picked.has(d.date)}
+              title={d.name}
+            >
+              {d.initial}
+            </button>
+          ))}
+        </div>
+
+        {pickedDays.length > 0 && (
+          <div className="day-box-list">
+            {pickedDays.map(d => (
+              <div className="day-box-item" key={d.date}>{d.name}</div>
+            ))}
+          </div>
+        )}
+
+        <label className="schedule-note-label">
+          Note
+          <textarea
+            className="schedule-note"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            rows={3}
+            placeholder="Anything to remember for this task…"
+          />
+        </label>
+
+        <div className="modal-actions">
+          <span style={{ flex: 1 }} />
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 export function ProjectsSidebar() {
   const {
     projects, addProject, updateProjectName, deleteProject, reorderProjects,
-    addTask, updateTaskTitle, setTaskDay, deleteTask, toggleTask, setProjectDeadline,
+    addTask, updateTaskTitle, setTaskSchedule, deleteTask, toggleTask, setProjectDeadline,
     weekStart, importPlan, showToast,
   } = useApp()
   const [draggedIdx, setDraggedIdx] = useState(null)
   const [dragOverIdx, setDragOverIdx] = useState(null)
   const [focusTaskId, setFocusTaskId] = useState(null)
   const [deadlineFor, setDeadlineFor] = useState(null)
+  const [scheduleFor, setScheduleFor] = useState(null)
   const [transfer, setTransfer] = useState(null)
   const cardRefs = useRef([])
   const sidebarRef = useRef(null)
 
   const deadlineProject = projects.find(p => String(p.id) === String(deadlineFor)) || null
+
+  let scheduleTask = null
+  let scheduleProject = null
+  if (scheduleFor != null) {
+    for (const p of projects) {
+      const t = (p.tasks || []).find(t => String(t.id) === String(scheduleFor))
+      if (t) { scheduleTask = t; scheduleProject = p; break }
+    }
+  }
 
   const handleCreateProject = async () => {
     await addProject('')
@@ -382,7 +481,7 @@ export function ProjectsSidebar() {
                   autoFocus={focusTaskId === t.id}
                   onRename={updateTaskTitle}
                   onToggle={toggleTask}
-                  onAssignDay={setTaskDay}
+                  onOpenSchedule={setScheduleFor}
                   onDelete={deleteTask}
                 />
               ))}
@@ -410,6 +509,20 @@ export function ProjectsSidebar() {
           onSave={(iso) => {
             setProjectDeadline(deadlineProject.id, iso)
             setDeadlineFor(null)
+          }}
+        />
+      )}
+
+      {scheduleTask && (
+        <TaskScheduleDialog
+          key={scheduleTask.id}
+          task={scheduleTask}
+          projectName={scheduleProject.name}
+          weekStartIso={toISODate(weekStart)}
+          onClose={() => setScheduleFor(null)}
+          onSave={(days, note) => {
+            setTaskSchedule(scheduleTask.id, days, note)
+            setScheduleFor(null)
           }}
         />
       )}

@@ -577,6 +577,9 @@ input[type="text"].task-name-input.done {
   align-items: center;
   gap: 5px;
   cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 0;
   color: var(--accent);
   font-family: var(--mono);
   font-size: var(--fs-mini);
@@ -1008,6 +1011,86 @@ input[type="text"].task-name-input.done {
   height: 1px;
   background: var(--line);
   margin: var(--sp-4) 0;
+}
+
+/* ---- Task schedule dialog ---- */
+.day-toggle-row {
+  display: flex;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+.day-toggle {
+  flex: 1;
+  height: 42px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  background: var(--bg);
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--fs-row);
+  font-weight: 700;
+  transition: 0.14s;
+}
+.day-toggle:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+.day-toggle.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--paper);
+}
+
+.day-box-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+.day-box-item {
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: var(--fs-row);
+}
+
+.schedule-note-label {
+  display: block;
+  font-size: var(--fs-label);
+  color: var(--ink-faint);
+  margin-bottom: var(--sp-4);
+}
+.schedule-note {
+  display: block;
+  width: 100%;
+  margin-top: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-row);
+  resize: vertical;
+}
+.schedule-note:focus { border-color: var(--accent); }
+
+/* Green pill on a scheduled task's row: how many days it spans */
+.subtask-badge {
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--good-soft);
+  color: var(--good);
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: 700;
 }
 
 .transfer-list-head {

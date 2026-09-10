@@ -157,7 +157,7 @@ export function PastePlanDialog({ weekStart, onPaste, onClose }) {
           className={`transfer-code input ${invalid ? 'invalid' : ''}`}
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          placeholder='Paste a plan here, e.g. { "format": "beaverplans.week.v1", … }'
+          placeholder='Paste a plan here, e.g. { "format": "taskplanner.week.v1", … }'
           rows={8}
           autoFocus
         />
