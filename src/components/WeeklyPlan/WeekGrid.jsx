@@ -1,31 +1,41 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
 import { toISODate, weekDayList, clampDifficulty, startOfWeek } from '../../utils'
 
-// One row in a focused day: either a subtask of a task, or a task that carries
-// its own day because it was never broken into subtasks.
+// One block per task landing on this day, carrying every subtask it has that
+// day. Grouping keeps the project and task name stated once instead of once per
+// subtask. A task never broken into subtasks becomes a block with no children.
 function collectDay(projects, iso) {
-  const items = []
+  const groups = []
   const missed = []
 
   for (const p of projects) {
     for (const t of p.tasks || []) {
       const subs = t.subtasks || []
-      const base = { projectName: p.name || 'Untitled project', taskTitle: t.title || 'Untitled task', taskId: t.id }
+      const base = {
+        key: `t-${t.id}`,
+        taskId: t.id,
+        projectName: p.name || 'Untitled project',
+        taskTitle: t.title || 'Untitled task',
+        day_date: iso,
+      }
 
       if (subs.length) {
-        for (const s of subs) {
-          if (s.day_date === iso) {
-            items.push({
-              ...base,
-              key: `s-${s.id}`,
-              subtaskId: s.id,
-              subtitle: s.title || '',
+        const onDay = subs.filter(s => s.day_date === iso)
+        if (onDay.length) {
+          groups.push({
+            ...base,
+            subtasks: onDay.map(s => ({
+              id: s.id,
+              title: s.title || '',
               completed: !!s.completed,
               difficulty: clampDifficulty(s.difficulty),
-              day_date: s.day_date,
-            })
-          }
+            })),
+            completed: onDay.every(s => s.completed),
+            someDone: onDay.some(s => s.completed),
+          })
+        }
+        for (const s of subs) {
           if ((s.missedDays || []).includes(iso)) {
             missed.push({ ...base, key: `m-${s.id}`, subtitle: s.title || '' })
           }
@@ -34,22 +44,14 @@ function collectDay(projects, iso) {
       }
 
       if (t.day_date === iso) {
-        items.push({
-          ...base,
-          key: `t-${t.id}`,
-          subtaskId: null,
-          subtitle: '',
-          completed: !!t.completed,
-          difficulty: 1,
-          day_date: t.day_date,
-        })
+        groups.push({ ...base, subtasks: [], completed: !!t.completed, someDone: !!t.completed })
       }
       if ((t.missedDays || []).includes(iso)) {
         missed.push({ ...base, key: `m-${t.id}`, subtitle: '' })
       }
     }
   }
-  return { items, missed }
+  return { groups, missed }
 }
 
 // Project deadlines landing in this week, grouped by day. One source for both
@@ -66,15 +68,35 @@ function dueByDay(projects) {
   return map
 }
 
-const tally = (items) => {
-  const done = items.filter(i => i.completed).length
+// Counts subtasks, not blocks, so "0 of 4 done" still means four pieces of work.
+// The bar stays weighted by difficulty; the count stays a head-count.
+const tally = (groups) => {
+  let done = 0
+  let total = 0
   let wDone = 0
   let wTotal = 0
-  for (const i of items) {
-    wTotal += i.difficulty
-    if (i.completed) wDone += i.difficulty
+  for (const g of groups) {
+    const units = g.subtasks.length
+      ? g.subtasks
+      : [{ completed: g.completed, difficulty: 1 }]
+    for (const u of units) {
+      total++
+      wTotal += u.difficulty
+      if (u.completed) { done++; wDone += u.difficulty }
+    }
   }
-  return { done, total: items.length, pct: wTotal === 0 ? 0 : Math.round((wDone / wTotal) * 100) }
+  return { done, total, pct: wTotal === 0 ? 0 : Math.round((wDone / wTotal) * 100) }
+}
+
+// Mixed state needs a property, not an attribute - React has no prop for it
+function TriCheck({ checked, indeterminate, onChange, className }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = !!indeterminate
+  }, [indeterminate])
+  return (
+    <input ref={ref} type="checkbox" className={className} checked={checked} onChange={onChange} />
+  )
 }
 
 function MoveDialog({ item, days, todayIso, onMove, onClose }) {
@@ -139,7 +161,7 @@ function MoveDialog({ item, days, todayIso, onMove, onClose }) {
 }
 
 export function WeekGrid() {
-  const { projects, weekStart, setWeekStart, toggleTask, toggleSubtask, moveScheduled } = useApp()
+  const { projects, weekStart, setWeekStart, toggleTask, toggleSubtask, setDayCompletion, moveScheduled } = useApp()
 
   const weekStartIso = toISODate(weekStart)
   const days = weekDayList(weekStartIso)
@@ -156,8 +178,8 @@ export function WeekGrid() {
 
   const perDay = days.map(d => collectDay(projects, d.date))
   const selected = days[dayIdx] || days[0]
-  const { items, missed } = perDay[dayIdx] || perDay[0]
-  const counts = tally(items)
+  const { groups, missed } = perDay[dayIdx] || perDay[0]
+  const counts = tally(groups)
   const dueNames = due.get(selected.date) || []
 
   // From another week this jumps back first; the effect above then lands on today
@@ -178,7 +200,7 @@ export function WeekGrid() {
 
       <div className="day-tabs">
         {days.map((d, i) => {
-          const c = tally(perDay[i].items)
+          const c = tally(perDay[i].groups)
           const flagged = due.get(d.date)
           return (
             <button
@@ -216,30 +238,48 @@ export function WeekGrid() {
           )}
         </div>
 
-        {items.length === 0 && missed.length === 0 ? (
+        {groups.length === 0 && missed.length === 0 ? (
           <div className="day-panel-empty">Nothing scheduled for {selected.name}.</div>
         ) : (
           <div className="day-panel-list">
-            {items.map(it => {
-              const overdue = !it.completed && it.day_date < todayIso
+            {groups.map(g => {
+              const overdue = !g.completed && g.day_date < todayIso
               return (
-                <div key={it.key} className={`day-row ${it.completed ? 'done' : ''} ${overdue ? 'overdue' : ''}`}>
-                  <input
-                    type="checkbox"
+                <div key={g.key} className={`day-row ${g.completed ? 'done' : ''} ${overdue ? 'overdue' : ''}`}>
+                  <TriCheck
                     className="task-check"
-                    checked={it.completed}
-                    onChange={e => it.subtaskId
-                      ? toggleSubtask(it.taskId, it.subtaskId, e.target.checked)
-                      : toggleTask(it.taskId, e.target.checked)}
+                    checked={g.completed}
+                    indeterminate={g.someDone && !g.completed}
+                    onChange={e => g.subtasks.length
+                      ? setDayCompletion(g.taskId, g.day_date, e.target.checked)
+                      : toggleTask(g.taskId, e.target.checked)}
                   />
                   <div className="day-row-body">
-                    <div className="day-row-project">{it.projectName}</div>
-                    <div className="day-row-task">{it.taskTitle}</div>
-                    {it.subtitle && <div className="day-row-sub">{it.subtitle}</div>}
+                    <div className="day-row-project">{g.projectName}</div>
+                    <div className="day-row-task">{g.taskTitle}</div>
+
+                    {g.subtasks.length > 0 && (
+                      <ul className="day-sub-list">
+                        {g.subtasks.map(s => (
+                          <li key={s.id} className={`day-sub ${s.completed ? 'done' : ''}`}>
+                            <input
+                              type="checkbox"
+                              className="task-check sm"
+                              checked={s.completed}
+                              onChange={e => toggleSubtask(g.taskId, s.id, e.target.checked)}
+                            />
+                            <span className={`day-sub-title ${s.title ? '' : 'untitled'}`}>
+                              {s.title || '—'}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
                     {overdue && (
                       <div className="day-row-foot">
                         <span className="day-row-overdue">overdue · reschedule?</span>
-                        <button type="button" className="day-row-move" onClick={() => setMoveItem(it)}>
+                        <button type="button" className="day-row-move" onClick={() => setMoveItem(g)}>
                           move
                         </button>
                       </div>
@@ -274,7 +314,8 @@ export function WeekGrid() {
           todayIso={todayIso}
           onClose={() => setMoveItem(null)}
           onMove={(toDate, markMissed) => {
-            moveScheduled(moveItem.taskId, moveItem.subtaskId, toDate, markMissed)
+            // The whole day's work for that task travels together
+            moveScheduled(moveItem.taskId, moveItem.day_date, toDate, markMissed)
             setMoveItem(null)
           }}
         />

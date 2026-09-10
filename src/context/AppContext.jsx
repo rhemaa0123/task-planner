@@ -264,10 +264,36 @@ export function AppProvider({ children }) {
     if (err) { showToast(err.message, 'error') }
   }
 
-  // Reschedules one scheduled item onto a later day. `subtaskId` is null when the
-  // task carries its own day. The day left behind is kept in missedDays when the
-  // dialog's "mark as missed" box is ticked, so the week still shows what slipped.
-  const moveScheduled = async (taskId, subtaskId, toDate, markMissed) => {
+  // Ticks every subtask a task has on one day at once. Looping toggleSubtask
+  // would not work: each call rebuilds from the same stale snapshot, so only the
+  // last would survive.
+  const setDayCompletion = async (taskId, dayDate, completed) => {
+    let parentDone = null
+    const updated = allProjects.map(p => ({
+      ...p,
+      tasks: (p.tasks || []).map(t => {
+        if (String(t.id) !== String(taskId)) return t
+        const subs = (t.subtasks || []).map(s =>
+          s.day_date === dayDate ? { ...s, completed } : s
+        )
+        parentDone = subs.length > 0 && subs.every(s => s.completed)
+        return { ...t, subtasks: subs, completed: parentDone }
+      }),
+    }))
+    setAllProjects(updated)
+    if (!user) {
+      saveLocal(updated)
+      return
+    }
+    const { error: err } = await supabase.from('tasks').update({ completed: !!parentDone }).eq('id', taskId)
+    if (err) { showToast(err.message, 'error') }
+  }
+
+  // Reschedules a task's whole day onto a later one - every subtask sitting on
+  // `fromDate` travels together, or the task itself when it has none. The day
+  // left behind is kept in missedDays when "mark as missed" is ticked, so the
+  // week still shows what slipped.
+  const moveScheduled = async (taskId, fromDate, toDate, markMissed) => {
     const stamp = (item) => ({
       ...item,
       day_date: toDate,
@@ -280,11 +306,10 @@ export function AppProvider({ children }) {
       ...p,
       tasks: (p.tasks || []).map(t => {
         if (String(t.id) !== String(taskId)) return t
-        if (!subtaskId) return stamp(t)
-        const subs = (t.subtasks || []).map(s =>
-          String(s.id) === String(subtaskId) ? stamp(s) : s
-        )
-        return { ...t, subtasks: subs, day_date: earliestDay(subs) }
+        const subs = t.subtasks || []
+        if (!subs.length) return stamp(t)
+        const next = subs.map(s => (s.day_date === fromDate ? stamp(s) : s))
+        return { ...t, subtasks: next, day_date: earliestDay(next) }
       }),
     }))
     setAllProjects(updated)
@@ -427,7 +452,7 @@ export function AppProvider({ children }) {
       user, authInitialized, projects, loading, error, weekStart, setWeekStart,
       toasts, showToast,
       addProject, updateProjectName, deleteProject, reorderProjects, importPlan,
-      addTask, updateTaskTitle, setTaskDay, setTaskSchedule, toggleSubtask, moveScheduled,
+      addTask, updateTaskTitle, setTaskDay, setTaskSchedule, toggleSubtask, setDayCompletion, moveScheduled,
       deleteTask, toggleTask, setProjectDeadline, loadData
     }}>
       {children}

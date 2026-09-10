@@ -903,6 +903,34 @@ input[type="text"].task-name-input.done {
   color: var(--ink-faint);
 }
 
+/* Every subtask this task has on this day, listed under its name */
+.day-sub-list {
+  list-style: none;
+  margin: var(--sp-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.day-sub {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.day-sub-title {
+  font-size: var(--fs-body);
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+.day-sub.done .day-sub-title {
+  text-decoration: line-through;
+  color: var(--ink-faint);
+}
+/* A subtask left unnamed is still a unit of work - the dash keeps its row legible */
+.day-sub-title.untitled { color: var(--ink-faint); }
+
 /* Overdue line plus its move button, pinned to the row's lower right */
 .day-row-foot {
   display: flex;
@@ -992,6 +1020,29 @@ input[type="text"].task-name-input.done {
   background: var(--good);
   border-color: var(--good);
 }
+/* Nested subtask checkbox, a step down from its parent's. The radius scales with
+   it - keeping 6px on a 14px box would round it into a circle */
+.task-check.sm {
+  width: 14px;
+  height: 14px;
+  border-width: 1.5px;
+  border-radius: 5px;
+}
+.task-check.sm:checked::after { width: 9px; height: 9px; }
+
+/* Some but not all of this day's subtasks done - a dash, not a tick */
+.task-check:indeterminate {
+  background: var(--good);
+  border-color: var(--good);
+}
+.task-check:indeterminate::after {
+  content: '';
+  width: 9px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--paper);
+}
+
 /* SVG checkmark with round caps/joins - a bordered pseudo-element can only
    round the elbow, not the tips */
 .task-check:checked::after {
