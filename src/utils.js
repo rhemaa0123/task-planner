@@ -61,7 +61,9 @@ export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 /* ---- Plan codes (copy / paste a week's plan) ---- */
 
-const PLAN_PREFIX = 'PLAN1.'
+const PLAN_FORMAT = 'beaverplans.week.v1'
+const DAY_CODES = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 // Parses a YYYY-MM-DD as local midnight; `new Date(iso)` alone reads as UTC and
 // lands on the previous day west of Greenwich
@@ -70,54 +72,104 @@ export function fromISODate(iso) {
   return new Date(y, m - 1, d)
 }
 
-const toB64 = (str) => btoa(String.fromCharCode(...new TextEncoder().encode(str)))
-const fromB64 = (b64) => new TextDecoder().decode(Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)))
+const newId = () =>
+  crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
 
-// Day-of-week is stored as an offset from the source week, not an absolute date,
-// so a Tuesday task lands on Tuesday whichever week it is pasted into
+const dayIndex = (code) => {
+  const i = DAY_CODES.indexOf(String(code || '').toLowerCase())
+  return i === -1 ? null : i
+}
+
+// The schedule travels as a weekday name, not a date, so a Tuesday task lands
+// on Tuesday whichever week it is pasted into
+const dayCodeFor = (iso, weekStart) => {
+  if (!iso) return null
+  const offset = Math.round((fromISODate(iso) - weekStart) / 86400000)
+  return offset >= 0 && offset <= 6 ? DAY_CODES[offset] : null
+}
+
 export function encodePlan(weekStartIso, projects) {
   const start = fromISODate(weekStartIso)
-  const payload = {
-    v: 1,
-    w: weekStartIso,
-    p: projects.map((p) => ({
-      n: p.name || '',
-      d: p.deadline || null,
-      t: (p.tasks || []).map((t) => ({
-        n: t.title || '',
-        o: t.day_date ? Math.round((fromISODate(t.day_date) - start) / 86400000) : null,
-        c: t.completed ? 1 : 0,
+  return JSON.stringify(
+    {
+      format: PLAN_FORMAT,
+      weekStart: weekStartIso,
+      projects: projects.map((p) => ({
+        id: p.id ? String(p.id) : newId(),
+        name: p.name || '',
+        deadline: p.deadline || null,
+        tasks: (p.tasks || []).map((t) => ({
+          id: t.id ? String(t.id) : newId(),
+          name: t.title || '',
+          isDone: !!t.completed,
+          assignedDay: dayCodeFor(t.day_date, start),
+          subtasks: [],
+        })),
       })),
-    })),
+    },
+    null,
+    2,
+  )
+}
+
+// A task carrying subtasks keeps its schedule on them, so those are read as
+// tasks of their own - this app has no subtask level to put them in
+const readTasks = (rawTasks) => {
+  const out = []
+  for (const t of Array.isArray(rawTasks) ? rawTasks : []) {
+    if (!t || typeof t !== 'object') continue
+    const name = typeof t.name === 'string' ? t.name : ''
+    const ownDay = dayIndex(t.assignedDay)
+    const subs = Array.isArray(t.subtasks) ? t.subtasks : []
+
+    if (subs.length === 0) {
+      out.push({ title: name, dayOffset: ownDay, completed: !!t.isDone })
+      continue
+    }
+
+    if (name) out.push({ title: name, dayOffset: ownDay, completed: !!t.isDone })
+    for (const s of subs) {
+      if (!s || typeof s !== 'object') continue
+      const label =
+        typeof s.description === 'string' ? s.description
+        : typeof s.name === 'string' ? s.name
+        : ''
+      out.push({
+        title: label,
+        dayOffset: dayIndex(s.assignedDay) ?? ownDay,
+        completed: !!s.isDone,
+      })
+    }
   }
-  return PLAN_PREFIX + toB64(JSON.stringify(payload))
+  return out
 }
 
 export function decodePlan(code) {
-  const trimmed = String(code || '').trim()
-  if (!trimmed.startsWith(PLAN_PREFIX)) return null
-  let payload
+  const text = String(code || '').trim()
+  if (!text) return null
+
+  let data
   try {
-    payload = JSON.parse(fromB64(trimmed.slice(PLAN_PREFIX.length)))
+    data = JSON.parse(text)
   } catch {
     return null
   }
-  if (!payload || payload.v !== 1 || !Array.isArray(payload.p) || !payload.w) return null
 
-  const projects = payload.p.map((p) => ({
-    name: typeof p.n === 'string' ? p.n : '',
-    deadline: p.d || null,
-    tasks: Array.isArray(p.t)
-      ? p.t.map((t) => ({
-          title: typeof t.n === 'string' ? t.n : '',
-          dayOffset: Number.isInteger(t.o) ? t.o : null,
-          completed: !!t.c,
-        }))
-      : [],
-  }))
+  if (!data || typeof data !== 'object') return null
+  if (!String(data.format || '').startsWith('beaverplans.week.')) return null
+  if (!ISO_DATE.test(String(data.weekStart))) return null
+  if (!Array.isArray(data.projects)) return null
+
+  const projects = data.projects
+    .filter((p) => p && typeof p === 'object')
+    .map((p) => ({
+      name: typeof p.name === 'string' ? p.name : '',
+      deadline: ISO_DATE.test(String(p.deadline)) ? p.deadline : null,
+      tasks: readTasks(p.tasks),
+    }))
 
   return {
-    weekStart: payload.w,
+    weekStart: data.weekStart,
     projects,
     projectCount: projects.length,
     taskCount: projects.reduce((n, p) => n + p.tasks.length, 0),

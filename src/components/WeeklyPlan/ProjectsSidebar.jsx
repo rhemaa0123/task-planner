@@ -283,9 +283,23 @@ export function ProjectsSidebar() {
       <div className="sidebar-header">
         <span className="eyebrow">PROJECTS</span>
         <div className="header-links">
-          <button type="button" className="link-btn" onClick={() => setTransfer('copy')}>Copy plan</button>
+          <button
+            type="button"
+            className="link-btn"
+            onClick={() => setTransfer('copy')}
+            disabled={projects.length === 0}
+            title={projects.length === 0 ? 'No projects in this week to copy' : 'Copy this week\'s plan'}
+          >
+            Copy plan
+          </button>
           <span className="sep">•</span>
-          <button type="button" className="link-btn" onClick={() => setTransfer('paste')}>Paste plan</button>
+          <button
+            type="button"
+            className="link-btn always-on"
+            onClick={() => setTransfer('paste')}
+          >
+            Paste plan
+          </button>
         </div>
       </div>
 

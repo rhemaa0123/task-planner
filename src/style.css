@@ -915,6 +915,9 @@ input[type="text"].task-name-input.done {
   box-shadow: var(--shadow-float);
 }
 
+/* Copy/paste hold a list and a long code, so they sit wider than they are tall */
+.modal-card.wide { max-width: 540px; }
+
 .modal-eyebrow {
   font-family: var(--mono);
   font-size: var(--fs-label);
@@ -1096,7 +1099,10 @@ input[type="text"].task-name-input.done {
   color: var(--ink);
   padding: var(--sp-3);
   resize: vertical;
-  word-break: break-all;
+  /* JSON keeps its indentation; long lines scroll rather than break mid-token */
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
 }
 .transfer-code:focus { border-color: var(--accent); }
 .transfer-code.invalid { border-color: var(--warn); }
@@ -1117,6 +1123,17 @@ input[type="text"].task-name-input.done {
   font-size: inherit;
 }
 .link-btn:hover { text-decoration: underline; }
+
+/* Paste is always available, so it always reads as a link */
+.link-btn.always-on { text-decoration: underline; }
+
+/* Nothing in this week to copy - drops back to secondary text */
+.link-btn:disabled {
+  color: var(--ink-faint);
+  cursor: default;
+  text-decoration: none;
+}
+.link-btn:disabled:hover { text-decoration: none; }
 
 /* ---- Settings: theme picker ---- */
 .theme-options {

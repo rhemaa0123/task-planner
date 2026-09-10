@@ -65,7 +65,7 @@ export function CopyPlanDialog({ weekStart, projects, onClose }) {
 
   return (
     <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal-card" role="dialog" aria-label="Copy plan">
+      <div className="modal-card wide" role="dialog" aria-label="Copy plan">
         <WeekHeading eyebrow="COPY PLAN" weekStart={weekStart} />
 
         {projects.length === 0 ? (
@@ -111,8 +111,8 @@ export function CopyPlanDialog({ weekStart, projects, onClose }) {
 
         {fallbackCode && (
           <div className="transfer-fallback">
-            <div className="transfer-hint">Copy this code manually:</div>
-            <textarea ref={fallbackRef} className="transfer-code" readOnly value={fallbackCode} rows={3} />
+            <div className="transfer-hint">Copy this plan manually:</div>
+            <textarea ref={fallbackRef} className="transfer-code" readOnly value={fallbackCode} rows={8} />
           </div>
         )}
 
@@ -150,15 +150,15 @@ export function PastePlanDialog({ weekStart, onPaste, onClose }) {
 
   return (
     <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="modal-card" role="dialog" aria-label="Paste plan">
+      <div className="modal-card wide" role="dialog" aria-label="Paste plan">
         <WeekHeading eyebrow="PASTE PLAN" weekStart={weekStart} />
 
         <textarea
           className={`transfer-code input ${invalid ? 'invalid' : ''}`}
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          placeholder="Paste a plan code here"
-          rows={4}
+          placeholder='Paste a plan here, e.g. { "format": "beaverplans.week.v1", … }'
+          rows={8}
           autoFocus
         />
 
