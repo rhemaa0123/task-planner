@@ -3,20 +3,15 @@ import { AppProvider, useApp } from './context/AppContext'
 import { useHashRouter } from './hooks/useHashRouter'
 import { Header } from './components/Header'
 import { Board } from './components/WeeklyPlan/Board'
-import { Auth } from './components/Auth'
 
 function AppContent() {
   const { route } = useHashRouter()
-  const { loading, toasts } = useApp()
+  const { toasts } = useApp()
 
-  let content
-  if (route === '#/login') {
-    content = <Auth />
-  } else if (route === '#/stats') {
-    content = <div style={{padding: 24}}>Stats coming soon in React</div>
-  } else {
-    content = loading ? <p className="status">Loading your week…</p> : <Board />
-  }
+  // The plan comes straight out of localStorage, so there is nothing to wait for
+  const content = route === '#/stats'
+    ? <div style={{padding: 24}}>Stats coming soon in React</div>
+    : <Board />
 
   return (
     <>

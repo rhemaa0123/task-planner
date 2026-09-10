@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { ProjectsSidebar } from './ProjectsSidebar'
 import { WeekGrid } from './WeekGrid'
@@ -7,6 +7,10 @@ import { addDays, weekLabel, formatWeekRange, startOfWeek, rollUp } from '../../
 export function Board() {
   const { projects, weekStart, setWeekStart } = useApp()
   const weekText = weekLabel(weekStart)
+
+  // Which of the two panes a phone shows. Ignored on wide screens, where the CSS
+  // puts them side by side and both stay mounted.
+  const [pane, setPane] = useState('projects')
 
   // `projects` is already scoped to the visible week, so every task counts.
   // Weighted by subtask difficulty, matching the project bars.
@@ -54,7 +58,31 @@ export function Board() {
         </div>
       </div>
 
-      <div className="planning-board">
+      {/* Phone only: the two panes are too tall to stack, so they take turns */}
+      <div className="pane-switch" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          className={`pane-tab ${pane === 'projects' ? 'selected' : ''}`}
+          aria-selected={pane === 'projects'}
+          onClick={() => setPane('projects')}
+        >
+          Projects
+          <span className="pane-tab-count">{projects.length}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          className={`pane-tab ${pane === 'week' ? 'selected' : ''}`}
+          aria-selected={pane === 'week'}
+          onClick={() => setPane('week')}
+        >
+          This week
+          <span className="pane-tab-count">{itemsDone}/{items}</span>
+        </button>
+      </div>
+
+      <div className={`planning-board pane-${pane}`}>
         <ProjectsSidebar />
         <WeekGrid />
       </div>

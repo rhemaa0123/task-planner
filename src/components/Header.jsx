@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react'
-import { useApp } from '../context/AppContext'
-import { supabase } from '../supabase'
 import { useTheme } from '../hooks/useTheme'
 
 const THEME_CHOICES = [
@@ -79,22 +77,10 @@ function SettingsDialog({ mode, resolved, onPick, onClose }) {
 }
 
 export function Header({ route }) {
-  const { user } = useApp()
   const { mode, setMode, resolved } = useTheme()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const isPlans = route === '#/' || route.startsWith('#/plan')
   const isStats = route === '#/stats'
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    window.location.hash = '#/'
-  }
-
-  const userInitials = () => {
-    if (!user) return 'Guest'
-    const email = user.email || ''
-    return email.substring(0, 2).toUpperCase()
-  }
 
   return (
     <header className="header">
@@ -106,12 +92,6 @@ export function Header({ route }) {
       </nav>
       <div className="header-spacer"></div>
       <div className="user-menu">
-        {user ? (
-          <span className="guest-badge">{userInitials()}</span>
-        ) : (
-          <span className="guest-badge">Guest</span>
-        )}
-
         <button
           className="cog-btn"
           onClick={() => setSettingsOpen(true)}
@@ -123,10 +103,6 @@ export function Header({ route }) {
             <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
           </svg>
         </button>
-
-        {user
-          ? <button className="logout-btn" onClick={handleLogout}>Sign out</button>
-          : <a href="#/login" className="sign-in-btn">Sign in</a>}
       </div>
 
       {settingsOpen && (
