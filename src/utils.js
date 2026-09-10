@@ -69,9 +69,69 @@ export function weekDayList(weekStartIso) {
   return DAY_INITIALS.map((initial, i) => ({
     i,
     initial,
+    short: WEEKDAYS[i],
     name: DAY_NAMES[i],
     date: toISODate(addDays(start, i)),
   }))
+}
+
+/* ---- Progress ---- */
+
+export const DIFFICULTIES = [1, 2, 3]
+
+export const clampDifficulty = (n) =>
+  Math.min(3, Math.max(1, Math.round(Number(n) || 1)))
+
+// Difficulty is a weight, which is what the dots in the schedule dialog promise:
+// a 3-dot subtask carries the bar three times as far as a 1-dot one. A task with
+// no subtasks is a single unit of weight 1, so old plans still total correctly.
+export function taskProgress(task) {
+  const subs = task?.subtasks || []
+  if (!subs.length) return { done: task?.completed ? 1 : 0, total: 1 }
+  let done = 0
+  let total = 0
+  for (const s of subs) {
+    const w = clampDifficulty(s.difficulty)
+    total += w
+    if (s.completed) done += w
+  }
+  return { done, total }
+}
+
+// Plain head-count for the row badge - "2/4" has to read as subtasks, not weight
+export function subtaskTally(task) {
+  const subs = task?.subtasks || []
+  return { done: subs.filter((s) => s.completed).length, total: subs.length }
+}
+
+// `pct` is weighted by difficulty; `items`/`itemsDone` are a plain head-count,
+// because "1/6 done" would be baffling next to four visible subtasks
+export function rollUp(tasks) {
+  let done = 0
+  let total = 0
+  let items = 0
+  let itemsDone = 0
+  for (const t of tasks || []) {
+    const p = taskProgress(t)
+    done += p.done
+    total += p.total
+
+    const subs = t.subtasks || []
+    if (subs.length) {
+      items += subs.length
+      itemsDone += subs.filter((s) => s.completed).length
+    } else {
+      items += 1
+      if (t.completed) itemsDone += 1
+    }
+  }
+  return { done, total, items, itemsDone, pct: total === 0 ? 0 : Math.round((done / total) * 100) }
+}
+
+// Earliest scheduled day, so a task's own day_date keeps following its subtasks
+export function earliestDay(subtasks) {
+  const days = (subtasks || []).map((s) => s.day_date).filter(Boolean).sort()
+  return days[0] ?? null
 }
 
 /* ---- Plan codes (copy / paste a week's plan) ---- */
@@ -118,7 +178,14 @@ export function encodePlan(weekStartIso, projects) {
           name: t.title || '',
           isDone: !!t.completed,
           assignedDay: dayCodeFor(t.day_date, start),
-          subtasks: [],
+          note: t.note || '',
+          subtasks: (t.subtasks || []).map((s) => ({
+            id: s.id ? String(s.id) : newId(),
+            description: s.title || '',
+            isDone: !!s.completed,
+            assignedDay: dayCodeFor(s.day_date, start),
+            difficulty: clampDifficulty(s.difficulty),
+          })),
         })),
       })),
     },
@@ -127,37 +194,32 @@ export function encodePlan(weekStartIso, projects) {
   )
 }
 
-// A task carrying subtasks keeps its schedule on them, so those are read as
-// tasks of their own - this app has no subtask level to put them in
-const readTasks = (rawTasks) => {
-  const out = []
-  for (const t of Array.isArray(rawTasks) ? rawTasks : []) {
-    if (!t || typeof t !== 'object') continue
-    const name = typeof t.name === 'string' ? t.name : ''
-    const ownDay = dayIndex(t.assignedDay)
-    const subs = Array.isArray(t.subtasks) ? t.subtasks : []
-
-    if (subs.length === 0) {
-      out.push({ title: name, dayOffset: ownDay, completed: !!t.isDone })
-      continue
-    }
-
-    if (name) out.push({ title: name, dayOffset: ownDay, completed: !!t.isDone })
-    for (const s of subs) {
-      if (!s || typeof s !== 'object') continue
-      const label =
-        typeof s.description === 'string' ? s.description
-        : typeof s.name === 'string' ? s.name
-        : ''
-      out.push({
-        title: label,
-        dayOffset: dayIndex(s.assignedDay) ?? ownDay,
-        completed: !!s.isDone,
-      })
-    }
-  }
-  return out
-}
+// Subtasks stay nested. Each carries its own weekday, so a task spread over
+// Mon/Wed/Fri lands on Mon/Wed/Fri of whichever week it is pasted into. A
+// subtask with no day of its own falls back to the task's.
+const readTasks = (rawTasks) =>
+  (Array.isArray(rawTasks) ? rawTasks : [])
+    .filter((t) => t && typeof t === 'object')
+    .map((t) => {
+      const ownDay = dayIndex(t.assignedDay)
+      return {
+        title: typeof t.name === 'string' ? t.name : '',
+        dayOffset: ownDay,
+        completed: !!t.isDone,
+        note: typeof t.note === 'string' ? t.note : '',
+        subtasks: (Array.isArray(t.subtasks) ? t.subtasks : [])
+          .filter((s) => s && typeof s === 'object')
+          .map((s) => ({
+            title:
+              typeof s.description === 'string' ? s.description
+              : typeof s.name === 'string' ? s.name
+              : '',
+            dayOffset: dayIndex(s.assignedDay) ?? ownDay,
+            completed: !!s.isDone,
+            difficulty: clampDifficulty(s.difficulty),
+          })),
+      }
+    })
 
 export function decodePlan(code) {
   const text = String(code || '').trim()
@@ -197,14 +259,27 @@ export function materializePlan(plan, targetWeekIso) {
   const target = fromISODate(targetWeekIso)
   const weeks = Math.round((target - fromISODate(plan.weekStart)) / WEEK_MS)
 
+  const dateAt = (offset) => (offset === null || offset === undefined ? null : toISODate(addDays(target, offset)))
+
   return plan.projects.map((p) => ({
     name: p.name,
     deadline: p.deadline ? toISODate(addDays(fromISODate(p.deadline), weeks * 7)) : null,
-    tasks: p.tasks.map((t) => ({
-      title: t.title,
-      day_date: t.dayOffset === null ? null : toISODate(addDays(target, t.dayOffset)),
-      completed: t.completed,
-    })),
+    tasks: p.tasks.map((t) => {
+      const subtasks = t.subtasks.map((s) => ({
+        title: s.title,
+        day_date: dateAt(s.dayOffset),
+        completed: s.completed,
+        difficulty: s.difficulty,
+      }))
+      return {
+        title: t.title,
+        note: t.note,
+        // Subtasks own the schedule once there are any
+        day_date: earliestDay(subtasks) ?? dateAt(t.dayOffset),
+        completed: t.completed,
+        subtasks,
+      }
+    }),
   }))
 }
 

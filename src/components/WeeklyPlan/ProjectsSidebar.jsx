@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
-import { formatDeadline, toISODate, weekDayList } from '../../utils'
+import {
+  formatDeadline, toISODate, weekDayList, subtaskTally, rollUp,
+  clampDifficulty, DIFFICULTIES,
+} from '../../utils'
 import { CopyPlanDialog, PastePlanDialog } from './PlanTransfer'
 
 function EditableText({ value, onSave, placeholder, className, autoFocus }) {
@@ -125,7 +128,7 @@ function DeadlineDialog({ project, onSave, onClose }) {
 }
 
 function TaskRow({ task, autoFocus, onRename, onToggle, onOpenSchedule, onDelete }) {
-  const dayCount = task.subtasks?.length || 0
+  const { done, total } = subtaskTally(task)
   return (
     <div className={`task-item ${task.day_date ? 'has-day' : ''}`}>
       <input
@@ -141,14 +144,17 @@ function TaskRow({ task, autoFocus, onRename, onToggle, onOpenSchedule, onDelete
         autoFocus={autoFocus}
         onSave={val => onRename(task.id, val)}
       />
-      {dayCount > 0 && (
-        <span className="subtask-badge" title={`Scheduled across ${dayCount} day${dayCount > 1 ? 's' : ''}`}>
-          {dayCount}
+      {total > 0 && (
+        <span
+          className={`subtask-badge ${done === total ? 'full' : ''}`}
+          title={`${done} of ${total} subtask${total > 1 ? 's' : ''} done`}
+        >
+          {done}/{total}
         </span>
       )}
       <div className="task-actions">
         <button type="button" className="assign-date" onClick={() => onOpenSchedule(task.id)} title="Schedule across days">
-          {dayCount > 0 ? (
+          {total > 0 ? (
             <span>edit days</span>
           ) : (
             <>
@@ -168,15 +174,33 @@ function TaskRow({ task, autoFocus, onRename, onToggle, onOpenSchedule, onDelete
   )
 }
 
+const rowId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
+const blankRow = () => ({ id: rowId(), title: '', difficulty: 1, completed: false })
+
 function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }) {
   const days = weekDayList(weekStartIso)
-  const seed = task.subtasks?.length
-    ? task.subtasks.map(s => s.day_date)
-    : task.day_date
-      ? [task.day_date]
-      : []
-  const [picked, setPicked] = useState(() => new Set(seed))
+
+  // Subtasks are grouped by their day so a day box owns its own rows; the flat
+  // list is rebuilt in week order on save.
+  const [byDay, setByDay] = useState(() => {
+    const seed = {}
+    for (const s of task.subtasks || []) {
+      if (!s.day_date) continue
+      if (!seed[s.day_date]) seed[s.day_date] = []
+      seed[s.day_date].push({
+        id: s.id || rowId(),
+        title: s.title || '',
+        difficulty: clampDifficulty(s.difficulty),
+        completed: !!s.completed,
+      })
+    }
+    // A task scheduled before subtasks existed still opens on the day it had
+    if (!Object.keys(seed).length && task.day_date) seed[task.day_date] = [blankRow()]
+    return seed
+  })
   const [note, setNote] = useState(task.note || '')
+  const [deadline, setDeadline] = useState(task.deadline || '')
+  const [time, setTime] = useState(task.deadline_time || '')
 
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose() }
@@ -184,37 +208,70 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const toggle = (date) => setPicked(prev => {
-    const next = new Set(prev)
-    next.has(date) ? next.delete(date) : next.add(date)
+  const toggleDay = (date) => setByDay(prev => {
+    const next = { ...prev }
+    if (next[date]) delete next[date]
+    else next[date] = [blankRow()]
     return next
   })
 
-  const pickedDays = days.filter(d => picked.has(d.date))
+  const editRows = (date, fn) => setByDay(prev => ({ ...prev, [date]: fn(prev[date] || []) }))
+  const addRow = (date) => editRows(date, rows => [...rows, blankRow()])
+  const removeRow = (date, id) => editRows(date, rows => rows.filter(r => r.id !== id))
+  const patchRow = (date, id, patch) =>
+    editRows(date, rows => rows.map(r => (r.id === id ? { ...r, ...patch } : r)))
+
+  const pickedDays = days.filter(d => byDay[d.date])
 
   const submit = (e) => {
     e.preventDefault()
-    onSave([...picked], note.trim())
+    const subtasks = []
+    for (const d of pickedDays) {
+      for (const r of byDay[d.date]) {
+        subtasks.push({
+          id: r.id,
+          title: r.title.trim(),
+          day_date: d.date,
+          completed: r.completed,
+          difficulty: r.difficulty,
+        })
+      }
+    }
+    onSave({ subtasks, note: note.trim(), deadline: deadline || null, deadlineTime: time || null })
   }
 
   return (
     <div className="modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
-      <form className="modal-card wide" onSubmit={submit}>
-        <div className="modal-eyebrow">SCHEDULE TASK</div>
-        <h2 className="modal-title">
-          {projectName || 'Untitled project'}
-          <span className="modal-title-dates">{task.title || 'Untitled task'}</span>
-        </h2>
+      <form className="modal-card wide scroll" onSubmit={submit}>
+        <div className="modal-eyebrow">{projectName || 'Untitled project'}</div>
+        <h2 className="modal-title">{task.title || 'Untitled task'}</h2>
         <div className="modal-divider" />
 
+        <div className="field-label">DEADLINE</div>
+        <div className="sched-deadline-row">
+          <input
+            type="date"
+            className="sched-date"
+            value={deadline}
+            onChange={e => setDeadline(e.target.value)}
+          />
+          <input
+            type="time"
+            className="sched-time"
+            value={time}
+            onChange={e => setTime(e.target.value)}
+          />
+        </div>
+
+        <div className="field-label">DAYS</div>
         <div className="day-toggle-row">
           {days.map(d => (
             <button
               type="button"
               key={d.date}
-              className={`day-toggle ${picked.has(d.date) ? 'selected' : ''}`}
-              onClick={() => toggle(d.date)}
-              aria-pressed={picked.has(d.date)}
+              className={`day-toggle ${byDay[d.date] ? 'selected' : ''}`}
+              onClick={() => toggleDay(d.date)}
+              aria-pressed={!!byDay[d.date]}
               title={d.name}
             >
               {d.initial}
@@ -222,24 +279,62 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
           ))}
         </div>
 
-        {pickedDays.length > 0 && (
-          <div className="day-box-list">
-            {pickedDays.map(d => (
-              <div className="day-box-item" key={d.date}>{d.name}</div>
+        {pickedDays.map(d => (
+          <div className="sched-day" key={d.date}>
+            <div className="sched-day-name">{d.name}</div>
+            {byDay[d.date].map(r => (
+              <div className="sched-sub-row" key={r.id}>
+                <input
+                  type="text"
+                  className="sched-sub-input"
+                  value={r.title}
+                  placeholder="add a note (optional)"
+                  onChange={e => patchRow(d.date, r.id, { title: e.target.value })}
+                />
+                <div className="dots" role="group" aria-label="Difficulty">
+                  {DIFFICULTIES.map(n => (
+                    <button
+                      type="button"
+                      key={n}
+                      className={`dot ${r.difficulty >= n ? 'on' : ''}`}
+                      onClick={() => patchRow(d.date, r.id, { difficulty: n })}
+                      aria-pressed={r.difficulty >= n}
+                      aria-label={`Difficulty ${n} of 3`}
+                    />
+                  ))}
+                </div>
+                {byDay[d.date].length > 1 && (
+                  <button
+                    type="button"
+                    className="sched-sub-del"
+                    onClick={() => removeRow(d.date, r.id)}
+                    title="Remove subtask"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  </button>
+                )}
+              </div>
             ))}
+            <button type="button" className="sched-add" onClick={() => addRow(d.date)}>
+              + add subtask on {d.short}
+            </button>
           </div>
+        ))}
+
+        {pickedDays.length > 0 && (
+          <p className="sched-hint">
+            Use the dots to set difficulty — harder subtasks count more toward your progress
+          </p>
         )}
 
-        <label className="schedule-note-label">
-          Note
-          <textarea
-            className="schedule-note"
-            value={note}
-            onChange={e => setNote(e.target.value)}
-            rows={3}
-            placeholder="Anything to remember for this task…"
-          />
-        </label>
+        <div className="field-label">NOTE</div>
+        <textarea
+          className="schedule-note"
+          value={note}
+          onChange={e => setNote(e.target.value)}
+          rows={3}
+          placeholder="a note about the whole task (optional)"
+        />
 
         <div className="modal-actions">
           <span style={{ flex: 1 }} />
@@ -404,9 +499,8 @@ export function ProjectsSidebar() {
 
       {projects.map((p, index) => {
         const tasks = p.tasks || []
-        const total = tasks.length
-        const done = tasks.filter(t => t.completed).length
-        const pct = total === 0 ? 0 : Math.round((done / total) * 100)
+        // Weighted: a 3-dot subtask moves this bar three times as far as a 1-dot one
+        const { total, pct } = rollUp(tasks)
 
         const isDragging = draggedIdx === index
 
@@ -443,10 +537,7 @@ export function ProjectsSidebar() {
               <div style={{display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0}}>
                 {total > 0 && (
                   <div className="proj-progress-track">
-                    <div
-                      className={`proj-progress-fill ${pct === 100 ? 'complete' : ''}`}
-                      style={{width: `${pct}%`}}
-                    ></div>
+                    <div className="proj-progress-fill" style={{width: `${pct}%`}}></div>
                   </div>
                 )}
 
@@ -520,8 +611,8 @@ export function ProjectsSidebar() {
           projectName={scheduleProject.name}
           weekStartIso={toISODate(weekStart)}
           onClose={() => setScheduleFor(null)}
-          onSave={(days, note) => {
-            setTaskSchedule(scheduleTask.id, days, note)
+          onSave={(payload) => {
+            setTaskSchedule(scheduleTask.id, payload)
             setScheduleFor(null)
           }}
         />

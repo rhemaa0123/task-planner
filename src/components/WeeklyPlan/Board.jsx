@@ -2,24 +2,15 @@ import React from 'react'
 import { useApp } from '../../context/AppContext'
 import { ProjectsSidebar } from './ProjectsSidebar'
 import { WeekGrid } from './WeekGrid'
-import { addDays, weekLabel, formatWeekRange, startOfWeek } from '../../utils'
+import { addDays, weekLabel, formatWeekRange, startOfWeek, rollUp } from '../../utils'
 
 export function Board() {
   const { projects, weekStart, setWeekStart } = useApp()
   const weekText = weekLabel(weekStart)
 
-  let done = 0
-  let total = 0
-
-  // `projects` is already scoped to the visible week, so every task counts
-  projects.forEach(p => {
-    (p.tasks || []).forEach(t => {
-      total++
-      if (t.completed) done++
-    })
-  })
-
-  const pct = total === 0 ? 0 : Math.round((done / total) * 100)
+  // `projects` is already scoped to the visible week, so every task counts.
+  // Weighted by subtask difficulty, matching the project bars.
+  const { items, itemsDone, pct } = rollUp(projects.flatMap(p => p.tasks || []))
 
   return (
     <>
@@ -59,7 +50,7 @@ export function Board() {
         </div>
         <div className="progress-stats">
           <span className="days-left">5 days left - keep moving forward</span>
-          <span className="pct">{done}/{total} • {pct}%</span>
+          <span className="pct">{itemsDone}/{items} • {pct}%</span>
         </div>
       </div>
 

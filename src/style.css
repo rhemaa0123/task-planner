@@ -80,7 +80,7 @@
   --mono: 'Space Mono', ui-monospace, Consolas, monospace;
 
   --w-title: 600;
-  --w-row: 400;
+  --w-row: 500;
 
   --sp-1: 4px;
   --sp-2: 8px;
@@ -100,9 +100,11 @@
   --fs-chrome: 12px;
   --fs-body: 13px;
   --fs-row: 14px;
-  --fs-section: 15px;
-  --fs-title: 16px;
-  --fs-figure: 20px;
+  /* Heading steps sit a point under the body scale - the titles carried more
+     weight than they needed against 13/14px rows */
+  --fs-section: 14px;
+  --fs-title: 15px;
+  --fs-figure: 19px;
 
   --grip-size: 16px;
   --check-size: 18px;
@@ -406,7 +408,7 @@ button {
 }
 
 .eyebrow {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -487,14 +489,13 @@ button {
   border-radius: 999px;
   overflow: hidden;
 }
+/* Stays green all the way to 100% - it used to flip to accent when full, which
+   read as a different meaning next to the green week bar above it */
 .proj-progress-fill {
   height: 100%;
   background: var(--good);
   border-radius: 999px;
-  transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.35s ease;
-}
-.proj-progress-fill.complete {
-  background: var(--accent);
+  transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .proj-title {
@@ -732,51 +733,225 @@ input[type="text"].task-name-input.done {
   padding: 0 4px;
 }
 
-.days-grid {
+/* ---- Day tabs: the week as seven headings, one focused at a time ---- */
+.day-tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--sp-2);
+  flex-shrink: 0;
 }
 
-.day-box {
-  background: var(--bg); /* darker background for days */
-  border: 1px solid var(--line);
-  border-radius: var(--r-card);
-  min-height: 220px;
-  padding: 12px;
+.day-tab {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.day-box:hover {
-  border-color: var(--line-strong);
-  background: var(--paper);
-}
-
-.day-box-head {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-2) var(--sp-2);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  color: var(--ink-soft);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.day-tab:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.day-tab.selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--paper);
 }
 
-.day-name {
+.day-tab-label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--mono);
+  font-size: var(--fs-row);
+  font-weight: 700;
+  line-height: 1;
+}
+.day-tab-flag { flex-shrink: 0; }
+
+/* Only days holding work show a bar, so an empty day reads as empty at a glance */
+.day-tab-track {
+  width: 60%;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  overflow: hidden;
+}
+/* The selected tab is already accent, so its track has to darken rather than
+   tint - accent-soft on accent is invisible */
+.day-tab.selected .day-tab-track { background: rgba(0, 0, 0, 0.25); }
+.day-tab-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--good);
+  transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ---- Focused day ---- */
+.day-panel {
+  flex: 1;
+  min-height: 0;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.day-panel-head {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+
+.day-panel-name {
   font-family: var(--mono);
   font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.day-panel-count {
+  font-family: var(--mono);
+  font-size: var(--fs-body);
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+.day-panel-due {
+  font-family: var(--mono);
+  font-size: var(--fs-body);
+  color: var(--accent);
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+.day-panel-empty {
+  padding: var(--sp-5) var(--sp-4);
+  color: var(--ink-faint);
+  font-size: var(--fs-body);
+}
+
+.day-panel-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.day-panel-list::-webkit-scrollbar { width: 8px; }
+.day-panel-list::-webkit-scrollbar-track { background: transparent; }
+.day-panel-list::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 999px;
+}
+
+/* Project name, task name, then the subtask - read top to bottom */
+.day-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  transition: background-color 0.12s;
+}
+.day-row:last-child { border-bottom: none; }
+.day-row:hover { background: var(--hover-neutral); }
+.day-row .task-check { margin-top: 2px; }
+
+.day-row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.day-row-project {
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-faint);
 }
 
-.day-count {
-  background: var(--good-soft);
-  color: var(--good);
-  padding: 2px 6px;
-  border-radius: 999px;
+.day-row-task {
+  font-size: var(--fs-row);
+  color: var(--ink-typed);
+  margin-top: 1px;
+  overflow-wrap: anywhere;
+}
+
+.day-row-sub {
+  font-size: var(--fs-body);
+  color: var(--ink-soft);
+  margin-top: 1px;
+  overflow-wrap: anywhere;
+}
+
+.day-row.done .day-row-task,
+.day-row.done .day-row-sub {
+  text-decoration: line-through;
+  color: var(--ink-faint);
+}
+
+/* Overdue line plus its move button, pinned to the row's lower right */
+.day-row-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-1);
+}
+
+.day-row-overdue {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-body);
+  color: var(--warn);
+}
+
+.day-row-move {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-chip);
+  color: var(--ink-soft);
   font-family: var(--mono);
-  font-size: 0.65rem;
+  font-size: var(--fs-mini);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  transition: 0.15s;
+}
+.day-row-move:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--hover-accent);
+}
+
+/* A day this work was moved off - kept visible so the week still shows the slip */
+.day-row.missed { opacity: 0.6; }
+.day-row.missed .day-row-task { text-decoration: line-through; }
+.missed-mark {
+  flex-shrink: 0;
+  width: var(--check-size);
+  height: var(--check-size);
+  margin-top: 2px;
+  border: 2px dashed var(--line-strong);
+  border-radius: var(--r-chip);
+}
+.day-row-missed {
+  font-size: var(--fs-body);
+  color: var(--ink-faint);
 }
 
 /* ---- Task Items ---- */
@@ -826,52 +1001,6 @@ input[type="text"].task-name-input.done {
   background: var(--paper);
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13l4 4L19 7'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13l4 4L19 7'/%3E%3C/svg%3E") center / contain no-repeat;
-}
-
-.task-name {
-  font-size: 0.85rem;
-  color: var(--ink-typed);
-  flex: 1;
-}
-.task-name.done {
-  text-decoration: line-through;
-  color: var(--ink-faint);
-}
-
-.task-meta-right {
-  display: flex;
-  gap: 6px;
-}
-
-/* Tasks inside Day Boxes */
-.day-task-item {
-  background: var(--paper-hover);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  padding: 10px;
-  margin-bottom: 8px;
-}
-
-.day-task-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.proj-badge {
-  font-size: 0.65rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-  flex: 1;
-}
-
-.overdue-badge {
-  font-size: 0.6rem;
-  color: var(--warn);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 /* ---- Auth / Dialog / Toast ---- */
@@ -1014,6 +1143,55 @@ input[type="text"].task-name-input.done {
 }
 
 /* ---- Task schedule dialog ---- */
+/* Enough days and subtasks and this outgrows the viewport, so the card scrolls */
+.modal-card.scroll {
+  max-height: calc(100vh - var(--sp-6));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.modal-card.scroll::-webkit-scrollbar { width: 8px; }
+.modal-card.scroll::-webkit-scrollbar-track { background: transparent; }
+.modal-card.scroll::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 999px;
+}
+
+.field-label {
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: var(--sp-2);
+}
+
+.sched-deadline-row {
+  display: flex;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+.sched-date, .sched-time {
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--fs-row);
+  padding: var(--sp-2) var(--sp-3);
+  min-width: 0;
+}
+.sched-date { flex: 2; }
+.sched-time { flex: 1; }
+.sched-date:focus, .sched-time:focus { border-color: var(--accent); }
+/* The native glyph is monochrome-inverted in dark mode, otherwise near-invisible */
+:root[data-theme="dark"] .sched-date::-webkit-calendar-picker-indicator,
+:root[data-theme="dark"] .sched-time::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.7;
+}
+
 .day-toggle-row {
   display: flex;
   gap: var(--sp-2);
@@ -1021,6 +1199,7 @@ input[type="text"].task-name-input.done {
 }
 .day-toggle {
   flex: 1;
+  min-width: 0;
   height: 42px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r);
@@ -1031,7 +1210,8 @@ input[type="text"].task-name-input.done {
   font-weight: 700;
   transition: 0.14s;
 }
-.day-toggle:hover {
+.day-toggle.wide-label { font-size: var(--fs-body); }
+.day-toggle:hover:not(:disabled) {
   border-color: var(--accent);
   color: var(--ink);
 }
@@ -1040,49 +1220,139 @@ input[type="text"].task-name-input.done {
   border-color: var(--accent);
   color: var(--paper);
 }
-
-.day-box-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-4);
+/* Days already gone by: work only moves forward */
+.day-toggle:disabled {
+  opacity: 0.4;
+  border-color: var(--line);
+  color: var(--ink-faint);
+  cursor: not-allowed;
 }
-.day-box-item {
-  padding: var(--sp-2) var(--sp-3);
-  border: 1px solid var(--line);
+
+/* One box per picked day, holding that day's subtasks */
+.sched-day {
+  border: 1px solid var(--line-strong);
   border-radius: var(--r);
   background: var(--bg);
-  color: var(--ink);
-  font-size: var(--fs-row);
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-3);
 }
 
-.schedule-note-label {
-  display: block;
-  font-size: var(--fs-label);
-  color: var(--ink-faint);
-  margin-bottom: var(--sp-4);
+.sched-day-name {
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: var(--sp-2);
 }
+
+.sched-sub-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  padding-left: var(--sp-3);
+}
+
+input[type="text"].sched-sub-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-chip);
+  color: var(--ink-typed);
+  font-size: var(--fs-body);
+  padding: var(--sp-2) var(--sp-3);
+}
+input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
+.sched-sub-input::placeholder { color: var(--ink-faint); }
+
+/* Difficulty: filled up to the chosen level, so 2 of 3 reads at a glance */
+.dots {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  transition: 0.14s;
+}
+.dot:hover { border-color: var(--accent); transform: scale(1.2); }
+.dot.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.sched-sub-del {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  padding: 2px;
+  color: var(--ink-faint);
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+.sched-sub-row:hover .sched-sub-del { opacity: 1; }
+.sched-sub-del:hover { color: var(--warn); background: transparent; }
+
+.sched-add {
+  background: transparent;
+  border: none;
+  padding: 0 0 0 var(--sp-3);
+  color: var(--accent);
+  font-size: var(--fs-body);
+  font-weight: 500;
+}
+.sched-add:hover { text-decoration: underline; }
+
+.sched-hint {
+  font-size: var(--fs-body);
+  color: var(--ink-faint);
+  margin: 0 0 var(--sp-4);
+}
+
 .schedule-note {
   display: block;
   width: 100%;
-  margin-top: var(--sp-2);
   padding: var(--sp-2) var(--sp-3);
   border: 1px solid var(--line-strong);
   border-radius: var(--r);
   background: var(--bg);
-  color: var(--ink);
+  color: var(--ink-typed);
   font: inherit;
   font-size: var(--fs-row);
   resize: vertical;
 }
 .schedule-note:focus { border-color: var(--accent); }
+.schedule-note::placeholder { color: var(--ink-faint); }
 
-/* Green pill on a scheduled task's row: how many days it spans */
+/* ---- Move dialog ---- */
+.missed-check {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-row);
+  color: var(--ink);
+  cursor: pointer;
+}
+.missed-check .task-check:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Green pill on a scheduled task's row: subtasks done over total */
 .subtask-badge {
   flex-shrink: 0;
-  min-width: 18px;
   height: 18px;
-  padding: 0 6px;
+  padding: 0 7px;
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
@@ -1091,6 +1361,11 @@ input[type="text"].task-name-input.done {
   font-family: var(--mono);
   font-size: var(--fs-mini);
   font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.subtask-badge.full {
+  background: var(--good);
+  color: var(--paper);
 }
 
 .transfer-list-head {
@@ -1161,7 +1436,7 @@ input[type="text"].task-name-input.done {
 }
 .transfer-summary.ok { color: var(--good); }
 .transfer-summary.bad { color: var(--warn); }
-.transfer-summary.muted { color: var(--ink-faint); font-weight: 400; }
+.transfer-summary.muted { color: var(--ink-faint); font-weight: var(--w-row); }
 
 .transfer-empty {
   color: var(--ink-faint);
@@ -1280,14 +1555,13 @@ input[type="text"].task-name-input.done {
 .toast.error { border-color: var(--warn); color: var(--warn); }
 
 /* Responsive */
-@media (max-width: 1024px) {
-  .days-grid { grid-template-columns: repeat(3, 1fr); }
-}
 @media (max-width: 800px) {
   .planning-board { flex-direction: column; }
   .sidebar { width: 100%; }
-  .days-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 500px) {
-  .days-grid { grid-template-columns: 1fr; }
+  /* The seven tabs stay in one row; only their padding gives way */
+  .day-tab { padding: var(--sp-2) 2px; }
+  .day-tab-track { width: 80%; }
+  .sched-sub-row { flex-wrap: wrap; }
 }

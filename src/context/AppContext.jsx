@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../supabase'
-import { startOfWeek, toISODate } from '../utils'
+import { startOfWeek, toISODate, clampDifficulty, earliestDay } from '../utils'
 
 const AppContext = createContext(null)
 
@@ -196,21 +196,38 @@ export function AppProvider({ children }) {
     if (err) { showToast(err.message, 'error'); await loadData() }
   }
 
-  // Spreads a task across weekdays. Each picked date becomes a lightweight
-  // subtask; the task's own day_date follows the earliest so the week grid still
-  // places it. Subtask scheduling and the note are guest-only for now - Supabase
-  // has no column for either, so signed-in users keep them only for the session.
-  const setTaskSchedule = async (taskId, dayDates, note) => {
-    const days = [...new Set(dayDates)].filter(Boolean).sort()
+  // Writes back everything the schedule dialog owns: the task's deadline, its
+  // note, and the subtasks spread across weekdays. The task's own day_date
+  // follows the earliest subtask so the week grid still places it.
+  //
+  // Subtask days, difficulty, the note and the task deadline are guest-only for
+  // now - Supabase has no column for any of them, so a signed-in user keeps them
+  // for the session and only day_date survives a reload.
+  const setTaskSchedule = async (taskId, { subtasks = [], note = '', deadline = null, deadlineTime = null } = {}) => {
+    const clean = subtasks
+      .filter(s => s && s.day_date)
+      .map(s => ({
+        id: s.id || generateId(),
+        title: s.title || '',
+        day_date: s.day_date,
+        completed: !!s.completed,
+        difficulty: clampDifficulty(s.difficulty),
+        missedDays: s.missedDays || [],
+      }))
+
     const updated = allProjects.map(p => ({
       ...p,
       tasks: (p.tasks || []).map(t => {
         if (String(t.id) !== String(taskId)) return t
         return {
           ...t,
-          note: note ?? t.note ?? '',
-          day_date: days[0] ?? null,
-          subtasks: days.map(d => ({ id: generateId(), day_date: d })),
+          note,
+          deadline: deadline || null,
+          deadline_time: deadlineTime || null,
+          subtasks: clean,
+          day_date: earliestDay(clean) ?? (clean.length ? null : t.day_date),
+          // An emptied schedule should not leave the task looking finished
+          completed: clean.length ? clean.every(s => s.completed) : t.completed,
         }
       }),
     }))
@@ -219,7 +236,64 @@ export function AppProvider({ children }) {
       saveLocal(updated)
       return
     }
-    const { error: err } = await supabase.from('tasks').update({ day_date: days[0] ?? null }).eq('id', taskId)
+    const { error: err } = await supabase.from('tasks').update({ day_date: earliestDay(clean) }).eq('id', taskId)
+    if (err) { showToast(err.message, 'error') }
+  }
+
+  // Ticking a subtask rolls up: the parent task is done exactly when all of its
+  // subtasks are, so the sidebar badge and the row's checkbox never disagree.
+  const toggleSubtask = async (taskId, subtaskId, completed) => {
+    let parentDone = null
+    const updated = allProjects.map(p => ({
+      ...p,
+      tasks: (p.tasks || []).map(t => {
+        if (String(t.id) !== String(taskId)) return t
+        const subs = (t.subtasks || []).map(s =>
+          String(s.id) === String(subtaskId) ? { ...s, completed } : s
+        )
+        parentDone = subs.length > 0 && subs.every(s => s.completed)
+        return { ...t, subtasks: subs, completed: parentDone }
+      }),
+    }))
+    setAllProjects(updated)
+    if (!user) {
+      saveLocal(updated)
+      return
+    }
+    const { error: err } = await supabase.from('tasks').update({ completed: !!parentDone }).eq('id', taskId)
+    if (err) { showToast(err.message, 'error') }
+  }
+
+  // Reschedules one scheduled item onto a later day. `subtaskId` is null when the
+  // task carries its own day. The day left behind is kept in missedDays when the
+  // dialog's "mark as missed" box is ticked, so the week still shows what slipped.
+  const moveScheduled = async (taskId, subtaskId, toDate, markMissed) => {
+    const stamp = (item) => ({
+      ...item,
+      day_date: toDate,
+      missedDays: markMissed && item.day_date && item.day_date !== toDate
+        ? [...new Set([...(item.missedDays || []), item.day_date])]
+        : (item.missedDays || []),
+    })
+
+    const updated = allProjects.map(p => ({
+      ...p,
+      tasks: (p.tasks || []).map(t => {
+        if (String(t.id) !== String(taskId)) return t
+        if (!subtaskId) return stamp(t)
+        const subs = (t.subtasks || []).map(s =>
+          String(s.id) === String(subtaskId) ? stamp(s) : s
+        )
+        return { ...t, subtasks: subs, day_date: earliestDay(subs) }
+      }),
+    }))
+    setAllProjects(updated)
+    if (!user) {
+      saveLocal(updated)
+      return
+    }
+    const moved = updated.flatMap(p => p.tasks || []).find(t => String(t.id) === String(taskId))
+    const { error: err } = await supabase.from('tasks').update({ day_date: moved?.day_date ?? toDate }).eq('id', taskId)
     if (err) { showToast(err.message, 'error') }
   }
 
@@ -238,10 +312,13 @@ export function AppProvider({ children }) {
   }
 
   const toggleTask = async (taskId, completed) => {
-    // Optimistic UI
+    // Optimistic UI. Ticking the parent carries its subtasks with it - otherwise
+    // the row would read "done" while its badge still said 0/4.
     const updated = allProjects.map(p => ({
       ...p,
-      tasks: (p.tasks || []).map(t => String(t.id) === String(taskId) ? { ...t, completed } : t)
+      tasks: (p.tasks || []).map(t => String(t.id) === String(taskId)
+        ? { ...t, completed, subtasks: (t.subtasks || []).map(s => ({ ...s, completed })) }
+        : t)
     }))
 
     if (!user) {
@@ -282,8 +359,16 @@ export function AppProvider({ children }) {
             id: generateId(),
             project_id: projectId,
             title: t.title || '',
+            note: t.note || '',
             day_date: t.day_date || null,
             completed: !!t.completed,
+            subtasks: (t.subtasks || []).map(s => ({
+              id: generateId(),
+              title: s.title || '',
+              day_date: s.day_date || null,
+              completed: !!s.completed,
+              difficulty: clampDifficulty(s.difficulty),
+            })),
           })),
         }
       })
@@ -342,7 +427,8 @@ export function AppProvider({ children }) {
       user, authInitialized, projects, loading, error, weekStart, setWeekStart,
       toasts, showToast,
       addProject, updateProjectName, deleteProject, reorderProjects, importPlan,
-      addTask, updateTaskTitle, setTaskDay, setTaskSchedule, deleteTask, toggleTask, setProjectDeadline, loadData
+      addTask, updateTaskTitle, setTaskDay, setTaskSchedule, toggleSubtask, moveScheduled,
+      deleteTask, toggleTask, setProjectDeadline, loadData
     }}>
       {children}
     </AppContext.Provider>
