@@ -1,67 +1,73 @@
 /* ============================================================
-   Task Planner — built on #2C5EAD / #1591DC / #4BB8FA / #C4E2F5
+   Task Planner — built on #213448 / #547792 / #94B4C1 / #EAE0CF
    Light is the base; [data-theme="dark"] overrides. A script in
    index.html stamps the attribute before paint to avoid a flash.
    ============================================================ */
 
 :root {
-  /* ---- Light ---- */
-  --bg: #eef6fc;
-  --paper: #ffffff;
-  --paper-hover: #e3f0fa;
+  /* ---- Light: cream ground, navy ink ---- */
+  --bg: #eae0cf;
+  --paper: #faf6ef;
+  --paper-hover: #f0e8da;
 
-  --ink: #0f2a44;
-  --ink-soft: #3b6188;
-  --ink-faint: #7ba0c0;
+  /* User-entered text is black; everything secondary is a dimmer neutral black
+     - no navy tint, so it reads as "quieter", not "coloured" (mirrors dark) */
+  --ink: #000000;
+  --ink-soft: #333333;
+  --ink-faint: #575757;
+  --ink-typed: #000000;
 
-  --line: #d8e9f7;
-  --line-strong: #b3d5ee;
+  --line: #ddd3c1;
+  --line-strong: #bfb3a0;
 
-  --hover-neutral: #e3f0fa;
-  --hover-accent: rgba(21, 145, 220, 0.1);
+  --hover-neutral: #f0e8da;
+  --hover-accent: rgba(84, 119, 146, 0.12);
 
-  --brand-deep: #2c5ead;
-  --accent: #1591dc;
-  --accent-soft: #d6ecfa;
+  --brand-deep: #213448;
+  --accent: #3f5f78;
+  --accent-soft: #d5e0e7;
 
   --good: #1f8a4c;
   --good-soft: rgba(31, 138, 76, 0.14);
   --warn: #c0392b;
   --warn-soft: rgba(192, 57, 43, 0.12);
 
-  --scrim: rgba(15, 42, 68, 0.45);
-  --shadow-float: 0 6px 20px rgba(20, 55, 90, 0.18);
-  --shadow-card: 0 1px 2px rgba(20, 55, 90, 0.06);
+  --scrim: rgba(33, 52, 72, 0.45);
+  --shadow-float: 0 6px 20px rgba(33, 52, 72, 0.18);
+  --shadow-card: 0 1px 2px rgba(33, 52, 72, 0.06);
 
   color-scheme: light;
 }
 
 :root[data-theme="dark"] {
-  /* ---- Dark ---- */
-  --bg: #0a1626;
-  --paper: #10203a;
-  --paper-hover: #172c4b;
+  /* ---- Dark: navy ground, white text ---- */
+  --bg: #16232f;
+  --paper: #213448;
+  --paper-hover: #2b4159;
 
-  --ink: #c4e2f5;
-  --ink-soft: #8fb5d6;
-  --ink-faint: #5a7fa6;
+  /* User-entered text is pure white; everything secondary is a dimmer neutral
+     white - no cream or blue tint, so it reads as "quieter", not "coloured" */
+  --ink: #ffffff;
+  --ink-soft: #c3c7cd;
+  --ink-faint: #969aa2;
+  --ink-typed: #ffffff;
 
-  --line: #16273f;
-  --line-strong: #24405f;
+  --line: #2a3f54;
+  --line-strong: #547792;
 
-  --hover-neutral: #172c4b;
-  --hover-accent: rgba(75, 184, 250, 0.12);
+  --hover-neutral: #2b4159;
+  --hover-accent: rgba(148, 180, 193, 0.14);
 
-  --brand-deep: #4bb8fa;
-  --accent: #4bb8fa;
-  --accent-soft: rgba(75, 184, 250, 0.16);
+  --brand-deep: #94b4c1;
+  --accent: #94b4c1;
+  --accent-soft: rgba(148, 180, 193, 0.18);
 
   --good: #4ade80;
   --good-soft: rgba(74, 222, 128, 0.15);
   --warn: #f87171;
   --warn-soft: rgba(248, 113, 113, 0.15);
 
-  --scrim: rgba(5, 12, 22, 0.72);
+  --scrim: rgba(10, 18, 26, 0.72);
   --shadow-float: 0 6px 20px rgba(0, 0, 0, 0.5);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
 
@@ -130,7 +136,7 @@ input[type="text"], input[type="email"], input[type="password"], select, textare
   padding: 6px 10px;
   border-radius: var(--r);
   color: var(--ink);
-  caret-color: var(--ink);
+  caret-color: var(--ink-typed);
   transition: border-color 0.15s;
 }
 input[type="text"]:focus, select:focus {
@@ -179,7 +185,7 @@ button {
 .nav-tab {
   background: transparent;
   border: none;
-  color: var(--ink-faint);
+  color: var(--ink-soft);
   padding: 5px 10px;
   font-size: var(--fs-chrome);
   font-weight: 600;
@@ -497,10 +503,26 @@ button {
   color: var(--ink);
 }
 
+.proj-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.proj-deadline {
+  font-family: var(--mono);
+  font-size: var(--fs-body);
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
 input[type="text"].proj-title-input {
   background: transparent;
   border: none;
-  color: var(--ink);
+  color: var(--ink-typed);
   font-size: var(--fs-title);
   line-height: normal;
   font-weight: var(--w-title);
@@ -523,7 +545,7 @@ input[type="text"].task-name-input {
   background: transparent;
   border: none;
   outline: none;
-  color: var(--ink-soft);
+  color: var(--ink-typed);
   font-size: var(--fs-row);
   line-height: normal;
   font-weight: var(--w-row);
@@ -535,7 +557,8 @@ input[type="text"].task-name-input {
 .task-name-input::placeholder {
   color: var(--ink-faint);
 }
-.task-name-input.done {
+/* Matches the base rule's specificity, which the bare class could not outrank */
+input[type="text"].task-name-input.done {
   text-decoration: line-through;
   color: var(--ink-faint);
 }
@@ -566,14 +589,23 @@ input[type="text"].task-name-input {
 .assign-date,
 .task-del {
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, color 0.15s ease,
+    transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+/* Dated tasks no longer advertise the prompt - it returns on hover */
 .task-item:hover .assign-date,
 .task-item:hover .task-del,
-.task-item.has-day .assign-date,
 .task-actions:focus-within .assign-date,
 .task-actions:focus-within .task-del {
   opacity: 1;
+}
+
+/* Magnifier: the assign-date chip and its calendar grow under the cursor */
+.assign-date {
+  transform-origin: right center;
+}
+.assign-date:hover {
+  transform: scale(1.14);
 }
 
 /* Undated tasks keep the "assign date" wording on the row; its button only on hover */
@@ -798,7 +830,7 @@ input[type="text"].task-name-input {
 
 .task-name {
   font-size: 0.85rem;
-  color: var(--ink-soft);
+  color: var(--ink-typed);
   flex: 1;
 }
 .task-name.done {

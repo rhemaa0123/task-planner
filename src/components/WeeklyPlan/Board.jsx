@@ -33,7 +33,7 @@ export function Board() {
             {weekText && (
               <span
                 className="week-title"
-                style={{ color: weekText === 'This week' ? 'var(--accent)' : 'var(--ink-faint)' }}
+                style={{ color: weekText === 'This week' ? 'var(--good)' : 'var(--ink-faint)' }}
               >
                 {weekText}
               </span>

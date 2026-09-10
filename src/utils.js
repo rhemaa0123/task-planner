@@ -42,5 +42,20 @@ export function weekLabel(startDate) {
   return `In ${weeks} weeks`
 }
 
+const ordinal = (n) => {
+  // 11th/12th/13th break the last-digit rule
+  if (n % 100 >= 11 && n % 100 <= 13) return 'th'
+  return ['th', 'st', 'nd', 'rd'][n % 10] || 'th'
+}
+
+// "2026-08-10" -> "Aug 10th '26"
+export function formatDeadline(iso) {
+  if (!iso) return ''
+  const [y, m, d] = String(iso).split('-').map(Number)
+  if (!y || !m || !d) return ''
+  const month = new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short' })
+  return `${month} ${d}${ordinal(d)} '${String(y).slice(-2)}`
+}
+
 export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
