@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
 import { formatDeadline } from '../../utils'
+import { CopyPlanDialog, PastePlanDialog } from './PlanTransfer'
 
 function EditableText({ value, onSave, placeholder, className, autoFocus }) {
   const [text, setText] = useState(value || '')
@@ -165,11 +166,13 @@ export function ProjectsSidebar() {
   const {
     projects, addProject, updateProjectName, deleteProject, reorderProjects,
     addTask, updateTaskTitle, setTaskDay, deleteTask, toggleTask, setProjectDeadline,
+    weekStart, importPlan, showToast,
   } = useApp()
   const [draggedIdx, setDraggedIdx] = useState(null)
   const [dragOverIdx, setDragOverIdx] = useState(null)
   const [focusTaskId, setFocusTaskId] = useState(null)
   const [deadlineFor, setDeadlineFor] = useState(null)
+  const [transfer, setTransfer] = useState(null)
   const cardRefs = useRef([])
   const sidebarRef = useRef(null)
 
@@ -280,7 +283,9 @@ export function ProjectsSidebar() {
       <div className="sidebar-header">
         <span className="eyebrow">PROJECTS</span>
         <div className="header-links">
-          <a href="#">Copy plan</a><span className="sep">•</span><a href="#">Paste plan</a>
+          <button type="button" className="link-btn" onClick={() => setTransfer('copy')}>Copy plan</button>
+          <span className="sep">•</span>
+          <button type="button" className="link-btn" onClick={() => setTransfer('paste')}>Paste plan</button>
         </div>
       </div>
 
@@ -388,6 +393,33 @@ export function ProjectsSidebar() {
           onSave={(iso) => {
             setProjectDeadline(deadlineProject.id, iso)
             setDeadlineFor(null)
+          }}
+        />
+      )}
+
+      {transfer === 'copy' && (
+        <CopyPlanDialog
+          weekStart={weekStart}
+          projects={projects}
+          onClose={(result) => {
+            setTransfer(null)
+            if (result?.copied) {
+              showToast(`Copied ${result.projects} project${result.projects === 1 ? '' : 's'} · ${result.tasks} task${result.tasks === 1 ? '' : 's'}`)
+            }
+          }}
+        />
+      )}
+
+      {transfer === 'paste' && (
+        <PastePlanDialog
+          weekStart={weekStart}
+          onClose={() => setTransfer(null)}
+          onPaste={async (incoming) => {
+            const result = await importPlan(incoming)
+            setTransfer(null)
+            if (result) {
+              showToast(`Pasted ${result.projects} project${result.projects === 1 ? '' : 's'} · ${result.tasks} task${result.tasks === 1 ? '' : 's'}`)
+            }
           }}
         />
       )}

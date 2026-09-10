@@ -238,6 +238,62 @@ export function AppProvider({ children }) {
     if (err) { showToast(err.message, 'error'); await loadData() }
   }
 
+  // One write for the whole plan - looping addProject/addTask would reload the
+  // entire dataset once per row
+  const importPlan = async (incoming) => {
+    if (!incoming.length) return { projects: 0, tasks: 0 }
+
+    if (!user) {
+      const built = incoming.map(p => {
+        const projectId = generateId()
+        return {
+          id: projectId,
+          name: p.name || '',
+          deadline: p.deadline || null,
+          week_start: weekStartIso,
+          tasks: (p.tasks || []).map(t => ({
+            id: generateId(),
+            project_id: projectId,
+            title: t.title || '',
+            day_date: t.day_date || null,
+            completed: !!t.completed,
+          })),
+        }
+      })
+      saveLocal([...allProjects, ...built])
+      return { projects: built.length, tasks: built.reduce((n, p) => n + p.tasks.length, 0) }
+    }
+
+    const { data: rows, error: pErr } = await supabase
+      .from('projects')
+      .insert(incoming.map(p => ({
+        name: p.name || '',
+        deadline: p.deadline || null,
+        week_start: weekStartIso,
+      })))
+      .select()
+    if (pErr) { showToast(pErr.message, 'error'); return null }
+
+    const taskRows = []
+    rows.forEach((row, i) => {
+      (incoming[i]?.tasks || []).forEach(t => {
+        taskRows.push({
+          project_id: row.id,
+          title: t.title || '',
+          day_date: t.day_date || null,
+          completed: !!t.completed,
+        })
+      })
+    })
+    if (taskRows.length) {
+      const { error: tErr } = await supabase.from('tasks').insert(taskRows)
+      if (tErr) { showToast(tErr.message, 'error') }
+    }
+
+    await loadData()
+    return { projects: rows.length, tasks: taskRows.length }
+  }
+
   const reorderProjects = (fromIndex, toIndex) => {
     // Indices come from the visible week, so reorder that slice and lay it back
     // into the week's slots, leaving other weeks untouched
@@ -258,7 +314,7 @@ export function AppProvider({ children }) {
     <AppContext.Provider value={{
       user, authInitialized, projects, loading, error, weekStart, setWeekStart,
       toasts, showToast,
-      addProject, updateProjectName, deleteProject, reorderProjects,
+      addProject, updateProjectName, deleteProject, reorderProjects, importPlan,
       addTask, updateTaskTitle, setTaskDay, deleteTask, toggleTask, setProjectDeadline, loadData
     }}>
       {children}
