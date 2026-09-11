@@ -36,6 +36,8 @@
   --good-dim: rgba(31, 138, 76, 0.32);
   --warn: #c0392b;
   --warn-soft: rgba(192, 57, 43, 0.12);
+  --overdue-fill: rgba(192, 57, 43, 0.1);
+  --overdue-line: rgba(192, 57, 43, 0.18);
 
   /* The one call to action on the board - "assign days" - burnt orange so it
      is seen without reading as an error */
@@ -49,10 +51,10 @@
 }
 
 :root[data-theme="dark"] {
-  /* ---- Dark: slate ground, white text ---- */
-  --bg: #262b3f;
-  --paper: #30364f;
-  --paper-hover: #3a4158;
+  /* ---- Dark: slate ground, white text - a step under the palette's slate ---- */
+  --bg: #1f2334;
+  --paper: #2a2f45;
+  --paper-hover: #343a52;
 
   /* User-entered text is pure white; everything secondary is a dimmer neutral
      white - no cream or blue tint, so it reads as "quieter", not "coloured" */
@@ -61,10 +63,10 @@
   --ink-faint: #969aa2;
   --ink-typed: #ffffff;
 
-  --line: #3f465d;
+  --line: #393f55;
   --line-strong: rgba(172, 186, 196, 0.45);
 
-  --hover-neutral: #3a4158;
+  --hover-neutral: #343a52;
   --hover-accent: rgba(172, 186, 196, 0.14);
 
   --brand-deep: #acbac4;
@@ -76,11 +78,15 @@
   --good-soft: rgba(74, 222, 128, 0.15);
   --good-dim: rgba(74, 222, 128, 0.3);
   --warn: #f87171;
-  --warn-soft: rgba(248, 113, 113, 0.15);
+  --warn-soft: rgba(248, 113, 113, 0.2);
+  /* Overdue cards sit in a darker wine, not a lighter pink, so they read as
+     a shadow on the day rather than a highlight */
+  --overdue-fill: rgba(110, 38, 44, 0.55);
+  --overdue-line: rgba(248, 113, 113, 0.14);
 
   --attention: #e8825e;
 
-  --scrim: rgba(20, 23, 36, 0.72);
+  --scrim: rgba(14, 16, 26, 0.75);
   --shadow-float: 0 6px 20px rgba(0, 0, 0, 0.5);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
 
@@ -475,11 +481,14 @@ button {
   gap: var(--sp-3);
 }
 
+/* Pulled in against the column's gap so the heading sits close over its
+   first card, as the grid heading does over its blocks */
 .sidebar-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 0 4px;
+  margin-bottom: -4px;
 }
 .sidebar-header .eyebrow,
 .grid-header .eyebrow {
@@ -502,10 +511,10 @@ button {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--r-card);
-  padding: var(--sp-3) var(--sp-4);
+  padding: var(--sp-4) var(--sp-4) 10px;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
   transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.15s ease, border-color 0.15s ease;
 }
 
@@ -548,7 +557,7 @@ button {
 .proj-title-wrap {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 3px;
   flex: 1;
   min-width: 0;
 }
@@ -775,6 +784,7 @@ input[type="text"].task-name-input.done {
   justify-content: space-between;
   align-items: center;
   padding: 0 4px;
+  margin-bottom: -8px;
 }
 
 /* ---- Day tabs: the week as seven headings, one focused at a time ---- */
@@ -942,7 +952,7 @@ input[type="text"].task-name-input.done {
   flex-direction: column;
   gap: var(--sp-2);
   min-height: 180px;
-  padding: var(--sp-3);
+  padding: 10px;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--r-card);
@@ -957,7 +967,7 @@ input[type="text"].task-name-input.done {
   justify-content: space-between;
   align-items: center;
   gap: var(--sp-2);
-  min-height: 22px;
+  min-height: 18px;
 }
 
 .day-block-name {
@@ -1011,8 +1021,8 @@ input[type="text"].task-name-input.done {
   cursor: default;
 }
 .day-card.overdue {
-  background: var(--warn-soft);
-  border-color: transparent;
+  background: var(--overdue-fill);
+  border-color: var(--overdue-line);
 }
 
 .day-card-line {
@@ -1087,11 +1097,11 @@ input[type="text"].task-name-input.done {
   place-items: center;
   padding: 0;
   background: transparent;
-  border: 1px solid transparent;
+  border: none;
   border-radius: 999px;
   color: var(--ink-faint);
   opacity: 0;
-  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
 }
 .day-card.missed:hover .day-card-clear,
 .day-card-clear:focus-visible {
@@ -1099,8 +1109,7 @@ input[type="text"].task-name-input.done {
 }
 .day-card-clear:hover {
   color: var(--warn);
-  border-color: var(--warn);
-  background: transparent;
+  background: var(--warn-soft);
 }
 
 .day-card-foot {
@@ -1108,7 +1117,7 @@ input[type="text"].task-name-input.done {
   justify-content: space-between;
   align-items: center;
   gap: var(--sp-2);
-  margin-top: var(--sp-1);
+  margin-top: 2px;
 }
 .day-card-overdue,
 .day-card-missed {
