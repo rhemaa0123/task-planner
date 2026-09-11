@@ -71,8 +71,8 @@ export function weekCountdown(weekStart, now = new Date()) {
   return `${7 - i} days left - ${COUNTDOWN_WORDS[i]}`
 }
 
-// "2026-09-09" -> "Wed, Sep 09" - weekday first, so a deadline reads as a day
-// you can picture rather than a number to look up
+// "2026-09-09" -> "Wed Sep 09" - weekday first, so a deadline reads as a day
+// you can picture rather than a number to look up. Set in caps by its style.
 export function formatDeadline(iso) {
   if (!iso) return ''
   const [y, m, d] = String(iso).split('-').map(Number)
@@ -80,7 +80,7 @@ export function formatDeadline(iso) {
   const date = new Date(y, m - 1, d)
   const wd = date.toLocaleDateString('en-US', { weekday: 'short' })
   const mo = date.toLocaleDateString('en-US', { month: 'short' })
-  return `${wd}, ${mo} ${String(d).padStart(2, '0')}`
+  return `${wd} ${mo} ${String(d).padStart(2, '0')}`
 }
 
 // "2026-09-07" -> "Sep 07 – Sep 13", the shape the weeks list uses

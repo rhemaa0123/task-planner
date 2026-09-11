@@ -4,7 +4,8 @@ import { useToday } from '../../hooks/useToday'
 import { ProjectsSidebar } from './ProjectsSidebar'
 import { WeekGrid } from './WeekGrid'
 import {
-  addDays, weekLabel, formatWeekRange, startOfWeek, rollUp, toISODate, formatShortDate, weekCountdown,
+  addDays, weekLabel, formatWeekRange, formatWeekTitle, startOfWeek, rollUp, toISODate, fromISODate,
+  formatShortDate, weekCountdown,
 } from '../../utils'
 
 function EndWeekDialog({ unfinished, onEnd, onCarry, onClose }) {
@@ -72,7 +73,9 @@ function ReopenDialog({ range, onReopen, onClose }) {
 }
 
 export function Board() {
-  const { projects, weekStart, setWeekStart, weekMeta, weekEnded, endWeek, reopenWeek, carryForward, showToast } = useApp()
+  const {
+    projects, allProjects, weekStart, setWeekStart, weekMeta, weekEnded, endWeek, reopenWeek, carryForward, showToast,
+  } = useApp()
   const weekText = weekLabel(weekStart)
   const weekIso = toISODate(weekStart)
   const meta = weekMeta[weekIso]
@@ -80,6 +83,17 @@ export function Board() {
   const now = useToday()
   // A week that has not started cannot be ended
   const inFuture = weekStart > startOfWeek(now)
+
+  // Looking ahead, the line under the bar points back instead of counting
+  // down: every week up to the current one that holds a plan and was never
+  // ended, newest first
+  const thisWeekIso = toISODate(startOfWeek(now))
+  const openEarlier = inFuture
+    ? [...new Set(allProjects.map(p => p.week_start))]
+        .filter(iso => iso && iso <= thisWeekIso && !weekMeta[iso]?.ended)
+        .sort()
+        .reverse()
+    : []
 
   // Which of the two panes a phone shows. Ignored on wide screens, where the CSS
   // puts them side by side and both stay mounted.
@@ -98,7 +112,7 @@ export function Board() {
         <div className="toolbar">
           <div className="toolbar-left" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button className="icon-btn" onClick={() => setWeekStart(addDays(weekStart, -7))}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
             </button>
 
             <div className="week-date-box">
@@ -114,7 +128,7 @@ export function Board() {
             </div>
 
             <button className="icon-btn" onClick={() => setWeekStart(addDays(weekStart, 7))}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </button>
 
             <span className="today-link" onClick={() => setWeekStart(startOfWeek())}>Today</span>
@@ -143,9 +157,28 @@ export function Board() {
             <span className="progress-pct">{done}/{total} • {pct}%</span>
           </div>
           <div className="progress-stats">
-            {ended
-              ? <span className="ended-label">Ended {formatShortDate(meta.endedAt)}</span>
-              : <span className="days-left">{weekCountdown(weekStart, now)}</span>}
+            {ended ? (
+              <span className="ended-label">Ended {formatShortDate(meta.endedAt)}</span>
+            ) : openEarlier.length > 0 ? (
+              <span className="days-left">
+                {openEarlier.slice(0, 3).map((iso, i) => (
+                  <React.Fragment key={iso}>
+                    {i > 0 && ', '}
+                    <a
+                      href="#"
+                      className="open-week"
+                      onClick={(e) => { e.preventDefault(); setWeekStart(fromISODate(iso)) }}
+                    >
+                      {formatWeekTitle(iso)}
+                    </a>
+                  </React.Fragment>
+                ))}
+                {openEarlier.length > 3 && ` and ${openEarlier.length - 3} more`}
+                {openEarlier.length === 1 ? " is an earlier week that's still open" : " are earlier weeks that're still open"}
+              </span>
+            ) : (
+              <span className="days-left">{weekCountdown(weekStart, now)}</span>
+            )}
           </div>
         </div>
       </div>

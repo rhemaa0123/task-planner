@@ -91,9 +91,9 @@
   --sans: 'IBM Plex Sans JP', system-ui, -apple-system, sans-serif;
   --display: var(--sans);
   --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
-  /* The mono face is loaded in its light cut only - every mono rule below
-     takes its weight from here, so labels never synthesise a bold */
-  --w-mono: 300;
+  /* The mono face is loaded at regular and semibold only - every mono rule
+     below takes its weight from here, so labels never synthesise a weight */
+  --w-mono: 400;
 
   --w-title: 600;
   --w-row: 500;
@@ -399,12 +399,18 @@ button {
   display: flex;
   justify-content: space-between;
   margin-top: var(--sp-3);
-  font-size: 0.75rem;
-  color: var(--ink-faint);
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
+  font-size: var(--fs-body);
+  color: var(--ink-soft);
 }
-.ended-label { color: var(--ink-soft); }
+/* Looking ahead, the line names earlier weeks left open - each a link back */
+.open-week {
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.open-week:hover { text-decoration-thickness: 2px; }
 .progress-section.ended .progress-fill { background: var(--ink-faint); }
 
 /* ---- Week head and body ----
@@ -517,7 +523,7 @@ button {
 }
 
 .proj-progress-track {
-  width: 32px;
+  width: 40px;
   height: 4px;
   flex-shrink: 0;
   background: var(--line-strong);
@@ -547,12 +553,14 @@ button {
   min-width: 0;
 }
 
+/* "WED SEP 09" - a small mono label under the name */
 .proj-deadline {
   font-family: var(--mono);
   font-weight: var(--w-mono);
-  font-size: var(--fs-body);
+  font-size: var(--fs-mini);
   color: var(--ink-faint);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -721,7 +729,7 @@ input[type="text"].task-name-input.done {
   font-size: var(--fs-body);
   line-height: 1.5;
   /* 14px grip + 8px gap, so the plus sits under the checkboxes */
-  padding: var(--sp-2) var(--sp-2) var(--sp-2) 22px;
+  padding: 7px var(--sp-2) 7px 22px;
   border-radius: var(--r);
   transition: background-color 0.12s, color 0.12s;
 }
@@ -1169,7 +1177,7 @@ input[type="text"].task-name-input.done {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-2) var(--sp-2) 0;
+  padding: 7px var(--sp-2) 7px 0;
   border-radius: var(--r);
   transition: background-color 0.12s, transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.15s ease;
 }
@@ -1428,13 +1436,13 @@ input[type="text"].task-name-input.done {
   cursor: not-allowed;
 }
 
-/* One box per picked day, holding that day's subtasks */
+/* One section per picked day, holding that day's subtasks; a hairline
+   between days is all that separates them */
 .sched-day {
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r);
-  background: var(--bg);
-  padding: var(--sp-3);
-  margin-bottom: var(--sp-3);
+  padding: var(--sp-3) 0;
+}
+.sched-day + .sched-day {
+  border-top: 1px solid var(--line);
 }
 
 .sched-day-name {
@@ -2178,7 +2186,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   .day-toggle { font-size: var(--fs-body); }
   .day-toggle.wide-label { font-size: var(--fs-mini); }
   .sched-sub-row { flex-wrap: wrap; padding-left: var(--sp-2); }
-  .sched-day { padding: var(--sp-2); }
+  .sched-day { padding: var(--sp-2) 0; }
 }
 
 /* Weeks: title and stat share the first line, bars take the second */
