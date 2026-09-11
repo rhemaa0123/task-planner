@@ -38,6 +38,7 @@
   --warn-soft: rgba(192, 57, 43, 0.12);
   --overdue-fill: rgba(192, 57, 43, 0.1);
   --overdue-line: rgba(192, 57, 43, 0.18);
+  --warn-dim: #b3564a;
 
   /* The one call to action on the board - "assign days" - burnt orange so it
      is seen without reading as an error */
@@ -83,6 +84,7 @@
      a shadow on the day rather than a highlight */
   --overdue-fill: rgba(110, 38, 44, 0.55);
   --overdue-line: rgba(248, 113, 113, 0.14);
+  --warn-dim: #d38585;
 
   --attention: #e8825e;
 
@@ -942,7 +944,7 @@ input[type="text"].task-name-input.done {
 .day-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--sp-3);
+  gap: var(--sp-2);
   align-content: start;
   flex-shrink: 0;
 }
@@ -950,9 +952,9 @@ input[type="text"].task-name-input.done {
 .day-block {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
+  gap: 6px;
   min-height: 180px;
-  padding: 10px;
+  padding: var(--sp-2);
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--r-card);
@@ -1006,8 +1008,16 @@ input[type="text"].task-name-input.done {
 .day-block-list {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
+  gap: 6px;
 }
+
+/* In the grid the cards are a summary: smaller names, tighter lines, and an
+   overdue red turned down so seven blocks of it do not shout */
+.day-grid .day-card-line { padding: 6px 10px; }
+.day-grid .day-card-line + .day-card-line { margin: 0 10px; }
+.day-grid .day-card-task { font-size: var(--fs-body); }
+.day-grid .day-card-overdue,
+.day-grid .day-card-move { color: var(--warn-dim); }
 
 /* One task on one day. The first line names the project and task; every
    line is one unit with its own box. A thin inset rule separates units, so
