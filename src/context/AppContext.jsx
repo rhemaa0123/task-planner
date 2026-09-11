@@ -160,19 +160,23 @@ export function AppProvider({ children }) {
     }))
   }
 
-  // Ticking a subtask rolls up: the parent task is done exactly when all of its
+  // One subtask id or several of the same task's - every mutation below takes
+  // the set in one write, since a second call in the same tick would only see
+  // the state from before the first
+  const idSet = (ids) => new Set([].concat(ids).map(String))
+
+  // Ticking subtasks rolls up: the parent task is done exactly when all of its
   // subtasks are, so the sidebar badge and the row's checkbox never disagree.
-  const toggleSubtask = (taskId, subtaskId, completed) => patchTask(taskId, t => {
-    const subs = (t.subtasks || []).map(s =>
-      String(s.id) === String(subtaskId) ? { ...s, completed } : s
-    )
+  const toggleSubtask = (taskId, subtaskIds, completed) => patchTask(taskId, t => {
+    const ids = idSet(subtaskIds)
+    const subs = (t.subtasks || []).map(s => ids.has(String(s.id)) ? { ...s, completed } : s)
     return { ...t, subtasks: subs, completed: subs.length > 0 && subs.every(s => s.completed) }
   })
 
-  // Reschedules one scheduled item onto a later day. `subtaskId` is null when the
+  // Reschedules scheduled work onto a later day. `subtaskIds` is null when the
   // task carries its own day. The day left behind is kept in missedDays when the
   // dialog's "mark as missed" box is ticked, so the week still shows what slipped.
-  const moveScheduled = (taskId, subtaskId, toDate, markMissed) => {
+  const moveScheduled = (taskId, subtaskIds, toDate, markMissed) => {
     const stamp = (item) => ({
       ...item,
       day_date: toDate,
@@ -182,11 +186,19 @@ export function AppProvider({ children }) {
     })
 
     patchTask(taskId, t => {
-      if (!subtaskId) return stamp(t)
-      const subs = (t.subtasks || []).map(s =>
-        String(s.id) === String(subtaskId) ? stamp(s) : s
-      )
+      if (subtaskIds == null) return stamp(t)
+      const ids = idSet(subtaskIds)
+      const subs = (t.subtasks || []).map(s => ids.has(String(s.id)) ? stamp(s) : s)
       return { ...t, subtasks: subs, day_date: earliestDay(subs) }
+    })
+  }
+
+  // Forgives one slip: the day stops counting as missed for that unit
+  const clearMissedDay = (taskId, subtaskId, iso) => {
+    const strip = (item) => ({ ...item, missedDays: (item.missedDays || []).filter(d => d !== iso) })
+    patchTask(taskId, t => {
+      if (subtaskId == null) return strip(t)
+      return { ...t, subtasks: (t.subtasks || []).map(s => String(s.id) === String(subtaskId) ? strip(s) : s) }
     })
   }
 
@@ -335,7 +347,7 @@ export function AppProvider({ children }) {
       projects, allProjects, weekStart, setWeekStart, toasts, showToast,
       weekMeta, weekEnded, endWeek, reopenWeek, carryForward, deleteWeek, clearAll,
       addProject, updateProjectName, deleteProject, setProjectDeadline, reorderProjects, importPlan,
-      addTask, updateTaskTitle, setTaskDay, setTaskSchedule, toggleSubtask, moveScheduled,
+      addTask, updateTaskTitle, setTaskDay, setTaskSchedule, toggleSubtask, moveScheduled, clearMissedDay,
       deleteTask, toggleTask, reorderTasks,
     }}>
       {children}

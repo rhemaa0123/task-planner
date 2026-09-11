@@ -31,7 +31,7 @@ function collectDay(projects, iso) {
             })
           }
           if ((s.missedDays || []).includes(iso)) {
-            missed.push({ ...base, key: `m-${s.id}`, subtitle: s.title || '' })
+            missed.push({ ...base, key: `m-${s.id}`, subtaskId: s.id, subtitle: s.title || '', iso })
           }
         }
         continue
@@ -48,7 +48,7 @@ function collectDay(projects, iso) {
         })
       }
       if ((t.missedDays || []).includes(iso)) {
-        missed.push({ ...base, key: `m-${t.id}`, subtitle: '' })
+        missed.push({ ...base, key: `m-${t.id}`, subtaskId: null, subtitle: '', iso })
       }
     }
   }
@@ -97,6 +97,67 @@ const CalendarIcon = () => (
   </svg>
 )
 
+function MoveDialog({ item, days, todayIso, onMove, onClose }) {
+  const fromDay = days.find(d => d.date === item.day_date)
+  const [target, setTarget] = useState(null)
+  const [markMissed, setMarkMissed] = useState(true)
+
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  // Work only moves forward: past the day it sits on, and never into a day
+  // that has already gone by
+  const locked = (d) => d.date <= item.day_date || d.date < todayIso
+
+  return (
+    <div className="modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
+      <form
+        className="modal-card wide"
+        onSubmit={e => { e.preventDefault(); if (target) onMove(target, markMissed) }}
+      >
+        <div className="modal-eyebrow">{item.projectName}</div>
+        <h2 className="modal-title">{item.taskTitle}</h2>
+        <div className="modal-divider" />
+
+        <div className="field-label">MOVE TO</div>
+        <div className="day-toggle-row">
+          {days.map(d => (
+            <button
+              type="button"
+              key={d.date}
+              className={`day-toggle wide-label ${target === d.date ? 'selected' : ''} ${d.date === item.day_date ? 'from' : ''}`}
+              disabled={locked(d)}
+              onClick={() => setTarget(d.date)}
+              aria-pressed={target === d.date}
+            >
+              {d.short}
+            </button>
+          ))}
+        </div>
+
+        <label className="missed-check">
+          <input
+            type="checkbox"
+            className="task-check"
+            checked={markMissed}
+            onChange={e => setMarkMissed(e.target.checked)}
+          />
+          <span>Mark {fromDay ? fromDay.short : 'this day'} as missed</span>
+        </label>
+
+        <div className="modal-actions">
+          <span style={{ flex: 1 }} />
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="submit" className="btn-primary" disabled={!target}>Move</button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 // A task spread over several units on one day gets one box, not one per
 // unit: the project and task are written once, then each unit keeps its own
 // line, checkbox and state. Order follows first appearance.
@@ -115,55 +176,101 @@ function groupByTask(items) {
   return groups
 }
 
+const XIcon = () => (
+  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg>
+)
+
 // One task on one day. The same box serves the all-days grid and the focused
-// day's list - the list just lays it flat. Overdue units carry a calendar
-// button that opens the move dialog; a frozen week keeps the label and drops
-// the button.
-function TaskGroup({ group, todayIso, frozen, onToggle, onMove }) {
+// day's list. Compact (the grid) keeps to the task: one line, one box for every
+// unit that day, a count when there is more than one - subtask names wait for
+// focus. Full (the list) gives every unit its own line. Overdue work carries a
+// calendar button that opens the move dialog; a frozen week keeps the label
+// and drops the button.
+function TaskGroup({ group, todayIso, frozen, compact, onToggle, onMove }) {
   const isOverdue = (u) => !u.completed && u.day_date < todayIso
-  const allDone = group.units.every(u => u.completed)
-  const anyOverdue = group.units.some(isOverdue)
-  return (
-    <div className={`day-card ${allDone ? 'done' : ''} ${anyOverdue ? 'overdue' : ''}`}>
-      {group.units.map((u, i) => {
-        const overdue = isOverdue(u)
-        return (
-          <div key={u.key} className={`day-card-line ${u.completed ? 'done' : ''}`}>
-            <input
-              type="checkbox"
-              className="task-check"
-              checked={u.completed}
-              disabled={frozen}
-              onChange={e => onToggle(u, e.target.checked)}
-            />
-            <div className="day-card-body">
-              {i === 0 && (
-                <>
-                  <div className="day-card-project">{group.projectName}</div>
-                  <div className="day-card-task">{group.taskTitle}</div>
-                </>
-              )}
-              {u.subtitle && <div className="day-card-sub">{u.subtitle}</div>}
-              {overdue && (
-                <div className="day-card-foot">
-                  <span className="day-card-overdue">overdue</span>
-                  {!frozen && (
-                    <button type="button" className="day-card-move" onClick={() => onMove(u)} title="Move to a later day">
-                      <CalendarIcon />
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+  const { units } = group
+  const allDone = units.every(u => u.completed)
+  const doneCount = units.filter(u => u.completed).length
+  const overdueUnits = units.filter(isOverdue)
+
+  const foot = (targets) => (
+    <div className="day-card-foot">
+      <span className="day-card-overdue">{compact ? 'overdue' : 'overdue · reschedule?'}</span>
+      {!frozen && (
+        <button
+          type="button"
+          className={`day-card-move ${compact ? '' : 'labelled'}`}
+          onClick={() => onMove(targets)}
+          title="Move to a later day"
+        >
+          <CalendarIcon />
+          {!compact && <span>move</span>}
+        </button>
+      )}
+    </div>
+  )
+
+  if (compact) {
+    return (
+      <div className={`day-card ${allDone ? 'done' : ''} ${overdueUnits.length ? 'overdue' : ''}`}>
+        <div className={`day-card-line ${allDone ? 'done' : ''}`}>
+          <input
+            type="checkbox"
+            className="task-check"
+            checked={allDone}
+            disabled={frozen}
+            onChange={e => onToggle(units, e.target.checked)}
+          />
+          <div className="day-card-body">
+            <div className="day-card-project">{group.projectName}</div>
+            <div className="day-card-task">{group.taskTitle}</div>
+            {overdueUnits.length > 0 && foot(overdueUnits)}
           </div>
-        )
-      })}
+          {units.length > 1 && (
+            <span
+              className={`subtask-badge ${allDone ? 'full' : ''}`}
+              title={`${doneCount} of ${units.length} on this day done`}
+            >
+              {doneCount}/{units.length}
+            </span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`day-card ${allDone ? 'done' : ''} ${overdueUnits.length ? 'overdue' : ''}`}>
+      {units.map((u, i) => (
+        <div key={u.key} className={`day-card-line ${u.completed ? 'done' : ''}`}>
+          <input
+            type="checkbox"
+            className="task-check"
+            checked={u.completed}
+            disabled={frozen}
+            onChange={e => onToggle([u], e.target.checked)}
+          />
+          <div className="day-card-body">
+            {i === 0 && (
+              <>
+                <div className="day-card-project">{group.projectName}</div>
+                <div className="day-card-task">{group.taskTitle}</div>
+              </>
+            )}
+            {u.subtitle && <div className="day-card-sub">{u.subtitle}</div>}
+            {isOverdue(u) && foot([u])}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
 
-// A day this work was moved off - kept visible so the week still shows the slip
-function MissedCard({ item }) {
+// A day this work was moved off - kept visible so the week still shows the
+// slip. The corner × forgives it, after asking.
+function MissedCard({ item, compact, frozen, onClear }) {
   return (
     <div className="day-card missed">
       <div className="day-card-line">
@@ -171,10 +278,50 @@ function MissedCard({ item }) {
         <div className="day-card-body">
           <div className="day-card-project">{item.projectName}</div>
           <div className="day-card-task">{item.taskTitle}</div>
-          {item.subtitle && <div className="day-card-sub">{item.subtitle}</div>}
+          {!compact && item.subtitle && <div className="day-card-sub">{item.subtitle}</div>}
           <div className="day-card-foot">
-            <span className="day-card-missed">missed · moved to another day</span>
+            <span className="day-card-missed">missed</span>
           </div>
+        </div>
+      </div>
+      {!frozen && (
+        <button
+          type="button"
+          className="day-card-clear"
+          onClick={() => onClear(item)}
+          title="Clear this missed day"
+          aria-label="Clear this missed day"
+        >
+          <XIcon />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function ClearMissedDialog({ item, dayShort, onClear, onClose }) {
+  useEffect(() => {
+    const onKey = e => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="modal-card wide" role="dialog" aria-label="Clear missed day">
+        <div className="modal-eyebrow">{item.projectName}</div>
+        <h2 className="modal-title">Clear this missed day?</h2>
+        <div className="modal-divider" />
+
+        <p className="modal-copy">
+          {dayShort} will no longer count as a missed day for this {item.subtaskId == null ? 'task' : 'subtask'}
+        </p>
+        <div className="modal-divider" />
+
+        <div className="modal-actions">
+          <span style={{ flex: 1 }} />
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn-primary" onClick={onClear}>Clear</button>
         </div>
       </div>
     </div>
@@ -182,7 +329,7 @@ function MissedCard({ item }) {
 }
 
 export function WeekGrid() {
-  const { projects, weekStart, setWeekStart, weekEnded, toggleTask, toggleSubtask, moveScheduled } = useApp()
+  const { projects, weekStart, setWeekStart, weekEnded, toggleTask, toggleSubtask, moveScheduled, clearMissedDay } = useApp()
   const frozen = weekEnded
 
   const weekStartIso = toISODate(weekStart)
@@ -193,7 +340,10 @@ export function WeekGrid() {
   // A week you are not living in opens on its Monday
   const [dayIdx, setDayIdx] = useState(() => (todayIdx === -1 ? 0 : todayIdx))
   useEffect(() => { setDayIdx(todayIdx === -1 ? 0 : todayIdx) }, [weekStartIso])
-  const [moveItem, setMoveItem] = useState(null)
+  // Work in flight: the units being moved (all of one task, one day) and the
+  // missed day being cleared
+  const [move, setMove] = useState(null)
+  const [clearing, setClearing] = useState(null)
 
   const [view, setViewState] = useState(readView)
   const showAll = view === 'all'
@@ -207,9 +357,12 @@ export function WeekGrid() {
     setView('focus')
   }
 
-  const toggleItem = (it, completed) => (it.subtaskId
-    ? toggleSubtask(it.taskId, it.subtaskId, completed)
-    : toggleTask(it.taskId, completed))
+  // Units always belong to one task: a task with no subtasks is its own single
+  // unit, otherwise every unit is a subtask and they are ticked in one write
+  const toggleUnits = (units, completed) => (units[0].subtaskId == null
+    ? toggleTask(units[0].taskId, completed)
+    : toggleSubtask(units[0].taskId, units.map(u => u.subtaskId), completed))
+  const startMove = (units) => setMove({ item: units[0], units })
 
   // A flag marks a project landing, not which day it happens to be today
   const due = dueByDay(projects)
@@ -219,6 +372,8 @@ export function WeekGrid() {
   const { items, missed } = perDay[dayIdx] || perDay[0]
   const counts = tally(items)
   const dueNames = due.get(selected.date) || []
+  // Until something is scheduled there is nothing to focus or to lay out
+  const hasWork = perDay.some(d => d.items.length > 0 || d.missed.length > 0)
 
   // From another week this jumps back first; the effect above then lands on today
   const focusToday = (e) => {
@@ -231,7 +386,7 @@ export function WeekGrid() {
     <main className="week-grid-container">
       <div className="grid-header">
         <span className="eyebrow">THIS WEEK</span>
-        <div className="header-links" style={{color: 'var(--ink-faint)'}}>
+        {hasWork && <div className="header-links" style={{color: 'var(--ink-faint)'}}>
           {showAll ? (
             <span>click any day to focus it</span>
           ) : (
@@ -243,10 +398,15 @@ export function WeekGrid() {
               <a href="#" onClick={(e) => { e.preventDefault(); setView('all') }}>show all days</a>
             </>
           )}
-        </div>
+        </div>}
       </div>
 
-      {showAll ? (
+      {!hasWork ? (
+        <div className="week-empty">
+          <b>Nothing scheduled yet</b>
+          <span>Your planned work will show up here</span>
+        </div>
+      ) : showAll ? (
         <div className="day-grid">
           {days.map((d, i) => {
             const { items: dayItems, missed: dayMissed } = perDay[i]
@@ -278,11 +438,14 @@ export function WeekGrid() {
                         group={g}
                         todayIso={todayIso}
                         frozen={frozen}
-                        onToggle={toggleItem}
-                        onMove={setMoveItem}
+                        compact
+                        onToggle={toggleUnits}
+                        onMove={startMove}
                       />
                     ))}
-                    {dayMissed.map(m => <MissedCard key={m.key} item={m} />)}
+                    {dayMissed.map(m => (
+                      <MissedCard key={m.key} item={m} compact frozen={frozen} onClear={setClearing} />
+                    ))}
                   </div>
                 )}
               </section>
@@ -341,27 +504,43 @@ export function WeekGrid() {
                     group={g}
                     todayIso={todayIso}
                     frozen={frozen}
-                    onToggle={toggleItem}
-                    onMove={setMoveItem}
+                    onToggle={toggleUnits}
+                    onMove={startMove}
                   />
                 ))}
-                {missed.map(m => <MissedCard key={m.key} item={m} />)}
+                {missed.map(m => (
+                  <MissedCard key={m.key} item={m} frozen={frozen} onClear={setClearing} />
+                ))}
               </div>
             )}
           </div>
         </>
       )}
 
-      {moveItem && (
+      {move && (
         <MoveDialog
-          key={moveItem.key}
-          item={moveItem}
+          key={move.item.key}
+          item={move.item}
           days={days}
           todayIso={todayIso}
-          onClose={() => setMoveItem(null)}
+          onClose={() => setMove(null)}
           onMove={(toDate, markMissed) => {
-            moveScheduled(moveItem.taskId, moveItem.subtaskId, toDate, markMissed)
-            setMoveItem(null)
+            const { item, units } = move
+            moveScheduled(item.taskId, item.subtaskId == null ? null : units.map(u => u.subtaskId), toDate, markMissed)
+            setMove(null)
+          }}
+        />
+      )}
+
+      {clearing && (
+        <ClearMissedDialog
+          key={clearing.key}
+          item={clearing}
+          dayShort={days.find(d => d.date === clearing.iso)?.short || 'This day'}
+          onClose={() => setClearing(null)}
+          onClear={() => {
+            clearMissedDay(clearing.taskId, clearing.subtaskId, clearing.iso)
+            setClearing(null)
           }}
         />
       )}
