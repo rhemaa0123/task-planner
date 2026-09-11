@@ -39,6 +39,63 @@ function EditableText({ value, onSave, placeholder, className, autoFocus, readOn
   )
 }
 
+/* ---- Drag geometry, shared by the project list and each task list ----
+   Everything is measured from untransformed offsets (offsetTop, not
+   getBoundingClientRect). Asking which element the pointer is over would
+   feed back on itself: shifting a row moves it out from under the cursor,
+   cancelling the hover that caused it. */
+
+// Index of the slot under the pointer. `originTop` is where offsetTop 0 sits
+// in the viewport, so the two coordinate systems line up.
+const slotAtPointer = (els, originTop, clientY) => {
+  let last = null
+  for (let i = 0; i < els.length; i++) {
+    const el = els[i]
+    if (!el) continue
+    last = i
+    if (clientY < originTop + el.offsetTop + el.offsetHeight / 2) return i
+  }
+  return last
+}
+
+// Measured rather than assumed: siblings vary in height with their content
+const slotGap = (els) => {
+  const live = els.filter(Boolean)
+  if (live.length < 2) return 0
+  return Math.max(0, live[1].offsetTop - (live[0].offsetTop + live[0].offsetHeight))
+}
+
+// Siblings slide by exactly the dragged element's footprint, so the space it
+// vacates matches the slot its ghost moves into
+const slideTransform = (els, from, over, index) => {
+  if (from === null || over === null || from === over) return 'none'
+  const dragged = els[from]
+  const target = els[over]
+  if (!dragged || !target) return 'none'
+
+  if (index === from) {
+    const delta = from < over
+      ? (target.offsetTop + target.offsetHeight) - (dragged.offsetTop + dragged.offsetHeight)
+      : target.offsetTop - dragged.offsetTop
+    return `translateY(${delta}px)`
+  }
+
+  const footprint = dragged.offsetHeight + slotGap(els)
+  if (from < over && index > from && index <= over) return `translateY(${-footprint}px)`
+  if (from > over && index >= over && index < from) return `translateY(${footprint}px)`
+  return 'none'
+}
+
+// Chromium nulls relatedTarget during a drag, so leaving is decided by coordinates
+const pointerOutside = (e) => {
+  const r = e.currentTarget.getBoundingClientRect()
+  return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom
+}
+
+const GripIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+)
+
 const isoToDisplay = (iso) => {
   if (!iso) return ''
   const [y, m, d] = iso.split('-')
@@ -126,10 +183,31 @@ function DeadlineDialog({ project, onSave, onClose }) {
   )
 }
 
-function TaskRow({ task, autoFocus, frozen, onRename, onToggle, onOpenSchedule, onDelete }) {
+// The row only becomes draggable while the grip is held, so selecting text in
+// the title or ticking the box never starts a drag by accident
+function TaskRow({
+  task, autoFocus, frozen, rowRef, armed, dragging, transform,
+  onArm, onDragStart, onDragEnd, onRename, onToggle, onOpenSchedule, onDelete,
+}) {
   const { done, total } = subtaskTally(task)
   return (
-    <div className={`task-item ${task.day_date ? 'has-day' : ''}`}>
+    <div
+      ref={rowRef}
+      className={`task-item ${task.day_date ? 'has-day' : ''} ${dragging ? 'dragging' : ''}`}
+      draggable={armed}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      style={{ transform }}
+    >
+      <span
+        className="task-grip"
+        role="button"
+        aria-label="Drag to reorder"
+        title="Drag to reorder"
+        onMouseDown={frozen ? undefined : onArm}
+      >
+        <GripIcon />
+      </span>
       <input
         type="checkbox"
         className="task-check"
@@ -159,7 +237,7 @@ function TaskRow({ task, autoFocus, frozen, onRename, onToggle, onOpenSchedule, 
             <span>edit days</span>
           ) : (
             <>
-              <span>assign date</span>
+              <span>Assign days</span>
               <svg className="arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
               <span className="cal-box">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
@@ -329,7 +407,7 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
 
 export function ProjectsSidebar() {
   const {
-    projects, addProject, updateProjectName, deleteProject, reorderProjects,
+    projects, addProject, updateProjectName, deleteProject, reorderProjects, reorderTasks,
     addTask, updateTaskTitle, setTaskSchedule, deleteTask, toggleTask, setProjectDeadline,
     weekStart, weekEnded, importPlan, showToast,
   } = useApp()
@@ -344,6 +422,20 @@ export function ProjectsSidebar() {
   const [transfer, setTransfer] = useState(null)
   const cardRefs = useRef([])
   const sidebarRef = useRef(null)
+
+  // Task reordering lives inside one project: which row is armed by its grip,
+  // and the drag in flight as { projectId, from, over }
+  const [armedTask, setArmedTask] = useState(null)
+  const [taskDrag, setTaskDrag] = useState(null)
+  const taskRefs = useRef({})
+
+  // A grip pressed but never dragged disarms on release, wherever that lands
+  useEffect(() => {
+    if (armedTask === null) return
+    const disarm = () => setArmedTask(null)
+    window.addEventListener('mouseup', disarm)
+    return () => window.removeEventListener('mouseup', disarm)
+  }, [armedTask])
 
   const deadlineProject = projects.find(p => String(p.id) === String(deadlineFor)) || null
 
@@ -376,27 +468,13 @@ export function ProjectsSidebar() {
     e.dataTransfer.setData('text/plain', String(index))
   }
 
-  // Resolved from the pointer against untransformed layout positions. Asking
-  // which element the event fired on would feed back on itself: shifting a card
-  // moves it out from under the cursor, cancelling the hover that caused it.
-  const indexAtPointer = (clientY) => {
-    const sidebar = sidebarRef.current
-    const els = cardRefs.current
-    if (!sidebar || !els.length) return null
-    const originTop = sidebar.getBoundingClientRect().top - sidebar.offsetTop
-    for (let i = 0; i < els.length; i++) {
-      const el = els[i]
-      if (!el) continue
-      if (clientY < originTop + el.offsetTop + el.offsetHeight / 2) return i
-    }
-    return els.length - 1
-  }
-
   const onDragOver = (e) => {
     if (draggedIdx === null) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
-    const idx = indexAtPointer(e.clientY)
+    const sidebar = sidebarRef.current
+    if (!sidebar) return
+    const idx = slotAtPointer(cardRefs.current, sidebar.getBoundingClientRect().top - sidebar.offsetTop, e.clientY)
     if (idx !== null && idx !== dragOverIdx) setDragOverIdx(idx)
   }
 
@@ -408,37 +486,55 @@ export function ProjectsSidebar() {
     resetDrag()
   }
 
-  // Measured rather than assumed: cards vary in height with their task count
-  const slotGap = () => {
-    const els = cardRefs.current.filter(Boolean)
-    if (els.length < 2) return 0
-    return Math.max(0, els[1].offsetTop - (els[0].offsetTop + els[0].offsetHeight))
+  const dragTransform = (index) => slideTransform(cardRefs.current, draggedIdx, dragOverIdx, index)
+
+  /* ---- Task rows ---- */
+
+  const taskRows = (projectId, count) => (taskRefs.current[projectId] || []).slice(0, count)
+
+  const onTaskDragStart = (e, projectId, index) => {
+    // The card around it is draggable too - without this it would start its
+    // own drag from the same gesture
+    e.stopPropagation()
+    setTaskDrag({ projectId, from: index, over: null })
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', `task:${index}`)
   }
 
-  // Siblings slide by exactly the dragged card's footprint, so the space it
-  // vacates matches the slot its ghost moves into. offsetTop is used over
-  // getBoundingClientRect because it ignores the transforms we're applying.
-  const dragTransform = (index) => {
-    if (draggedIdx === null || dragOverIdx === null || draggedIdx === dragOverIdx) return 'none'
-    const dragged = cardRefs.current[draggedIdx]
-    const target = cardRefs.current[dragOverIdx]
-    if (!dragged || !target) return 'none'
+  const endTaskDrag = () => {
+    setTaskDrag(null)
+    setArmedTask(null)
+  }
 
-    if (index === draggedIdx) {
-      const delta = draggedIdx < dragOverIdx
-        ? (target.offsetTop + target.offsetHeight) - (dragged.offsetTop + dragged.offsetHeight)
-        : target.offsetTop - dragged.offsetTop
-      return `translateY(${delta}px)`
-    }
+  const onTaskDragOver = (e, projectId, count) => {
+    if (!taskDrag || taskDrag.projectId !== projectId) return
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = 'move'
+    const list = e.currentTarget
+    const idx = slotAtPointer(taskRows(projectId, count), list.getBoundingClientRect().top - list.offsetTop, e.clientY)
+    if (idx !== null && idx !== taskDrag.over) setTaskDrag({ ...taskDrag, over: idx })
+  }
 
-    const footprint = dragged.offsetHeight + slotGap()
-    if (draggedIdx < dragOverIdx && index > draggedIdx && index <= dragOverIdx) {
-      return `translateY(${-footprint}px)`
+  // Leaving the list returns the rows to their resting slots
+  const onTaskDragLeave = (e, projectId) => {
+    if (!taskDrag || taskDrag.projectId !== projectId) return
+    if (pointerOutside(e) && taskDrag.over !== null) setTaskDrag({ ...taskDrag, over: null })
+  }
+
+  const onTaskDrop = (e, projectId) => {
+    if (!taskDrag || taskDrag.projectId !== projectId) return
+    e.preventDefault()
+    e.stopPropagation()
+    if (taskDrag.over !== null && taskDrag.from !== taskDrag.over) {
+      reorderTasks(projectId, taskDrag.from, taskDrag.over)
     }
-    if (draggedIdx > dragOverIdx && index >= dragOverIdx && index < draggedIdx) {
-      return `translateY(${footprint}px)`
-    }
-    return 'none'
+    endTaskDrag()
+  }
+
+  const taskTransform = (projectId, count, index) => {
+    if (!taskDrag || taskDrag.projectId !== projectId) return 'none'
+    return slideTransform(taskRows(projectId, count), taskDrag.from, taskDrag.over, index)
   }
 
   return (
@@ -449,13 +545,8 @@ export function ProjectsSidebar() {
       onDragOver={onDragOver}
       onDrop={onDrop}
       onDragLeave={(e) => {
-        // Chromium nulls relatedTarget during a drag, so leaving is decided by
-        // coordinates. Only a real exit returns cards to their resting slots.
-        const r = e.currentTarget.getBoundingClientRect()
-        const outside =
-          e.clientX < r.left || e.clientX > r.right ||
-          e.clientY < r.top || e.clientY > r.bottom
-        if (outside) setDragOverIdx(null)
+        // Only a real exit returns cards to their resting slots
+        if (pointerOutside(e)) setDragOverIdx(null)
       }}
     >
       <div className="sidebar-header">
@@ -503,7 +594,7 @@ export function ProjectsSidebar() {
 
               <div style={{display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1}}>
                 <div className="proj-hover-action" style={{cursor: 'grab', color: 'var(--ink-faint)', display: 'flex'}}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
+                  <GripIcon />
                 </div>
                 <div className="proj-title-wrap">
                   <EditableText
@@ -552,13 +643,25 @@ export function ProjectsSidebar() {
               </div>
             </div>
 
-            <div className="proj-tasks">
-              {tasks.map(t => (
+            <div
+              className="proj-tasks"
+              onDragOver={(e) => onTaskDragOver(e, p.id, tasks.length)}
+              onDragLeave={(e) => onTaskDragLeave(e, p.id)}
+              onDrop={(e) => onTaskDrop(e, p.id)}
+            >
+              {tasks.map((t, i) => (
                 <TaskRow
                   key={t.id}
                   task={t}
+                  rowRef={el => { (taskRefs.current[p.id] ||= [])[i] = el }}
                   autoFocus={focusTaskId === t.id}
                   frozen={frozen}
+                  armed={armedTask === t.id}
+                  dragging={taskDrag?.projectId === p.id && taskDrag.from === i}
+                  transform={taskTransform(p.id, tasks.length, i)}
+                  onArm={() => setArmedTask(t.id)}
+                  onDragStart={(e) => onTaskDragStart(e, p.id, i)}
+                  onDragEnd={endTaskDrag}
                   onRename={updateTaskTitle}
                   onToggle={toggleTask}
                   onOpenSchedule={setScheduleFor}

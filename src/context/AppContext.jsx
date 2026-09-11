@@ -308,6 +308,17 @@ export function AppProvider({ children }) {
     saveMeta({})
   }
 
+  // Indices are positions within one project's task list
+  const reorderTasks = (projectId, fromIndex, toIndex) => {
+    save(allProjects.map(p => {
+      if (String(p.id) !== String(projectId)) return p
+      const tasks = [...(p.tasks || [])]
+      const [moved] = tasks.splice(fromIndex, 1)
+      tasks.splice(toIndex, 0, moved)
+      return { ...p, tasks }
+    }))
+  }
+
   const reorderProjects = (fromIndex, toIndex) => {
     // Indices come from the visible week, so reorder that slice and lay it back
     // into the week's slots, leaving other weeks untouched
@@ -325,7 +336,7 @@ export function AppProvider({ children }) {
       weekMeta, weekEnded, endWeek, reopenWeek, carryForward, deleteWeek, clearAll,
       addProject, updateProjectName, deleteProject, setProjectDeadline, reorderProjects, importPlan,
       addTask, updateTaskTitle, setTaskDay, setTaskSchedule, toggleSubtask, moveScheduled,
-      deleteTask, toggleTask,
+      deleteTask, toggleTask, reorderTasks,
     }}>
       {children}
     </AppContext.Provider>

@@ -79,7 +79,10 @@
 :root {
   --sans: 'IBM Plex Sans JP', system-ui, -apple-system, sans-serif;
   --display: var(--sans);
-  --mono: 'Space Mono', ui-monospace, Consolas, monospace;
+  --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+  /* The mono face is loaded in its light cut only - every mono rule below
+     takes its weight from here, so labels never synthesise a bold */
+  --w-mono: 300;
 
   --w-title: 600;
   --w-row: 500;
@@ -311,6 +314,7 @@ button {
   color: var(--ink-soft);
   font-size: var(--fs-body);
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
@@ -368,6 +372,7 @@ button {
   font-size: 0.75rem;
   color: var(--ink-faint);
   font-family: var(--mono);
+  font-weight: var(--w-mono);
 }
 .ended-label { color: var(--ink-soft); }
 .progress-section.ended .progress-fill { background: var(--ink-faint); }
@@ -450,6 +455,7 @@ button {
 }
 .sidebar-header .eyebrow {
   font-family: var(--mono);
+  font-weight: var(--w-mono);
 }
 
 .header-links {
@@ -519,6 +525,7 @@ button {
 
 .proj-deadline {
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   font-size: var(--fs-body);
   color: var(--ink-faint);
   letter-spacing: 0.04em;
@@ -589,7 +596,7 @@ input[type="text"].task-name-input.done {
   color: var(--accent);
   font-family: var(--mono);
   font-size: var(--fs-mini);
-  font-weight: 700;
+  font-weight: var(--w-mono);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -689,7 +696,8 @@ input[type="text"].task-name-input.done {
   text-align: left;
   font-size: var(--fs-body);
   line-height: 1.5;
-  padding: var(--sp-1) var(--sp-2);
+  /* 14px grip + 8px gap, so the plus sits under the checkboxes */
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) 22px;
   border-radius: var(--r);
   transition: background-color 0.12s, color 0.12s;
 }
@@ -710,6 +718,7 @@ input[type="text"].task-name-input.done {
   padding: var(--sp-3);
   border-radius: var(--r);
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   font-size: var(--fs-chrome);
   letter-spacing: 0.6px;
   text-transform: uppercase;
@@ -774,7 +783,7 @@ input[type="text"].task-name-input.done {
   gap: 3px;
   font-family: var(--mono);
   font-size: var(--fs-row);
-  font-weight: 700;
+  font-weight: var(--w-mono);
   line-height: 1;
 }
 .day-tab-flag { flex-shrink: 0; }
@@ -819,7 +828,7 @@ input[type="text"].task-name-input.done {
 .day-panel-name {
   font-family: var(--mono);
   font-size: var(--fs-label);
-  font-weight: 700;
+  font-weight: var(--w-mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--accent);
@@ -827,6 +836,7 @@ input[type="text"].task-name-input.done {
 
 .day-panel-count {
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   font-size: var(--fs-body);
   color: var(--ink-soft);
   margin-top: 2px;
@@ -834,6 +844,7 @@ input[type="text"].task-name-input.done {
 
 .day-panel-due {
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   font-size: var(--fs-body);
   color: var(--accent);
   margin-top: 2px;
@@ -882,7 +893,7 @@ input[type="text"].task-name-input.done {
 .day-row-project {
   font-family: var(--mono);
   font-size: var(--fs-mini);
-  font-weight: 700;
+  font-weight: var(--w-mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -932,7 +943,7 @@ input[type="text"].task-name-input.done {
   color: var(--ink-soft);
   font-family: var(--mono);
   font-size: var(--fs-mini);
-  font-weight: 700;
+  font-weight: var(--w-mono);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 3px 10px;
@@ -1001,7 +1012,7 @@ input[type="text"].task-name-input.done {
 .day-block-name {
   font-family: var(--mono);
   font-size: var(--fs-label);
-  font-weight: 700;
+  font-weight: var(--w-mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -1012,7 +1023,7 @@ input[type="text"].task-name-input.done {
 .day-block-count {
   font-family: var(--mono);
   font-size: var(--fs-mini);
-  font-weight: 700;
+  font-weight: var(--w-mono);
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--good-soft);
@@ -1025,6 +1036,7 @@ input[type="text"].task-name-input.done {
 
 .day-block-due {
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   font-size: var(--fs-mini);
   color: var(--accent);
   overflow-wrap: anywhere;
@@ -1060,7 +1072,7 @@ input[type="text"].task-name-input.done {
 .day-card-project {
   font-family: var(--mono);
   font-size: var(--fs-mini);
-  font-weight: 700;
+  font-weight: var(--w-mono);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -1097,7 +1109,7 @@ input[type="text"].task-name-input.done {
 .day-card-missed {
   font-family: var(--mono);
   font-size: var(--fs-mini);
-  font-weight: 700;
+  font-weight: var(--w-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1120,21 +1132,48 @@ input[type="text"].task-name-input.done {
 .day-card-move:hover { background: var(--warn-soft); }
 
 /* ---- Task Items ---- */
-/* Indented so tasks read as sublines of the project name (14px handle + 8px gap) */
+/* Each row carries its own grip, sized like the project's, so the boxes line
+   up under the project name without an indent of their own */
 .proj-tasks {
-  padding-left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.task-grip {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: var(--check-size);
+  color: var(--ink-faint);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.task-grip:active { cursor: grabbing; }
+.task-item:hover .task-grip,
+.task-item.dragging .task-grip {
+  opacity: 1;
 }
 
 .task-item {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: var(--sp-1) var(--sp-2);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) 0;
   border-radius: var(--r);
-  transition: background-color 0.12s;
+  transition: background-color 0.12s, transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.15s ease;
 }
 .task-item:hover {
   background: var(--hover-neutral);
+}
+/* Ghost of the row being dragged, shown in the slot it would land in */
+.task-item.dragging {
+  opacity: 0.4;
+  background: var(--hover-accent);
+  outline: 1px dashed var(--accent);
+  outline-offset: -1px;
 }
 
 .task-check {
@@ -1194,6 +1233,7 @@ input[type="text"].task-name-input.done {
 
 .modal-eyebrow {
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   font-size: var(--fs-label);
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1219,6 +1259,7 @@ input[type="text"].task-name-input.done {
   flex: 1;
   min-width: 0;
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   font-size: var(--fs-row);
   letter-spacing: 0.04em;
   background: var(--bg);
@@ -1275,7 +1316,7 @@ input[type="text"].task-name-input.done {
 .modal-title-dates {
   font-family: var(--mono);
   font-size: var(--fs-body);
-  font-weight: 400;
+  font-weight: var(--w-mono);
   color: var(--ink-soft);
   letter-spacing: 0.04em;
   margin-left: var(--sp-3);
@@ -1305,7 +1346,7 @@ input[type="text"].task-name-input.done {
 .field-label {
   font-family: var(--mono);
   font-size: var(--fs-mini);
-  font-weight: 700;
+  font-weight: var(--w-mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -1323,6 +1364,7 @@ input[type="text"].task-name-input.done {
   border-radius: var(--r);
   color: var(--ink);
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   font-size: var(--fs-row);
   padding: var(--sp-2) var(--sp-3);
   min-width: 0;
@@ -1352,7 +1394,7 @@ input[type="text"].task-name-input.done {
   color: var(--ink-soft);
   font-family: var(--mono);
   font-size: var(--fs-row);
-  font-weight: 700;
+  font-weight: var(--w-mono);
   transition: 0.14s;
 }
 .day-toggle.wide-label { font-size: var(--fs-body); }
@@ -1385,7 +1427,7 @@ input[type="text"].task-name-input.done {
 .sched-day-name {
   font-family: var(--mono);
   font-size: var(--fs-mini);
-  font-weight: 700;
+  font-weight: var(--w-mono);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--accent);
@@ -1478,7 +1520,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   color: var(--good);
   font-family: var(--mono);
   font-size: var(--fs-mini);
-  font-weight: 700;
+  font-weight: var(--w-mono);
   letter-spacing: 0.02em;
 }
 .subtask-badge.full {
@@ -1543,6 +1585,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
 .transfer-count {
   flex-shrink: 0;
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   font-size: var(--fs-label);
   color: var(--ink-faint);
 }
@@ -1564,6 +1607,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
 .transfer-code {
   width: 100%;
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   font-size: var(--fs-label);
   line-height: 1.5;
   background: var(--bg);
@@ -1717,7 +1761,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   justify-content: space-between;
   margin-bottom: var(--sp-4);
 }
-.weeks-head .eyebrow { font-family: var(--mono); }
+.weeks-head .eyebrow { font-family: var(--mono); font-weight: var(--w-mono); }
 
 .clear-all-btn {
   display: inline-flex;
@@ -1730,7 +1774,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   color: var(--warn);
   font-family: var(--mono);
   font-size: var(--fs-chrome);
-  font-weight: 700;
+  font-weight: var(--w-mono);
   letter-spacing: 0.08em;
   transition: 0.15s;
 }
@@ -1752,6 +1796,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   gap: var(--sp-4);
   margin: var(--sp-2) 0 var(--sp-1);
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   font-size: var(--fs-label);
   letter-spacing: 0.1em;
   color: var(--ink-faint);
@@ -1810,6 +1855,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
 .wk-sub {
   margin-top: 2px;
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   font-size: var(--fs-label);
   letter-spacing: 0.08em;
   color: var(--ink-faint);
@@ -1875,7 +1921,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
 .wk-day-letter {
   font-family: var(--mono);
   font-size: var(--fs-mini);
-  font-weight: 700;
+  font-weight: var(--w-mono);
   letter-spacing: 0.06em;
   color: var(--ink-faint);
 }
@@ -1884,6 +1930,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
 .wk-stat { text-align: right; }
 .wk-stat-big {
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   font-size: 24px;
   line-height: 1.1;
   color: var(--ink-faint);
@@ -1897,6 +1944,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
 .wk-stat-label {
   margin-top: 2px;
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   font-size: var(--fs-label);
   letter-spacing: 0.1em;
   color: var(--ink-faint);
@@ -1961,6 +2009,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   position: absolute;
   top: 3px;
   font-family: var(--mono);
+  font-weight: var(--w-mono);
   font-size: var(--fs-mini);
   color: var(--ink-faint);
 }
@@ -1973,43 +2022,32 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
 .pane-switch { display: none; }
 
 /* ---- Frozen (ended) week ----
-   The plan stays readable and scrollable; nothing on it responds until the
-   week is reopened. Hover-only actions are hidden outright rather than left
-   to appear and refuse. */
+   Display only. Nothing on the plan responds - no hover, no focus, no drag -
+   until the week is reopened. Moving between days stays live, since reading
+   the plan is the point. Hidden with visibility so nothing shifts. */
 .task-check:disabled { cursor: default; }
 .task-check:disabled:hover { border-color: var(--line-strong); }
 .task-check:disabled:checked { border-color: var(--good); }
 
+.planning-board.ended button:disabled,
+.planning-board.ended input:disabled,
+.planning-board.ended input[readonly] {
+  pointer-events: none;
+}
 .planning-board.ended .project-card { cursor: default; }
 .planning-board.ended .proj-hover-action,
-.planning-board.ended .task-del,
-.planning-board.ended .task-item.has-day .assign-date {
-  display: none;
+.planning-board.ended .task-grip,
+.planning-board.ended .task-actions {
+  visibility: hidden;
 }
-.planning-board.ended .assign-date {
-  color: var(--ink-faint);
-  cursor: default;
-  transform: none;
+.planning-board.ended .task-item:hover,
+.planning-board.ended .day-row:hover {
+  background: transparent;
 }
-.planning-board.ended .task-item .assign-date .arrow,
-.planning-board.ended .task-item .assign-date .cal-box {
-  opacity: 0;
-}
-.planning-board.ended input[readonly] { cursor: default; }
 .planning-board.ended .add-task-btn,
 .planning-board.ended .add-project-dashed {
   opacity: 0.45;
-  cursor: not-allowed;
 }
-.planning-board.ended .add-task-btn:hover {
-  color: var(--ink-faint);
-  background: transparent;
-}
-.planning-board.ended .add-project-dashed:hover {
-  border-color: var(--line-strong);
-  color: var(--ink-faint);
-}
-.planning-board.ended .day-row:hover { background: transparent; }
 
 /* ---- One pane at a time ----
    The desktop layout pins the shell to the viewport and scrolls the two columns
@@ -2053,7 +2091,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   .pane-tab-count {
     font-family: var(--mono);
     font-size: var(--fs-mini);
-    font-weight: 700;
+    font-weight: var(--w-mono);
     padding: 2px 7px;
     border-radius: 999px;
     background: var(--hover-neutral);
@@ -2123,7 +2161,6 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   .week-body.frozen { padding: var(--sp-3); }
 
   .project-card { padding: var(--sp-3); }
-  .proj-tasks { padding-left: var(--sp-2); }
 
   /* Dialogs run nearly full-bleed - 24px of padding either side is a lot of a
      360px screen */
@@ -2175,6 +2212,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
 @media (hover: none) {
   .assign-date,
   .task-del,
+  .task-grip,
   .proj-hover-action,
   .sched-sub-del,
   .task-item:not(.has-day) .assign-date .arrow,
