@@ -6,9 +6,11 @@
  *
  * One note per graph node, with every edge written as a [[wikilink]] so
  * Obsidian's own graph view renders the same structure graphify found. Re-run it
- * after `graphify update .`; the output directory is rebuilt from scratch.
+ * after `graphify update .`; the generated notes are rebuilt from scratch, while
+ * hand-written notes at the vault root (e.g. `Web Structure.md`) are kept and
+ * listed on Home.
  */
-import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
 const arg = (flag, fallback) => {
@@ -95,8 +97,16 @@ const commTag = (c) => `community/${safeName(c.name).toLowerCase().replace(/[^a-
 
 /* ---- Writing ---------------------------------------------------------- */
 
-if (existsSync(OUT)) rmSync(OUT, { recursive: true, force: true })
+// Only what this script writes is cleared, so notes added by hand survive
+const GENERATED = ['Home.md', 'Graph Report.md']
+for (const d of ['Nodes', 'Communities']) rmSync(join(OUT, d), { recursive: true, force: true })
+for (const f of GENERATED) rmSync(join(OUT, f), { force: true })
 for (const d of ['', 'Nodes', 'Communities', '.obsidian']) mkdirSync(join(OUT, d), { recursive: true })
+
+const handwritten = readdirSync(OUT)
+  .filter((f) => f.endsWith('.md') && !GENERATED.includes(f))
+  .map((f) => f.replace(/\.md$/, ''))
+  .sort()
 
 const yamlStr = (s) => `"${String(s).replace(/"/g, '\\"')}"`
 const write = (rel, body) => writeFileSync(join(OUT, rel), body.replace(/\n{3,}/g, '\n\n'), 'utf8')
@@ -190,6 +200,9 @@ write(
       ? `\n\n## Inferred edges\nNot read from the syntax tree — graphify guessed these.\n\n` +
         inferred.map((l) => `- ${link(l.source)} → ${link(l.target)} (${l.relation}, ${l.confidence_score ?? '?'})`).join('\n')
       : '') +
+    (handwritten.length
+      ? `\n\n## Hand-written\n` + handwritten.map((n) => `- [[${n}]]`).join('\n')
+      : '') +
     `\n\n## Files\n` + files.map((f) => `- \`${f}\``).join('\n') +
     `\n\n## Source report\n[[Graph Report]]\n`,
 )
@@ -245,3 +258,4 @@ writeFileSync(
 console.log(`Vault written to ${OUT}`)
 console.log(`  ${nodes.length} node notes · ${communities.size} community notes · Home + Graph Report`)
 console.log(`  ${links.length} edges as wikilinks${inferred.length ? ` (${inferred.length} inferred, marked)` : ''}`)
+if (handwritten.length) console.log(`  kept ${handwritten.length} hand-written note${handwritten.length === 1 ? '' : 's'}: ${handwritten.join(', ')}`)

@@ -75,6 +75,61 @@ const tally = (items) => {
   return { done, total, pct: total === 0 ? 0 : Math.round((done / total) * 100) }
 }
 
+// Whether the week opens on one focused day or on all seven at once. A viewing
+// preference, so it lives beside the theme rather than in the plan.
+const VIEW_KEY = 'task-planner-week-view'
+const readView = () => {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'all' ? 'all' : 'focus'
+  } catch {
+    return 'focus'
+  }
+}
+
+const CalendarIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+    <line x1="16" y1="2" x2="16" y2="6"></line>
+    <line x1="8" y1="2" x2="8" y2="6"></line>
+    <line x1="3" y1="10" x2="21" y2="10"></line>
+    <line x1="12" y1="14" x2="12" y2="18"></line>
+    <line x1="10" y1="16" x2="14" y2="16"></line>
+  </svg>
+)
+
+// One scheduled unit as a card in the all-days grid. Overdue work carries a
+// calendar button that opens the move dialog; a frozen week keeps the label
+// and drops the button.
+function DayCard({ item, todayIso, frozen, onToggle, onMove }) {
+  const overdue = !item.completed && item.day_date < todayIso
+  return (
+    <div className={`day-card ${item.completed ? 'done' : ''} ${overdue ? 'overdue' : ''}`}>
+      <input
+        type="checkbox"
+        className="task-check"
+        checked={item.completed}
+        disabled={frozen}
+        onChange={e => onToggle(e.target.checked)}
+      />
+      <div className="day-card-body">
+        <div className="day-card-project">{item.projectName}</div>
+        <div className="day-card-task">{item.taskTitle}</div>
+        {item.subtitle && <div className="day-card-sub">{item.subtitle}</div>}
+        {overdue && (
+          <div className="day-card-foot">
+            <span className="day-card-overdue">overdue</span>
+            {!frozen && (
+              <button type="button" className="day-card-move" onClick={onMove} title="Move to a later day">
+                <CalendarIcon />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function MoveDialog({ item, days, todayIso, onMove, onClose }) {
   const fromDay = days.find(d => d.date === item.day_date)
   const [target, setTarget] = useState(null)
@@ -137,7 +192,8 @@ function MoveDialog({ item, days, todayIso, onMove, onClose }) {
 }
 
 export function WeekGrid() {
-  const { projects, weekStart, setWeekStart, toggleTask, toggleSubtask, moveScheduled } = useApp()
+  const { projects, weekStart, setWeekStart, weekEnded, toggleTask, toggleSubtask, moveScheduled } = useApp()
+  const frozen = weekEnded
 
   const weekStartIso = toISODate(weekStart)
   const days = weekDayList(weekStartIso)
@@ -148,6 +204,22 @@ export function WeekGrid() {
   const [dayIdx, setDayIdx] = useState(() => (todayIdx === -1 ? 0 : todayIdx))
   useEffect(() => { setDayIdx(todayIdx === -1 ? 0 : todayIdx) }, [weekStartIso])
   const [moveItem, setMoveItem] = useState(null)
+
+  const [view, setViewState] = useState(readView)
+  const showAll = view === 'all'
+  const setView = (next) => {
+    setViewState(next)
+    try { localStorage.setItem(VIEW_KEY, next) } catch { /* private mode - holds for the session */ }
+  }
+  // Picking a day out of the grid narrows the week back down to that day
+  const focusDay = (i) => {
+    setDayIdx(i)
+    setView('focus')
+  }
+
+  const toggleItem = (it, completed) => (it.subtaskId
+    ? toggleSubtask(it.taskId, it.subtaskId, completed)
+    : toggleTask(it.taskId, completed))
 
   // A flag marks a project landing, not which day it happens to be today
   const due = dueByDay(projects)
@@ -170,99 +242,169 @@ export function WeekGrid() {
       <div className="grid-header">
         <span className="eyebrow">THIS WEEK</span>
         <div className="header-links" style={{color: 'var(--ink-faint)'}}>
-          <a href="#" onClick={focusToday}>Focus today</a> • or click any day to focus it
-        </div>
-      </div>
-
-      <div className="day-tabs">
-        {days.map((d, i) => {
-          const c = tally(perDay[i].items)
-          const flagged = due.get(d.date)
-          return (
-            <button
-              type="button"
-              key={d.date}
-              className={`day-tab ${i === dayIdx ? 'selected' : ''}`}
-              onClick={() => setDayIdx(i)}
-              title={flagged ? `${d.name} — ${flagged.join(', ')} due` : d.name}
-            >
-              <span className="day-tab-label">
-                {d.initial}
-                {flagged && (
-                  <svg className="day-tab-flag" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
-                    <line x1="4" y1="22" x2="4" y2="15"></line>
-                  </svg>
-                )}
-              </span>
-              {c.total > 0 && (
-                <span className="day-tab-track">
-                  <span className="day-tab-fill" style={{ width: `${c.pct}%` }} />
-                </span>
-              )}
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="day-panel">
-        <div className="day-panel-head">
-          <div className="day-panel-name">{selected.name}</div>
-          <div className="day-panel-count">{counts.done} of {counts.total} done</div>
-          {dueNames.length > 0 && (
-            <div className="day-panel-due">Due · {dueNames.join(', ')}</div>
+          {showAll ? (
+            <span>click any day to focus it</span>
+          ) : (
+            <>
+              Focusing <b className="focus-day">{selected.short}</b>
+              {selected.date === todayIso && ' (today)'}
+              {selected.date !== todayIso && <> · <a href="#" onClick={focusToday}>focus today</a></>}
+              {' · '}
+              <a href="#" onClick={(e) => { e.preventDefault(); setView('all') }}>show all days</a>
+            </>
           )}
         </div>
+      </div>
 
-        {items.length === 0 && missed.length === 0 ? (
-          <div className="day-panel-empty">Nothing scheduled for {selected.name}.</div>
-        ) : (
-          <div className="day-panel-list">
-            {items.map(it => {
-              const overdue = !it.completed && it.day_date < todayIso
-              return (
-                <div key={it.key} className={`day-row ${it.completed ? 'done' : ''} ${overdue ? 'overdue' : ''}`}>
-                  <input
-                    type="checkbox"
-                    className="task-check"
-                    checked={it.completed}
-                    onChange={e => it.subtaskId
-                      ? toggleSubtask(it.taskId, it.subtaskId, e.target.checked)
-                      : toggleTask(it.taskId, e.target.checked)}
-                  />
-                  <div className="day-row-body">
-                    <div className="day-row-project">{it.projectName}</div>
-                    <div className="day-row-task">{it.taskTitle}</div>
-                    {it.subtitle && <div className="day-row-sub">{it.subtitle}</div>}
-                    {overdue && (
-                      <div className="day-row-foot">
-                        <span className="day-row-overdue">overdue · reschedule?</span>
-                        <button type="button" className="day-row-move" onClick={() => setMoveItem(it)}>
-                          move
-                        </button>
-                      </div>
-                    )}
-                  </div>
+      {showAll ? (
+        <div className="day-grid">
+          {days.map((d, i) => {
+            const { items: dayItems, missed: dayMissed } = perDay[i]
+            const c = tally(dayItems)
+            const flagged = due.get(d.date)
+            return (
+              <section
+                key={d.date}
+                className={`day-block ${d.date === todayIso ? 'today' : ''}`}
+                // The whole block is a target; its own controls keep their clicks
+                onClick={(e) => { if (!e.target.closest('button, input, a')) focusDay(i) }}
+                title={flagged ? `${d.name} — ${flagged.join(', ')} due` : `Focus ${d.name}`}
+              >
+                <div className="day-block-head">
+                  <span className="day-block-name">{d.short}</span>
+                  {c.total > 0 && (
+                    <span className={`day-block-count ${c.done === c.total ? 'full' : ''}`}>
+                      {c.done}/{c.total}
+                    </span>
+                  )}
                 </div>
+                {flagged && <div className="day-block-due">Due · {flagged.join(', ')}</div>}
+
+                {(dayItems.length > 0 || dayMissed.length > 0) && (
+                  <div className="day-block-list">
+                    {dayItems.map(it => (
+                      <DayCard
+                        key={it.key}
+                        item={it}
+                        todayIso={todayIso}
+                        frozen={frozen}
+                        onToggle={(completed) => toggleItem(it, completed)}
+                        onMove={() => setMoveItem(it)}
+                      />
+                    ))}
+                    {dayMissed.map(m => (
+                      <div key={m.key} className="day-card missed">
+                        <span className="missed-mark" aria-hidden="true" />
+                        <div className="day-card-body">
+                          <div className="day-card-project">{m.projectName}</div>
+                          <div className="day-card-task">{m.taskTitle}</div>
+                          {m.subtitle && <div className="day-card-sub">{m.subtitle}</div>}
+                          <div className="day-card-foot">
+                            <span className="day-card-missed">missed</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )
+          })}
+        </div>
+      ) : (
+        <>
+          <div className="day-tabs">
+            {days.map((d, i) => {
+              const c = tally(perDay[i].items)
+              const flagged = due.get(d.date)
+              return (
+                <button
+                  type="button"
+                  key={d.date}
+                  className={`day-tab ${i === dayIdx ? 'selected' : ''}`}
+                  onClick={() => setDayIdx(i)}
+                  title={flagged ? `${d.name} — ${flagged.join(', ')} due` : d.name}
+                >
+                  <span className="day-tab-label">
+                    {d.initial}
+                    {flagged && (
+                      <svg className="day-tab-flag" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+                        <line x1="4" y1="22" x2="4" y2="15"></line>
+                      </svg>
+                    )}
+                  </span>
+                  {c.total > 0 && (
+                    <span className="day-tab-track">
+                      <span className="day-tab-fill" style={{ width: `${c.pct}%` }} />
+                    </span>
+                  )}
+                </button>
               )
             })}
-
-            {missed.map(m => (
-              <div key={m.key} className="day-row missed">
-                <span className="missed-mark" aria-hidden="true" />
-                <div className="day-row-body">
-                  <div className="day-row-project">{m.projectName}</div>
-                  <div className="day-row-task">{m.taskTitle}</div>
-                  {m.subtitle && <div className="day-row-sub">{m.subtitle}</div>}
-                  <div className="day-row-foot">
-                    <span className="day-row-missed">missed · moved to another day</span>
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
-        )}
-      </div>
+
+          <div className="day-panel">
+            <div className="day-panel-head">
+              <div className="day-panel-name">{selected.name}</div>
+              <div className="day-panel-count">{counts.done} of {counts.total} done</div>
+              {dueNames.length > 0 && (
+                <div className="day-panel-due">Due · {dueNames.join(', ')}</div>
+              )}
+            </div>
+
+            {items.length === 0 && missed.length === 0 ? (
+              <div className="day-panel-empty">Nothing scheduled for {selected.name}.</div>
+            ) : (
+              <div className="day-panel-list">
+                {items.map(it => {
+                  const overdue = !it.completed && it.day_date < todayIso
+                  return (
+                    <div key={it.key} className={`day-row ${it.completed ? 'done' : ''} ${overdue ? 'overdue' : ''}`}>
+                      <input
+                        type="checkbox"
+                        className="task-check"
+                        checked={it.completed}
+                        disabled={frozen}
+                        onChange={e => toggleItem(it, e.target.checked)}
+                      />
+                      <div className="day-row-body">
+                        <div className="day-row-project">{it.projectName}</div>
+                        <div className="day-row-task">{it.taskTitle}</div>
+                        {it.subtitle && <div className="day-row-sub">{it.subtitle}</div>}
+                        {overdue && (
+                          <div className="day-row-foot">
+                            <span className="day-row-overdue">{frozen ? 'overdue' : 'overdue · reschedule?'}</span>
+                            {!frozen && (
+                              <button type="button" className="day-row-move" onClick={() => setMoveItem(it)}>
+                                move
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {missed.map(m => (
+                  <div key={m.key} className="day-row missed">
+                    <span className="missed-mark" aria-hidden="true" />
+                    <div className="day-row-body">
+                      <div className="day-row-project">{m.projectName}</div>
+                      <div className="day-row-task">{m.taskTitle}</div>
+                      {m.subtitle && <div className="day-row-sub">{m.subtitle}</div>}
+                      <div className="day-row-foot">
+                        <span className="day-row-missed">missed · moved to another day</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {moveItem && (
         <MoveDialog

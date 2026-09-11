@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext'
 import { formatDeadline, toISODate, weekDayList, subtaskTally, rollUp } from '../../utils'
 import { CopyPlanDialog, PastePlanDialog } from './PlanTransfer'
 
-function EditableText({ value, onSave, placeholder, className, autoFocus }) {
+function EditableText({ value, onSave, placeholder, className, autoFocus, readOnly }) {
   const [text, setText] = useState(value || '')
   const ref = useRef(null)
 
@@ -29,6 +29,8 @@ function EditableText({ value, onSave, placeholder, className, autoFocus }) {
       className={className}
       value={text}
       placeholder={placeholder}
+      readOnly={readOnly}
+      tabIndex={readOnly ? -1 : undefined}
       onChange={e => setText(e.target.value)}
       onBlur={() => {
         if ((text || '') !== (value || '')) onSave(text)
@@ -124,7 +126,7 @@ function DeadlineDialog({ project, onSave, onClose }) {
   )
 }
 
-function TaskRow({ task, autoFocus, onRename, onToggle, onOpenSchedule, onDelete }) {
+function TaskRow({ task, autoFocus, frozen, onRename, onToggle, onOpenSchedule, onDelete }) {
   const { done, total } = subtaskTally(task)
   return (
     <div className={`task-item ${task.day_date ? 'has-day' : ''}`}>
@@ -132,6 +134,7 @@ function TaskRow({ task, autoFocus, onRename, onToggle, onOpenSchedule, onDelete
         type="checkbox"
         className="task-check"
         checked={task.completed}
+        disabled={frozen}
         onChange={e => onToggle(task.id, e.target.checked)}
       />
       <EditableText
@@ -139,6 +142,7 @@ function TaskRow({ task, autoFocus, onRename, onToggle, onOpenSchedule, onDelete
         value={task.title}
         placeholder="To-do..."
         autoFocus={autoFocus}
+        readOnly={frozen}
         onSave={val => onRename(task.id, val)}
       />
       {total > 0 && (
@@ -150,7 +154,7 @@ function TaskRow({ task, autoFocus, onRename, onToggle, onOpenSchedule, onDelete
         </span>
       )}
       <div className="task-actions">
-        <button type="button" className="assign-date" onClick={() => onOpenSchedule(task.id)} title="Schedule across days">
+        <button type="button" className="assign-date" onClick={() => onOpenSchedule(task.id)} disabled={frozen} title="Schedule across days">
           {total > 0 ? (
             <span>edit days</span>
           ) : (
@@ -163,7 +167,7 @@ function TaskRow({ task, autoFocus, onRename, onToggle, onOpenSchedule, onDelete
             </>
           )}
         </button>
-        <button className="task-del" onClick={() => onDelete(task.id)} title="Delete task">
+        <button className="task-del" onClick={() => onDelete(task.id)} disabled={frozen} title="Delete task">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
       </div>
@@ -327,8 +331,11 @@ export function ProjectsSidebar() {
   const {
     projects, addProject, updateProjectName, deleteProject, reorderProjects,
     addTask, updateTaskTitle, setTaskSchedule, deleteTask, toggleTask, setProjectDeadline,
-    weekStart, importPlan, showToast,
+    weekStart, weekEnded, importPlan, showToast,
   } = useApp()
+  // An ended week is on display only: every control that would change the
+  // plan is disabled until the week is reopened from the toolbar
+  const frozen = weekEnded
   const [draggedIdx, setDraggedIdx] = useState(null)
   const [dragOverIdx, setDragOverIdx] = useState(null)
   const [focusTaskId, setFocusTaskId] = useState(null)
@@ -468,6 +475,8 @@ export function ProjectsSidebar() {
             type="button"
             className="link-btn always-on"
             onClick={() => setTransfer('paste')}
+            disabled={frozen}
+            title={frozen ? 'This week has ended - reopen it to paste' : undefined}
           >
             Paste plan
           </button>
@@ -485,7 +494,7 @@ export function ProjectsSidebar() {
             key={p.id}
             ref={el => { cardRefs.current[index] = el }}
             className={`project-card ${isDragging ? 'dragging' : ''}`}
-            draggable
+            draggable={!frozen}
             onDragStart={(e) => onDragStart(e, index)}
             onDragEnd={resetDrag}
             style={{ transform: dragTransform(index) }}
@@ -501,7 +510,8 @@ export function ProjectsSidebar() {
                     className="proj-title-input"
                     value={p.name}
                     placeholder="Project name..."
-                    autoFocus={!p.name}
+                    autoFocus={!p.name && !frozen}
+                    readOnly={frozen}
                     onSave={(newName) => updateProjectName(p.id, newName)}
                   />
                   {p.deadline && (
@@ -521,6 +531,7 @@ export function ProjectsSidebar() {
                   <button
                     className="icon-btn"
                     onClick={() => setDeadlineFor(p.id)}
+                    disabled={frozen}
                     title={p.deadline ? `Deadline ${isoToDisplay(p.deadline)}` : 'Set deadline'}
                     style={{width: 20, height: 20, padding: 0, color: p.deadline ? 'var(--accent)' : 'var(--ink-faint)'}}
                   >
@@ -531,6 +542,7 @@ export function ProjectsSidebar() {
                   <button
                     className="icon-btn"
                     onClick={() => deleteProject(p.id)}
+                    disabled={frozen}
                     style={{width: 20, height: 20, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'}}
                     title="Delete Project"
                   >
@@ -546,6 +558,7 @@ export function ProjectsSidebar() {
                   key={t.id}
                   task={t}
                   autoFocus={focusTaskId === t.id}
+                  frozen={frozen}
                   onRename={updateTaskTitle}
                   onToggle={toggleTask}
                   onOpenSchedule={setScheduleFor}
@@ -553,7 +566,7 @@ export function ProjectsSidebar() {
                 />
               ))}
 
-              <button className="add-task-btn" onClick={() => handleAddTask(p.id)}>
+              <button className="add-task-btn" onClick={() => handleAddTask(p.id)} disabled={frozen}>
                 <svg className="add-task-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <line x1="5" y1="12" x2="19" y2="12" />
@@ -565,7 +578,7 @@ export function ProjectsSidebar() {
         )
       })}
 
-      <button className="add-project-dashed" onClick={handleCreateProject}>+ ADD PROJECT</button>
+      <button className="add-project-dashed" onClick={handleCreateProject} disabled={frozen}>+ ADD PROJECT</button>
       </aside>
 
       {deadlineProject && (

@@ -42,11 +42,11 @@ function EndWeekDialog({ unfinished, onEnd, onCarry, onClose }) {
 }
 
 export function Board() {
-  const { projects, weekStart, setWeekStart, weekMeta, endWeek, reopenWeek, carryForward, showToast } = useApp()
+  const { projects, weekStart, setWeekStart, weekMeta, weekEnded, endWeek, reopenWeek, carryForward, showToast } = useApp()
   const weekText = weekLabel(weekStart)
   const weekIso = toISODate(weekStart)
   const meta = weekMeta[weekIso]
-  const ended = !!meta?.ended
+  const ended = weekEnded
   // A week that has not started cannot be ended
   const inFuture = weekStart > startOfWeek()
 
@@ -100,45 +100,49 @@ export function Board() {
         </div>
       </div>
 
-      <div className={`progress-section ${ended ? 'ended' : ''}`}>
-        <div className="progress-track">
-          <div className="progress-fill" style={{width: `${pct}%`}}></div>
+      {/* An ended week sits inside a dashed enclosure, progress bar included,
+          so the whole plan reads as frozen rather than merely finished */}
+      <div className={`week-body ${ended ? 'frozen' : ''}`}>
+        <div className={`progress-section ${ended ? 'ended' : ''}`}>
+          <div className="progress-track">
+            <div className="progress-fill" style={{width: `${pct}%`}}></div>
+          </div>
+          <div className="progress-stats">
+            {ended
+              ? <span className="ended-label">Ended {formatShortDate(meta.endedAt)} · frozen until reopened</span>
+              : <span className="days-left">5 days left - keep moving forward</span>}
+            <span className="pct">{done}/{total} • {pct}%</span>
+          </div>
         </div>
-        <div className="progress-stats">
-          {ended
-            ? <span className="ended-label">Ended {formatShortDate(meta.endedAt)}</span>
-            : <span className="days-left">5 days left - keep moving forward</span>}
-          <span className="pct">{done}/{total} • {pct}%</span>
+
+        {/* Phone only: the two panes are too tall to stack, so they take turns */}
+        <div className="pane-switch" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            className={`pane-tab ${pane === 'projects' ? 'selected' : ''}`}
+            aria-selected={pane === 'projects'}
+            onClick={() => setPane('projects')}
+          >
+            Projects
+            <span className="pane-tab-count">{projects.length}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            className={`pane-tab ${pane === 'week' ? 'selected' : ''}`}
+            aria-selected={pane === 'week'}
+            onClick={() => setPane('week')}
+          >
+            This week
+            <span className="pane-tab-count">{done}/{total}</span>
+          </button>
         </div>
-      </div>
 
-      {/* Phone only: the two panes are too tall to stack, so they take turns */}
-      <div className="pane-switch" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          className={`pane-tab ${pane === 'projects' ? 'selected' : ''}`}
-          aria-selected={pane === 'projects'}
-          onClick={() => setPane('projects')}
-        >
-          Projects
-          <span className="pane-tab-count">{projects.length}</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className={`pane-tab ${pane === 'week' ? 'selected' : ''}`}
-          aria-selected={pane === 'week'}
-          onClick={() => setPane('week')}
-        >
-          This week
-          <span className="pane-tab-count">{done}/{total}</span>
-        </button>
-      </div>
-
-      <div className={`planning-board pane-${pane} ${ended ? 'ended' : ''}`}>
-        <ProjectsSidebar />
-        <WeekGrid />
+        <div className={`planning-board pane-${pane} ${ended ? 'ended' : ''}`}>
+          <ProjectsSidebar />
+          <WeekGrid />
+        </div>
       </div>
 
       {ending && (

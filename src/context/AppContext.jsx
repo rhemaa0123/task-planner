@@ -42,6 +42,9 @@ export function AppProvider({ children }) {
 
   const weekStartIso = toISODate(weekStart)
   const projects = allProjects.filter(p => p.week_start === weekStartIso)
+  // An ended week is frozen: the board shows it but nothing in it can change
+  // until it is reopened
+  const weekEnded = !!weekMeta[weekStartIso]?.ended
 
   const generateId = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)
 
@@ -319,7 +322,7 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       projects, allProjects, weekStart, setWeekStart, toasts, showToast,
-      weekMeta, endWeek, reopenWeek, carryForward, deleteWeek, clearAll,
+      weekMeta, weekEnded, endWeek, reopenWeek, carryForward, deleteWeek, clearAll,
       addProject, updateProjectName, deleteProject, setProjectDeadline, reorderProjects, importPlan,
       addTask, updateTaskTitle, setTaskDay, setTaskSchedule, toggleSubtask, moveScheduled,
       deleteTask, toggleTask,

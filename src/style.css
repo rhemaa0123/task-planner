@@ -372,6 +372,28 @@ button {
 .ended-label { color: var(--ink-soft); }
 .progress-section.ended .progress-fill { background: var(--ink-faint); }
 
+/* ---- Week body ----
+   Progress bar and board together. Mirrors .main-content's column so the
+   board keeps its own scrolling; an ended week draws a dashed enclosure
+   around both, with a dashed rule under the progress line, so the plan
+   reads as frozen rather than merely finished. */
+.week-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.week-body.frozen {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-card);
+  padding: var(--sp-4);
+}
+.week-body.frozen .progress-section {
+  margin-bottom: var(--sp-5);
+  padding-bottom: var(--sp-4);
+  border-bottom: 1px dashed var(--line-strong);
+}
+
 .toolbar-right button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -937,6 +959,165 @@ input[type="text"].task-name-input.done {
   font-size: var(--fs-body);
   color: var(--ink-faint);
 }
+
+/* "Focusing Fri (today)" - the day name is the only bright word in the line */
+.header-links .focus-day {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---- All days: the week as seven blocks, every scheduled unit in view ---- */
+.day-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-3);
+  align-content: start;
+  flex-shrink: 0;
+}
+
+.day-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-height: 180px;
+  padding: var(--sp-3);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.day-block:hover { border-color: var(--line-strong); }
+.day-block.today { border-color: var(--accent); }
+
+.day-block-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 22px;
+}
+
+.day-block-name {
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.day-block.today .day-block-name { color: var(--accent); }
+
+/* Only days holding work carry a count, so an empty day reads as empty */
+.day-block-count {
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--good-soft);
+  color: var(--good);
+}
+.day-block-count.full {
+  background: var(--good);
+  color: var(--paper);
+}
+
+.day-block-due {
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
+.day-block-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* Project, task, subtask stacked as in the focused list; overdue tints the card */
+.day-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  cursor: default;
+}
+.day-card .task-check { margin-top: 1px; }
+.day-card.overdue {
+  background: var(--warn-soft);
+  border-color: transparent;
+}
+
+.day-card-body {
+  flex: 1;
+  min-width: 0;
+}
+.day-card-project {
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.day-card-task {
+  font-size: var(--fs-row);
+  color: var(--ink-typed);
+  margin-top: 1px;
+  overflow-wrap: anywhere;
+}
+.day-card-sub {
+  font-size: var(--fs-body);
+  color: var(--ink-soft);
+  margin-top: 1px;
+  overflow-wrap: anywhere;
+}
+.day-card.done .day-card-task,
+.day-card.done .day-card-sub {
+  text-decoration: line-through;
+  color: var(--ink-faint);
+}
+.day-card.missed { opacity: 0.6; }
+.day-card.missed .day-card-task { text-decoration: line-through; }
+.day-card.missed .missed-mark { margin-top: 1px; }
+
+.day-card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
+}
+.day-card-overdue,
+.day-card-missed {
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.day-card-overdue { color: var(--warn); }
+.day-card-missed { color: var(--ink-faint); }
+
+.day-card-move {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-chip);
+  color: var(--warn);
+  transition: background 0.15s;
+}
+.day-card-move:hover { background: var(--warn-soft); }
 
 /* ---- Task Items ---- */
 /* Indented so tasks read as sublines of the project name (14px handle + 8px gap) */
@@ -1791,6 +1972,45 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
 /* Side by side on a wide screen, so there is nothing to switch between */
 .pane-switch { display: none; }
 
+/* ---- Frozen (ended) week ----
+   The plan stays readable and scrollable; nothing on it responds until the
+   week is reopened. Hover-only actions are hidden outright rather than left
+   to appear and refuse. */
+.task-check:disabled { cursor: default; }
+.task-check:disabled:hover { border-color: var(--line-strong); }
+.task-check:disabled:checked { border-color: var(--good); }
+
+.planning-board.ended .project-card { cursor: default; }
+.planning-board.ended .proj-hover-action,
+.planning-board.ended .task-del,
+.planning-board.ended .task-item.has-day .assign-date {
+  display: none;
+}
+.planning-board.ended .assign-date {
+  color: var(--ink-faint);
+  cursor: default;
+  transform: none;
+}
+.planning-board.ended .task-item .assign-date .arrow,
+.planning-board.ended .task-item .assign-date .cal-box {
+  opacity: 0;
+}
+.planning-board.ended input[readonly] { cursor: default; }
+.planning-board.ended .add-task-btn,
+.planning-board.ended .add-project-dashed {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.planning-board.ended .add-task-btn:hover {
+  color: var(--ink-faint);
+  background: transparent;
+}
+.planning-board.ended .add-project-dashed:hover {
+  border-color: var(--line-strong);
+  color: var(--ink-faint);
+}
+.planning-board.ended .day-row:hover { background: transparent; }
+
 /* ---- One pane at a time ----
    The desktop layout pins the shell to the viewport and scrolls the two columns
    independently. Stacking them on a phone would mean scrolling the whole project
@@ -1861,6 +2081,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   .week-grid-container { overflow-y: visible; }
   .day-panel { overflow: visible; }
   .day-panel-list { overflow-y: visible; }
+  .day-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
   .grid-header { flex-wrap: wrap; gap: var(--sp-1); }
 }
@@ -1897,6 +2118,9 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
 
   .day-panel-head { padding: var(--sp-3); }
   .day-row { padding: var(--sp-3); }
+  .day-grid { grid-template-columns: 1fr; }
+  .day-block { min-height: 0; }
+  .week-body.frozen { padding: var(--sp-3); }
 
   .project-card { padding: var(--sp-3); }
   .proj-tasks { padding-left: var(--sp-2); }
@@ -1970,6 +2194,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   .cog-btn { width: 38px; height: 38px; }
   .task-del { padding: 8px; }
   .day-row-move { padding: 7px 14px; }
+  .day-card-move { width: 32px; height: 32px; }
   .day-tab { min-height: 52px; }
   .day-toggle { height: 46px; }
   .sched-add { padding: var(--sp-2) 0 var(--sp-2) var(--sp-3); }
