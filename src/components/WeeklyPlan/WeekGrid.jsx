@@ -182,17 +182,14 @@ const XIcon = () => (
   </svg>
 )
 
-// One task on one day. The same box serves the all-days grid and the focused
-// day's list. Compact (the grid) keeps to the task: one line, one box for every
-// unit that day, a count when there is more than one - subtask names wait for
-// focus. Full (the list) gives every unit its own line. Overdue work carries a
-// calendar button that opens the move dialog; a frozen week keeps the label
-// and drops the button.
+// One task on one day. Compact (the grid) keeps to the task: one line, one
+// box for every unit that day - subtask names wait for focus. Full (the list)
+// gives every unit its own line. Overdue work carries a calendar button that
+// opens the move dialog; a frozen week keeps the label and drops the button.
 function TaskGroup({ group, todayIso, frozen, compact, onToggle, onMove }) {
   const isOverdue = (u) => !u.completed && u.day_date < todayIso
   const { units } = group
   const allDone = units.every(u => u.completed)
-  const doneCount = units.filter(u => u.completed).length
   const overdueUnits = units.filter(isOverdue)
 
   const foot = (targets) => (
@@ -228,14 +225,6 @@ function TaskGroup({ group, todayIso, frozen, compact, onToggle, onMove }) {
             <div className="day-card-task">{group.taskTitle}</div>
             {overdueUnits.length > 0 && foot(overdueUnits)}
           </div>
-          {units.length > 1 && (
-            <span
-              className={`subtask-badge ${allDone ? 'full' : ''}`}
-              title={`${doneCount} of ${units.length} on this day done`}
-            >
-              {doneCount}/{units.length}
-            </span>
-          )}
         </div>
       </div>
     )
@@ -267,6 +256,12 @@ function TaskGroup({ group, todayIso, frozen, compact, onToggle, onMove }) {
     </div>
   )
 }
+
+// The focused day lists every unit on its own row - project, task, subtask -
+// with nothing boxed together; the grid is where a task folds into one card
+const perUnit = (items) => items.map(it => ({
+  key: it.key, taskId: it.taskId, projectName: it.projectName, taskTitle: it.taskTitle, units: [it],
+}))
 
 // A day this work was moved off - kept visible so the week still shows the
 // slip. The corner × forgives it, after asking.
@@ -487,7 +482,7 @@ export function WeekGrid() {
 
           <div className="day-panel">
             <div className="day-panel-head">
-              <div className="day-panel-name">{selected.name}</div>
+              <div className="day-panel-name">{selected.name}{selected.date === todayIso && ' · Today'}</div>
               <div className="day-panel-count">{counts.done} of {counts.total} done</div>
               {dueNames.length > 0 && (
                 <div className="day-panel-due">Due · {dueNames.join(', ')}</div>
@@ -498,7 +493,7 @@ export function WeekGrid() {
               <div className="day-panel-empty">Nothing scheduled for {selected.name}.</div>
             ) : (
               <div className="day-panel-list">
-                {groupByTask(items).map(g => (
+                {perUnit(items).map(g => (
                   <TaskGroup
                     key={g.key}
                     group={g}
