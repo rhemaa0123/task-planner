@@ -81,6 +81,7 @@ export function Header({ route }) {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const isPlans = route === '#/' || route.startsWith('#/plan')
   const isStats = route === '#/stats'
+  const isWeeks = route === '#/weeks'
 
   return (
     <header className="header">
@@ -88,7 +89,7 @@ export function Header({ route }) {
       <nav className="nav-tabs">
         <a href="#/" className={`nav-tab ${isPlans ? 'active' : ''}`}>PLAN</a>
         <a href="#/stats" className={`nav-tab ${isStats ? 'active' : ''}`}>STATS</a>
-        <a href="#/" className="nav-tab">WEEKS</a>
+        <a href="#/weeks" className={`nav-tab ${isWeeks ? 'active' : ''}`}>WEEKS</a>
       </nav>
       <div className="header-spacer"></div>
       <div className="user-menu">

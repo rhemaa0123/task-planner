@@ -1,9 +1,21 @@
 import React, { createContext, useContext, useState } from 'react'
-import { startOfWeek, toISODate, clampDifficulty, earliestDay } from '../utils'
+import { startOfWeek, toISODate, addDays, fromISODate, earliestDay } from '../utils'
 
 const AppContext = createContext(null)
 
 const STORE_KEY = 'task-planner-guest'
+const WEEKS_KEY = 'task-planner-weeks'
+
+// Per-week state that is not a project: whether the week has been ended.
+// Keyed by the week's Monday, e.g. { "2026-09-07": { ended: true, endedAt } }.
+const readWeekMeta = () => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(WEEKS_KEY))
+    return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {}
+  } catch {
+    return {}
+  }
+}
 
 // Everything lives in this browser. No account, no network - opening the planner
 // on any machine gives that machine its own plan, kept in its own localStorage.
@@ -21,6 +33,7 @@ const readStore = () => {
 
 export function AppProvider({ children }) {
   const [allProjects, setAllProjects] = useState(readStore)
+  const [weekMeta, setWeekMeta] = useState(readWeekMeta)
   const [weekStart, setWeekStart] = useState(() => startOfWeek())
   const [toasts, setToasts] = useState([])
   // Set once if the browser refuses to persist, so the warning is not repeated
@@ -43,16 +56,25 @@ export function AppProvider({ children }) {
   // The single write path. Private-browsing modes and full quotas throw here, so
   // the plan still updates on screen and the user is told once that it will not
   // outlive the tab.
-  const save = (next) => {
-    setAllProjects(next)
+  const persist = (key, value) => {
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify(next))
+      localStorage.setItem(key, JSON.stringify(value))
     } catch {
       if (!storageWarned) {
         setStorageWarned(true)
         showToast('This browser is blocking storage — your plan will not be saved', 'error')
       }
     }
+  }
+
+  const save = (next) => {
+    setAllProjects(next)
+    persist(STORE_KEY, next)
+  }
+
+  const saveMeta = (next) => {
+    setWeekMeta(next)
+    persist(WEEKS_KEY, next)
   }
 
   // Mutations
@@ -120,7 +142,6 @@ export function AppProvider({ children }) {
         title: s.title || '',
         day_date: s.day_date,
         completed: !!s.completed,
-        difficulty: clampDifficulty(s.difficulty),
         missedDays: s.missedDays || [],
       }))
 
@@ -188,7 +209,6 @@ export function AppProvider({ children }) {
             title: s.title || '',
             day_date: s.day_date || null,
             completed: !!s.completed,
-            difficulty: clampDifficulty(s.difficulty),
           })),
         })),
       }
@@ -196,6 +216,93 @@ export function AppProvider({ children }) {
 
     save([...allProjects, ...built])
     return { projects: built.length, tasks: built.reduce((n, p) => n + p.tasks.length, 0) }
+  }
+
+  /* ---- Weeks ---- */
+
+  const endWeek = (iso) => {
+    saveMeta({ ...weekMeta, [iso]: { ...(weekMeta[iso] || {}), ended: true, endedAt: toISODate(new Date()) } })
+  }
+
+  const reopenWeek = (iso) => {
+    const next = { ...weekMeta }
+    delete next[iso]
+    saveMeta(next)
+  }
+
+  // Moves every unfinished unit of work one week later - same weekday, same
+  // project (created in the next week if it does not exist there yet) - then
+  // ends the week. A task with some subtasks done stays behind with just those,
+  // now complete, while its open subtasks travel on as a copy.
+  const carryForward = (iso) => {
+    const nextIso = toISODate(addDays(fromISODate(iso), 7))
+    const shift = (d) => (d ? toISODate(addDays(fromISODate(d), 7)) : null)
+
+    const thisWeek = allProjects.filter(p => p.week_start === iso)
+    const nextWeek = allProjects.filter(p => p.week_start === nextIso)
+    const others = allProjects.filter(p => p.week_start !== iso && p.week_start !== nextIso)
+
+    const nextByName = new Map(nextWeek.map(p => [p.name, { ...p, tasks: [...(p.tasks || [])] }]))
+    const stayed = []
+    let moved = 0
+
+    for (const p of thisWeek) {
+      const keep = []
+      const carried = []
+
+      for (const t of p.tasks || []) {
+        const subs = t.subtasks || []
+        if (subs.length) {
+          const open = subs.filter(s => !s.completed)
+          const done = subs.filter(s => s.completed)
+          if (!open.length) { keep.push(t); continue }
+          if (done.length) keep.push({ ...t, subtasks: done, day_date: earliestDay(done), completed: true })
+          const shifted = open.map(s => ({ ...s, id: generateId(), day_date: shift(s.day_date), missedDays: [] }))
+          carried.push({ ...t, id: generateId(), subtasks: shifted, day_date: earliestDay(shifted), completed: false, missedDays: [] })
+          moved += open.length
+        } else if (t.completed) {
+          keep.push(t)
+        } else {
+          carried.push({ ...t, id: generateId(), day_date: shift(t.day_date), missedDays: [] })
+          moved++
+        }
+      }
+
+      stayed.push({ ...p, tasks: keep })
+      if (!carried.length) continue
+
+      let target = nextByName.get(p.name)
+      if (!target) {
+        target = {
+          id: generateId(),
+          name: p.name,
+          deadline: shift(p.deadline),
+          week_start: nextIso,
+          tasks: [],
+        }
+        nextByName.set(p.name, target)
+      }
+      target.tasks.push(...carried.map(t => ({ ...t, project_id: target.id })))
+    }
+
+    save([...others, ...stayed, ...nextByName.values()])
+    saveMeta({ ...weekMeta, [iso]: { ...(weekMeta[iso] || {}), ended: true, endedAt: toISODate(new Date()) } })
+    return moved
+  }
+
+  // Removes a week's plan outright, along with its ended flag
+  const deleteWeek = (iso) => {
+    save(allProjects.filter(p => p.week_start !== iso))
+    if (weekMeta[iso]) {
+      const next = { ...weekMeta }
+      delete next[iso]
+      saveMeta(next)
+    }
+  }
+
+  const clearAll = () => {
+    save([])
+    saveMeta({})
   }
 
   const reorderProjects = (fromIndex, toIndex) => {
@@ -211,7 +318,8 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
-      projects, weekStart, setWeekStart, toasts, showToast,
+      projects, allProjects, weekStart, setWeekStart, toasts, showToast,
+      weekMeta, endWeek, reopenWeek, carryForward, deleteWeek, clearAll,
       addProject, updateProjectName, deleteProject, setProjectDeadline, reorderProjects, importPlan,
       addTask, updateTaskTitle, setTaskDay, setTaskSchedule, toggleSubtask, moveScheduled,
       deleteTask, toggleTask,

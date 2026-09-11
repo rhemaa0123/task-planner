@@ -1,20 +1,62 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { ProjectsSidebar } from './ProjectsSidebar'
 import { WeekGrid } from './WeekGrid'
-import { addDays, weekLabel, formatWeekRange, startOfWeek, rollUp } from '../../utils'
+import {
+  addDays, weekLabel, formatWeekRange, startOfWeek, rollUp, toISODate, formatShortDate,
+} from '../../utils'
+
+function EndWeekDialog({ unfinished, onEnd, onCarry, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="modal-card wide" role="dialog" aria-label="End week">
+        <div className="modal-eyebrow">END WEEK</div>
+        <h2 className="modal-title">
+          {unfinished > 0 ? "Some tasks aren't finished yet" : 'Everything is finished'}
+        </h2>
+        <div className="modal-divider" />
+
+        <p className="modal-copy">
+          {unfinished > 0
+            ? 'This finalizes the week and updates your stats. Unfinished tasks can carry forward into next week, or be cleared along with everything else'
+            : 'This finalizes the week and updates your stats.'}
+        </p>
+
+        <div className="modal-actions">
+          <span style={{ flex: 1 }} />
+          <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
+          <button type="button" className="btn-primary" onClick={onEnd}>End week</button>
+          {unfinished > 0 && (
+            <button type="button" className="btn-strong" onClick={onCarry}>Carry forward</button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function Board() {
-  const { projects, weekStart, setWeekStart } = useApp()
+  const { projects, weekStart, setWeekStart, weekMeta, endWeek, reopenWeek, carryForward, showToast } = useApp()
   const weekText = weekLabel(weekStart)
+  const weekIso = toISODate(weekStart)
+  const meta = weekMeta[weekIso]
+  const ended = !!meta?.ended
+  // A week that has not started cannot be ended
+  const inFuture = weekStart > startOfWeek()
 
   // Which of the two panes a phone shows. Ignored on wide screens, where the CSS
   // puts them side by side and both stay mounted.
   const [pane, setPane] = useState('projects')
+  const [ending, setEnding] = useState(false)
 
-  // `projects` is already scoped to the visible week, so every task counts.
-  // Weighted by subtask difficulty, matching the project bars.
-  const { items, itemsDone, pct } = rollUp(projects.flatMap(p => p.tasks || []))
+  // `projects` is already scoped to the visible week, so every task counts
+  const { done, total, pct } = rollUp(projects.flatMap(p => p.tasks || []))
 
   return (
     <>
@@ -43,18 +85,30 @@ export function Board() {
           <span className="today-link" onClick={() => setWeekStart(startOfWeek())}>Today</span>
         </div>
         <div className="toolbar-right">
-          <button>Move work</button>
-          <button>End week</button>
+          <button disabled={ended}>Move work</button>
+          {ended ? (
+            <button onClick={() => reopenWeek(weekIso)}>Reopen…</button>
+          ) : (
+            <button
+              onClick={() => setEnding(true)}
+              disabled={inFuture}
+              title={inFuture ? 'This week has not started yet' : undefined}
+            >
+              End week
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="progress-section">
+      <div className={`progress-section ${ended ? 'ended' : ''}`}>
         <div className="progress-track">
           <div className="progress-fill" style={{width: `${pct}%`}}></div>
         </div>
         <div className="progress-stats">
-          <span className="days-left">5 days left - keep moving forward</span>
-          <span className="pct">{itemsDone}/{items} • {pct}%</span>
+          {ended
+            ? <span className="ended-label">Ended {formatShortDate(meta.endedAt)}</span>
+            : <span className="days-left">5 days left - keep moving forward</span>}
+          <span className="pct">{done}/{total} • {pct}%</span>
         </div>
       </div>
 
@@ -78,15 +132,31 @@ export function Board() {
           onClick={() => setPane('week')}
         >
           This week
-          <span className="pane-tab-count">{itemsDone}/{items}</span>
+          <span className="pane-tab-count">{done}/{total}</span>
         </button>
       </div>
 
-      <div className={`planning-board pane-${pane}`}>
+      <div className={`planning-board pane-${pane} ${ended ? 'ended' : ''}`}>
         <ProjectsSidebar />
         <WeekGrid />
       </div>
+
+      {ending && (
+        <EndWeekDialog
+          unfinished={total - done}
+          onClose={() => setEnding(false)}
+          onEnd={() => {
+            endWeek(weekIso)
+            setEnding(false)
+            showToast(`Ended ${formatWeekRange(weekStart)}`)
+          }}
+          onCarry={() => {
+            const moved = carryForward(weekIso)
+            setEnding(false)
+            showToast(`Carried ${moved} ${moved === 1 ? 'item' : 'items'} into next week`)
+          }}
+        />
+      )}
     </>
   )
 }
-

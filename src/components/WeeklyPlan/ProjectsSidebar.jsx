@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
-import {
-  formatDeadline, toISODate, weekDayList, subtaskTally, rollUp,
-  clampDifficulty, DIFFICULTIES,
-} from '../../utils'
+import { formatDeadline, toISODate, weekDayList, subtaskTally, rollUp } from '../../utils'
 import { CopyPlanDialog, PastePlanDialog } from './PlanTransfer'
 
 function EditableText({ value, onSave, placeholder, className, autoFocus }) {
@@ -175,7 +172,7 @@ function TaskRow({ task, autoFocus, onRename, onToggle, onOpenSchedule, onDelete
 }
 
 const rowId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
-const blankRow = () => ({ id: rowId(), title: '', difficulty: 1, completed: false })
+const blankRow = () => ({ id: rowId(), title: '', completed: false })
 
 function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }) {
   const days = weekDayList(weekStartIso)
@@ -190,7 +187,6 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
       seed[s.day_date].push({
         id: s.id || rowId(),
         title: s.title || '',
-        difficulty: clampDifficulty(s.difficulty),
         completed: !!s.completed,
       })
     }
@@ -233,7 +229,6 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
           title: r.title.trim(),
           day_date: d.date,
           completed: r.completed,
-          difficulty: r.difficulty,
         })
       }
     }
@@ -291,18 +286,6 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
                   placeholder="add a note (optional)"
                   onChange={e => patchRow(d.date, r.id, { title: e.target.value })}
                 />
-                <div className="dots" role="group" aria-label="Difficulty">
-                  {DIFFICULTIES.map(n => (
-                    <button
-                      type="button"
-                      key={n}
-                      className={`dot ${r.difficulty >= n ? 'on' : ''}`}
-                      onClick={() => patchRow(d.date, r.id, { difficulty: n })}
-                      aria-pressed={r.difficulty >= n}
-                      aria-label={`Difficulty ${n} of 3`}
-                    />
-                  ))}
-                </div>
                 {byDay[d.date].length > 1 && (
                   <button
                     type="button"
@@ -320,12 +303,6 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
             </button>
           </div>
         ))}
-
-        {pickedDays.length > 0 && (
-          <p className="sched-hint">
-            Use the dots to set difficulty — harder subtasks count more toward your progress
-          </p>
-        )}
 
         <div className="field-label">NOTE</div>
         <textarea
@@ -499,7 +476,6 @@ export function ProjectsSidebar() {
 
       {projects.map((p, index) => {
         const tasks = p.tasks || []
-        // Weighted: a 3-dot subtask moves this bar three times as far as a 1-dot one
         const { total, pct } = rollUp(tasks)
 
         const isDragging = draggedIdx === index

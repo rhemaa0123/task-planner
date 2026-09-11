@@ -3,6 +3,7 @@ import { AppProvider, useApp } from './context/AppContext'
 import { useHashRouter } from './hooks/useHashRouter'
 import { Header } from './components/Header'
 import { Board } from './components/WeeklyPlan/Board'
+import { WeeksPage } from './components/Weeks/WeeksPage'
 
 function AppContent() {
   const { route } = useHashRouter()
@@ -11,7 +12,9 @@ function AppContent() {
   // The plan comes straight out of localStorage, so there is nothing to wait for
   const content = route === '#/stats'
     ? <div style={{padding: 24}}>Stats coming soon in React</div>
-    : <Board />
+    : route === '#/weeks'
+      ? <WeeksPage />
+      : <Board />
 
   return (
     <>

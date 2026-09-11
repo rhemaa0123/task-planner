@@ -42,19 +42,32 @@ export function weekLabel(startDate) {
   return `In ${weeks} weeks`
 }
 
-const ordinal = (n) => {
-  // 11th/12th/13th break the last-digit rule
-  if (n % 100 >= 11 && n % 100 <= 13) return 'th'
-  return ['th', 'st', 'nd', 'rd'][n % 10] || 'th'
-}
-
-// "2026-08-10" -> "Aug 10th '26"
+// "2026-09-09" -> "Wed, Sep 09" - weekday first, so a deadline reads as a day
+// you can picture rather than a number to look up
 export function formatDeadline(iso) {
   if (!iso) return ''
   const [y, m, d] = String(iso).split('-').map(Number)
   if (!y || !m || !d) return ''
-  const month = new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short' })
-  return `${month} ${d}${ordinal(d)} '${String(y).slice(-2)}`
+  const date = new Date(y, m - 1, d)
+  const wd = date.toLocaleDateString('en-US', { weekday: 'short' })
+  const mo = date.toLocaleDateString('en-US', { month: 'short' })
+  return `${wd}, ${mo} ${String(d).padStart(2, '0')}`
+}
+
+// "2026-09-07" -> "Sep 07 – Sep 13", the shape the weeks list uses
+export function formatWeekTitle(weekStartIso) {
+  const start = fromISODate(weekStartIso)
+  const end = addDays(start, 6)
+  const f = (dt) =>
+    `${dt.toLocaleDateString('en-US', { month: 'short' })} ${String(dt.getDate()).padStart(2, '0')}`
+  return `${f(start)} – ${f(end)}`
+}
+
+// "2026-09-06" -> "Sep 06"
+export function formatShortDate(iso) {
+  if (!iso) return ''
+  const dt = fromISODate(iso)
+  return `${dt.toLocaleDateString('en-US', { month: 'short' })} ${String(dt.getDate()).padStart(2, '0')}`
 }
 
 export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -77,55 +90,50 @@ export function weekDayList(weekStartIso) {
 
 /* ---- Progress ---- */
 
-export const DIFFICULTIES = [1, 2, 3]
-
-export const clampDifficulty = (n) =>
-  Math.min(3, Math.max(1, Math.round(Number(n) || 1)))
-
-// Difficulty is a weight, which is what the dots in the schedule dialog promise:
-// a 3-dot subtask carries the bar three times as far as a 1-dot one. A task with
-// no subtasks is a single unit of weight 1, so old plans still total correctly.
+// A task with subtasks is as done as its subtasks are; one without is a single
+// unit. Every unit weighs the same.
 export function taskProgress(task) {
   const subs = task?.subtasks || []
   if (!subs.length) return { done: task?.completed ? 1 : 0, total: 1 }
-  let done = 0
-  let total = 0
-  for (const s of subs) {
-    const w = clampDifficulty(s.difficulty)
-    total += w
-    if (s.completed) done += w
-  }
-  return { done, total }
+  return { done: subs.filter((s) => s.completed).length, total: subs.length }
 }
 
-// Plain head-count for the row badge - "2/4" has to read as subtasks, not weight
+// The row badge: "2/4" subtasks
 export function subtaskTally(task) {
   const subs = task?.subtasks || []
   return { done: subs.filter((s) => s.completed).length, total: subs.length }
 }
 
-// `pct` is weighted by difficulty; `items`/`itemsDone` are a plain head-count,
-// because "1/6 done" would be baffling next to four visible subtasks
 export function rollUp(tasks) {
   let done = 0
   let total = 0
-  let items = 0
-  let itemsDone = 0
   for (const t of tasks || []) {
     const p = taskProgress(t)
     done += p.done
     total += p.total
+  }
+  return { done, total, pct: total === 0 ? 0 : Math.round((done / total) * 100) }
+}
 
-    const subs = t.subtasks || []
-    if (subs.length) {
-      items += subs.length
-      itemsDone += subs.filter((s) => s.completed).length
-    } else {
-      items += 1
-      if (t.completed) itemsDone += 1
+// Units of work per weekday for one week's projects - a subtask lands on its own
+// day, a task with no subtasks on its day_date, and unscheduled work on none
+export function dayLoad(weekStartIso, projects) {
+  const days = weekDayList(weekStartIso).map((d) => ({ ...d, total: 0, done: 0 }))
+  const byDate = new Map(days.map((d) => [d.date, d]))
+  const bump = (iso, completed) => {
+    const slot = byDate.get(iso)
+    if (!slot) return
+    slot.total++
+    if (completed) slot.done++
+  }
+  for (const p of projects || []) {
+    for (const t of p.tasks || []) {
+      const subs = t.subtasks || []
+      if (subs.length) subs.forEach((s) => bump(s.day_date, s.completed))
+      else bump(t.day_date, t.completed)
     }
   }
-  return { done, total, items, itemsDone, pct: total === 0 ? 0 : Math.round((done / total) * 100) }
+  return days
 }
 
 // Earliest scheduled day, so a task's own day_date keeps following its subtasks
@@ -184,7 +192,6 @@ export function encodePlan(weekStartIso, projects) {
             description: s.title || '',
             isDone: !!s.completed,
             assignedDay: dayCodeFor(s.day_date, start),
-            difficulty: clampDifficulty(s.difficulty),
           })),
         })),
       })),
@@ -216,7 +223,6 @@ const readTasks = (rawTasks) =>
               : '',
             dayOffset: dayIndex(s.assignedDay) ?? ownDay,
             completed: !!s.isDone,
-            difficulty: clampDifficulty(s.difficulty),
           })),
       }
     })
@@ -269,7 +275,6 @@ export function materializePlan(plan, targetWeekIso) {
         title: s.title,
         day_date: dateAt(s.dayOffset),
         completed: s.completed,
-        difficulty: s.difficulty,
       }))
       return {
         title: t.title,

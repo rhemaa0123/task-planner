@@ -29,6 +29,7 @@
 
   --good: #1f8a4c;
   --good-soft: rgba(31, 138, 76, 0.14);
+  --good-dim: rgba(31, 138, 76, 0.32);
   --warn: #c0392b;
   --warn-soft: rgba(192, 57, 43, 0.12);
 
@@ -64,6 +65,7 @@
 
   --good: #4ade80;
   --good-soft: rgba(74, 222, 128, 0.15);
+  --good-dim: rgba(74, 222, 128, 0.3);
   --warn: #f87171;
   --warn-soft: rgba(248, 113, 113, 0.15);
 
@@ -366,6 +368,17 @@ button {
   font-size: 0.75rem;
   color: var(--ink-faint);
   font-family: var(--mono);
+}
+.ended-label { color: var(--ink-soft); }
+.progress-section.ended .progress-fill { background: var(--ink-faint); }
+
+.toolbar-right button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.toolbar-right button:disabled:hover {
+  background: var(--paper);
+  color: var(--ink-soft);
 }
 
 /* ---- 2-Pane Planning Board ---- */
@@ -1219,27 +1232,6 @@ input[type="text"].sched-sub-input {
 input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
 .sched-sub-input::placeholder { color: var(--ink-faint); }
 
-/* Difficulty: filled up to the chosen level, so 2 of 3 reads at a glance */
-.dots {
-  display: flex;
-  gap: 6px;
-  flex-shrink: 0;
-}
-.dot {
-  width: 9px;
-  height: 9px;
-  padding: 0;
-  border-radius: 50%;
-  border: 1px solid var(--line-strong);
-  background: transparent;
-  transition: 0.14s;
-}
-.dot:hover { border-color: var(--accent); transform: scale(1.2); }
-.dot.on {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
 .sched-sub-del {
   flex-shrink: 0;
   background: transparent;
@@ -1263,12 +1255,6 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   font-weight: 500;
 }
 .sched-add:hover { text-decoration: underline; }
-
-.sched-hint {
-  font-size: var(--fs-body);
-  color: var(--ink-faint);
-  margin: 0 0 var(--sp-4);
-}
 
 .schedule-note {
   display: block;
@@ -1501,9 +1487,302 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
 }
 .btn-ghost:hover { background: var(--hover-neutral); color: var(--ink); }
 
+/* The heaviest button in a dialog - the one action the copy is steering toward */
+.btn-strong {
+  background: var(--ink);
+  border: 1px solid var(--ink);
+  color: var(--paper);
+  font-weight: 500;
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-chip);
+  transition: filter 0.15s;
+}
+.btn-strong:hover { filter: brightness(1.15); }
+
+.btn-danger {
+  background: var(--warn);
+  border: 1px solid var(--warn);
+  color: #fff;
+  font-weight: 500;
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-chip);
+  transition: filter 0.15s;
+}
+.btn-danger:hover { filter: brightness(1.08); }
+
+.modal-copy {
+  margin: 0;
+  font-size: var(--fs-row);
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
 .toast-container { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; }
 .toast { background: var(--paper-hover); border: 1px solid var(--line-strong); color: var(--ink); padding: 12px 16px; border-radius: var(--r); font-size: 0.85rem; box-shadow: var(--shadow-card); }
 .toast.error { border-color: var(--warn); color: var(--warn); }
+
+/* ============================================================
+   Weeks
+   ============================================================ */
+.weeks-page {
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.weeks-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-4);
+}
+.weeks-head .eyebrow { font-family: var(--mono); }
+
+.clear-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: var(--sp-2) var(--sp-4);
+  color: var(--warn);
+  font-family: var(--mono);
+  font-size: var(--fs-chrome);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  transition: 0.15s;
+}
+.clear-all-btn:hover {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+}
+
+.weeks-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* Year divider: the year, then a rule out to the right edge */
+.wk-year {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin: var(--sp-2) 0 var(--sp-1);
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+.wk-year i {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+/* A row: title block | seven bars | stat | actions */
+.wk-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 190px 1fr 96px auto;
+  align-items: center;
+  gap: var(--sp-5);
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  overflow: hidden;
+}
+/* The week we are living in is marked down its left edge */
+.wk-row.current::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent);
+}
+/* Upcoming weeks are penciled in, not inked */
+.wk-row.future,
+.wk-row.group {
+  border-style: dashed;
+  border-color: var(--line-strong);
+}
+.wk-row.group { background: transparent; }
+
+.wk-main {
+  min-width: 0;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.wk-title {
+  font-size: var(--fs-title);
+  font-weight: var(--w-title);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.wk-sub {
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+.wk-row.current .wk-sub { color: var(--accent); }
+.wk-main:hover .wk-title { color: var(--accent); }
+
+/* Seven day columns, bars rising from a shared baseline */
+.wk-bars {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--sp-2);
+  align-items: end;
+}
+.wk-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.wk-bar-slot {
+  width: 100%;
+  max-width: 44px;
+  height: 48px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.wk-bar {
+  position: relative;
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  background: var(--good-dim);
+  overflow: hidden;
+}
+/* Upcoming work is an outline until it is done */
+.wk-bar.future {
+  background: transparent;
+  border: 1px dashed var(--line-strong);
+  border-bottom: none;
+}
+.wk-bar-done {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--good);
+}
+/* No work that day: a stub for weeks still ahead, a hairline for weeks gone */
+.wk-bar.empty {
+  width: 100%;
+  height: 10px;
+  background: transparent;
+  border: 1px dashed var(--line);
+  border-bottom: none;
+}
+.wk-bar.empty.past {
+  height: 2px;
+  border: none;
+  background: var(--good-dim);
+  border-radius: 999px;
+}
+.wk-day-letter {
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+}
+.wk-day-letter.today { color: var(--accent); }
+
+.wk-stat { text-align: right; }
+.wk-stat-big {
+  font-family: var(--mono);
+  font-size: 24px;
+  line-height: 1.1;
+  color: var(--ink-faint);
+}
+.wk-stat-big b {
+  font-weight: 400;
+  color: var(--ink);
+}
+.wk-stat-big.good b { color: var(--good); }
+.wk-stat-big.warn b { color: var(--warn); }
+.wk-stat-label {
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: var(--fs-label);
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+
+.wk-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.wk-icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-chip);
+  color: var(--ink-faint);
+  transition: 0.15s;
+}
+.wk-icon:hover {
+  color: var(--ink);
+  background: var(--hover-neutral);
+}
+.wk-icon.chevron svg { transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.wk-row.group.open .wk-icon.chevron svg { transform: rotate(180deg); }
+
+/* The collapsed group's strip: one hairline bar per upcoming day */
+.wk-spark {
+  position: relative;
+  padding-bottom: 18px;
+}
+.wk-spark-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 24px;
+  border-bottom: 1px dashed var(--line-strong);
+}
+.wk-spark-bar {
+  flex: 1;
+  min-width: 0;
+  border: 1px dashed var(--line-strong);
+  border-bottom: none;
+  border-radius: 2px 2px 0 0;
+}
+.wk-spark-bar.done {
+  border-style: solid;
+  border-color: var(--good);
+  background: var(--good);
+}
+.wk-spark-bar.empty { border: none; }
+.wk-spark-axis {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 16px;
+}
+.wk-spark-axis span {
+  position: absolute;
+  top: 3px;
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-faint);
+}
 
 /* ============================================================
    Responsive
@@ -1637,6 +1916,27 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   .sched-day { padding: var(--sp-2); }
 }
 
+/* Weeks: title and stat share the first line, bars take the second */
+@media (max-width: 700px) {
+  .wk-row {
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas:
+      "main stat actions"
+      "bars bars bars";
+    gap: var(--sp-3) var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+  }
+  .wk-main { grid-area: main; }
+  .wk-bars { grid-area: bars; }
+  .wk-stat { grid-area: stat; }
+  .wk-actions { grid-area: actions; }
+  .wk-spark { grid-area: bars; }
+  .wk-stat-big { font-size: 20px; }
+  .wk-bar-slot { height: 36px; }
+  .wk-title { font-size: var(--fs-section); white-space: normal; }
+  .weeks-head { margin-bottom: var(--sp-3); }
+}
+
 /* Native date and time controls have a wide intrinsic minimum - side by side
    they overflow before the screen gets this narrow */
 @media (max-width: 420px) {
@@ -1659,8 +1959,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   }
 
   /* Cursor-follow flourishes have no meaning without a cursor */
-  .assign-date:hover,
-  .dot:hover { transform: none; }
+  .assign-date:hover { transform: none; }
 
   :root {
     --check-size: 22px;
@@ -1674,7 +1973,6 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   .day-tab { min-height: 52px; }
   .day-toggle { height: 46px; }
   .sched-add { padding: var(--sp-2) 0 var(--sp-2) var(--sp-3); }
-  .dot { width: 14px; height: 14px; }
 
   /* iOS zooms the page when a focused field is under 16px. Selectors mirror the
      base rules' specificity so they actually win. */

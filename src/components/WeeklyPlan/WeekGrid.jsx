@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
-import { toISODate, weekDayList, clampDifficulty, startOfWeek } from '../../utils'
+import { toISODate, weekDayList, startOfWeek } from '../../utils'
 
 // One row per subtask landing on this day, each stating its own lineage:
 // project name, task name, then the subtask's own name. A task never broken
@@ -27,7 +27,6 @@ function collectDay(projects, iso) {
               subtaskId: s.id,
               subtitle: s.title || '',
               completed: !!s.completed,
-              difficulty: clampDifficulty(s.difficulty),
               day_date: s.day_date,
             })
           }
@@ -45,7 +44,6 @@ function collectDay(projects, iso) {
           subtaskId: null,
           subtitle: '',
           completed: !!t.completed,
-          difficulty: 1,
           day_date: t.day_date,
         })
       }
@@ -71,17 +69,10 @@ function dueByDay(projects) {
   return map
 }
 
-// The count is a head-count, so "0 of 4 done" means four pieces of work.
-// The bar stays weighted by difficulty.
 const tally = (items) => {
   const done = items.filter(i => i.completed).length
-  let wDone = 0
-  let wTotal = 0
-  for (const i of items) {
-    wTotal += i.difficulty
-    if (i.completed) wDone += i.difficulty
-  }
-  return { done, total: items.length, pct: wTotal === 0 ? 0 : Math.round((wDone / wTotal) * 100) }
+  const total = items.length
+  return { done, total, pct: total === 0 ? 0 : Math.round((done / total) * 100) }
 }
 
 function MoveDialog({ item, days, todayIso, onMove, onClose }) {
