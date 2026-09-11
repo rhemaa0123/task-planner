@@ -263,13 +263,16 @@ button {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: var(--sp-3);
 }
 
+/* Pulled left by the chevron's own inset (4px svg margin + 8px of path), so
+   the arrow's tip, not its hit area, sits on the progress bar's left edge */
 .toolbar-left {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-left: -12px;
 }
 
 .week-date-box {
@@ -808,21 +811,17 @@ input[type="text"].task-name-input.done {
 }
 
 /* ---- Focused day ---- */
+/* Sized by what it holds and grows with it; the pane around it scrolls */
 .day-panel {
-  flex: 1;
-  min-height: 0;
+  flex: none;
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--r-card);
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
 }
 
 .day-panel-head {
-  padding: var(--sp-3) var(--sp-4);
-  border-bottom: 1px solid var(--line);
-  flex-shrink: 0;
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
 }
 
 .day-panel-name {
@@ -852,124 +851,26 @@ input[type="text"].task-name-input.done {
 }
 
 .day-panel-empty {
-  padding: var(--sp-5) var(--sp-4);
+  padding: 0 var(--sp-4) var(--sp-4);
   color: var(--ink-faint);
   font-size: var(--fs-body);
 }
 
+/* The grid's boxes, laid flat: no edges of their own, a hairline between */
 .day-panel-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
+  padding-bottom: var(--sp-2);
 }
-.day-panel-list::-webkit-scrollbar { width: 8px; }
-.day-panel-list::-webkit-scrollbar-track { background: transparent; }
-.day-panel-list::-webkit-scrollbar-thumb {
-  background: var(--line-strong);
-  border-radius: 999px;
-}
-
-/* Project name, task name, then the subtask - read top to bottom */
-.day-row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-4);
-  border-bottom: 1px solid var(--line);
+.day-panel-list .day-card {
+  background: transparent;
+  border: none;
+  border-radius: 0;
   transition: background-color 0.12s;
 }
-.day-row:last-child { border-bottom: none; }
-.day-row:hover { background: var(--hover-neutral); }
-.day-row .task-check { margin-top: 2px; }
-
-.day-row-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.day-row-project {
-  font-family: var(--mono);
-  font-size: var(--fs-mini);
-  font-weight: var(--w-mono);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-}
-
-.day-row-task {
-  font-size: var(--fs-row);
-  color: var(--ink-typed);
-  margin-top: 1px;
-  overflow-wrap: anywhere;
-}
-
-.day-row-sub {
-  font-size: var(--fs-body);
-  color: var(--ink-soft);
-  margin-top: 1px;
-  overflow-wrap: anywhere;
-}
-
-.day-row.done .day-row-task,
-.day-row.done .day-row-sub {
-  text-decoration: line-through;
-  color: var(--ink-faint);
-}
-
-
-/* Overdue line plus its move button, pinned to the row's lower right */
-.day-row-foot {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  margin-top: var(--sp-1);
-}
-
-.day-row-overdue {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--fs-body);
-  color: var(--warn);
-}
-
-.day-row-move {
-  flex-shrink: 0;
-  background: transparent;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-chip);
-  color: var(--ink-soft);
-  font-family: var(--mono);
-  font-size: var(--fs-mini);
-  font-weight: var(--w-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 3px 10px;
-  transition: 0.15s;
-}
-.day-row-move:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--hover-accent);
-}
-
-/* A day this work was moved off - kept visible so the week still shows the slip */
-.day-row.missed { opacity: 0.6; }
-.day-row.missed .day-row-task { text-decoration: line-through; }
-.missed-mark {
-  flex-shrink: 0;
-  width: var(--check-size);
-  height: var(--check-size);
-  margin-top: 2px;
-  border: 2px dashed var(--line-strong);
-  border-radius: var(--r-chip);
-}
-.day-row-missed {
-  font-size: var(--fs-body);
-  color: var(--ink-faint);
-}
+.day-panel-list .day-card + .day-card { border-top: 1px solid var(--line); }
+.day-panel-list .day-card.overdue { background: transparent; }
+.day-panel-list .day-card:hover { background: var(--hover-neutral); }
+.day-panel-list .day-card-line { padding: var(--sp-3) var(--sp-4); }
+.day-panel-list .day-card-line + .day-card-line { margin: 0 var(--sp-4); }
 
 /* "Focusing Fri (today)" - the day name is the only bright word in the line */
 .header-links .focus-day {
@@ -1048,21 +949,34 @@ input[type="text"].task-name-input.done {
   gap: var(--sp-2);
 }
 
-/* Project, task, subtask stacked as in the focused list; overdue tints the card */
+/* One task on one day. The first line names the project and task; every
+   line is one unit with its own box. A thin inset rule separates units, so
+   a task spread over several units on the same day still reads as one box. */
 .day-card {
   display: flex;
-  align-items: flex-start;
-  gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
+  flex-direction: column;
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: var(--r);
   cursor: default;
 }
-.day-card .task-check { margin-top: 1px; }
 .day-card.overdue {
   background: var(--warn-soft);
   border-color: transparent;
+}
+
+.day-card-line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+}
+.day-card-line .task-check { margin-top: 1px; }
+.day-card-line + .day-card-line {
+  margin: 0 var(--sp-3);
+  padding-left: 0;
+  padding-right: 0;
+  border-top: 1px solid var(--line);
 }
 
 .day-card-body {
@@ -1089,8 +1003,9 @@ input[type="text"].task-name-input.done {
   margin-top: 1px;
   overflow-wrap: anywhere;
 }
-.day-card.done .day-card-task,
-.day-card.done .day-card-sub {
+/* A unit strikes its own line; the task's name only once every unit is done */
+.day-card-line.done .day-card-sub,
+.day-card.done .day-card-task {
   text-decoration: line-through;
   color: var(--ink-faint);
 }
@@ -2041,7 +1956,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   visibility: hidden;
 }
 .planning-board.ended .task-item:hover,
-.planning-board.ended .day-row:hover {
+.planning-board.ended .day-panel-list .day-card:hover {
   background: transparent;
 }
 .planning-board.ended .add-task-btn,
@@ -2117,8 +2032,6 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
     padding-right: 0;
   }
   .week-grid-container { overflow-y: visible; }
-  .day-panel { overflow: visible; }
-  .day-panel-list { overflow-y: visible; }
   .day-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
   .grid-header { flex-wrap: wrap; gap: var(--sp-1); }
@@ -2154,8 +2067,9 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   .day-tab { padding: var(--sp-2) 2px; }
   .day-tab-track { width: 80%; }
 
-  .day-panel-head { padding: var(--sp-3); }
-  .day-row { padding: var(--sp-3); }
+  .day-panel-head { padding: var(--sp-3) var(--sp-3) var(--sp-2); }
+  .day-panel-list .day-card-line { padding: var(--sp-3); }
+  .day-panel-list .day-card-line + .day-card-line { margin: 0 var(--sp-3); }
   .day-grid { grid-template-columns: 1fr; }
   .day-block { min-height: 0; }
   .week-body.frozen { padding: var(--sp-3); }
@@ -2231,7 +2145,6 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent); }
   .icon-btn { width: 40px; height: 40px; }
   .cog-btn { width: 38px; height: 38px; }
   .task-del { padding: 8px; }
-  .day-row-move { padding: 7px 14px; }
   .day-card-move { width: 32px; height: 32px; }
   .day-tab { min-height: 52px; }
   .day-toggle { height: 46px; }

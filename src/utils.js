@@ -42,6 +42,35 @@ export function weekLabel(startDate) {
   return `In ${weeks} weeks`
 }
 
+// The line under the progress bar. Mon and Sun have their own words; the days
+// between count down to Sunday, today included. Read off the device's clock,
+// so it turns over at local midnight. Other weeks say where they stand.
+const DAY_MS = 24 * 60 * 60 * 1000
+const COUNTDOWN_WORDS = [
+  'Week starts! - Start fresh',
+  'be calm and clear',
+  'keep going',
+  'stay strong',
+  'thrusting all the way',
+  'step on the gas pedal!!',
+  'Last but not least - Sabbath btw...',
+]
+export function weekCountdown(weekStart, now = new Date()) {
+  const start = startOfWeek(weekStart)
+  const weeks = Math.round((start - startOfWeek(now)) / WEEK_MS)
+  if (weeks > 0) {
+    const today = new Date(now)
+    today.setHours(0, 0, 0, 0)
+    const days = Math.round((start - today) / DAY_MS)
+    return days === 1 ? 'Starts tomorrow' : `Starts in ${days} days`
+  }
+  if (weeks < 0) return 'Week over - not ended yet'
+
+  const i = (now.getDay() + 6) % 7 // Mon = 0 … Sun = 6
+  if (i === 0 || i === 6) return COUNTDOWN_WORDS[i]
+  return `${7 - i} days left - ${COUNTDOWN_WORDS[i]}`
+}
+
 // "2026-09-09" -> "Wed, Sep 09" - weekday first, so a deadline reads as a day
 // you can picture rather than a number to look up
 export function formatDeadline(iso) {

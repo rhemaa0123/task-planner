@@ -97,96 +97,86 @@ const CalendarIcon = () => (
   </svg>
 )
 
-// One scheduled unit as a card in the all-days grid. Overdue work carries a
-// calendar button that opens the move dialog; a frozen week keeps the label
-// and drops the button.
-function DayCard({ item, todayIso, frozen, onToggle, onMove }) {
-  const overdue = !item.completed && item.day_date < todayIso
+// A task spread over several units on one day gets one box, not one per
+// unit: the project and task are written once, then each unit keeps its own
+// line, checkbox and state. Order follows first appearance.
+function groupByTask(items) {
+  const groups = []
+  const byTask = new Map()
+  for (const it of items) {
+    let g = byTask.get(it.taskId)
+    if (!g) {
+      g = { key: `g-${it.taskId}`, taskId: it.taskId, projectName: it.projectName, taskTitle: it.taskTitle, units: [] }
+      byTask.set(it.taskId, g)
+      groups.push(g)
+    }
+    g.units.push(it)
+  }
+  return groups
+}
+
+// One task on one day. The same box serves the all-days grid and the focused
+// day's list - the list just lays it flat. Overdue units carry a calendar
+// button that opens the move dialog; a frozen week keeps the label and drops
+// the button.
+function TaskGroup({ group, todayIso, frozen, onToggle, onMove }) {
+  const isOverdue = (u) => !u.completed && u.day_date < todayIso
+  const allDone = group.units.every(u => u.completed)
+  const anyOverdue = group.units.some(isOverdue)
   return (
-    <div className={`day-card ${item.completed ? 'done' : ''} ${overdue ? 'overdue' : ''}`}>
-      <input
-        type="checkbox"
-        className="task-check"
-        checked={item.completed}
-        disabled={frozen}
-        onChange={e => onToggle(e.target.checked)}
-      />
-      <div className="day-card-body">
-        <div className="day-card-project">{item.projectName}</div>
-        <div className="day-card-task">{item.taskTitle}</div>
-        {item.subtitle && <div className="day-card-sub">{item.subtitle}</div>}
-        {overdue && (
-          <div className="day-card-foot">
-            <span className="day-card-overdue">overdue</span>
-            {!frozen && (
-              <button type="button" className="day-card-move" onClick={onMove} title="Move to a later day">
-                <CalendarIcon />
-              </button>
-            )}
+    <div className={`day-card ${allDone ? 'done' : ''} ${anyOverdue ? 'overdue' : ''}`}>
+      {group.units.map((u, i) => {
+        const overdue = isOverdue(u)
+        return (
+          <div key={u.key} className={`day-card-line ${u.completed ? 'done' : ''}`}>
+            <input
+              type="checkbox"
+              className="task-check"
+              checked={u.completed}
+              disabled={frozen}
+              onChange={e => onToggle(u, e.target.checked)}
+            />
+            <div className="day-card-body">
+              {i === 0 && (
+                <>
+                  <div className="day-card-project">{group.projectName}</div>
+                  <div className="day-card-task">{group.taskTitle}</div>
+                </>
+              )}
+              {u.subtitle && <div className="day-card-sub">{u.subtitle}</div>}
+              {overdue && (
+                <div className="day-card-foot">
+                  <span className="day-card-overdue">overdue</span>
+                  {!frozen && (
+                    <button type="button" className="day-card-move" onClick={() => onMove(u)} title="Move to a later day">
+                      <CalendarIcon />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        )}
-      </div>
+        )
+      })}
     </div>
   )
 }
 
-function MoveDialog({ item, days, todayIso, onMove, onClose }) {
-  const fromDay = days.find(d => d.date === item.day_date)
-  const [target, setTarget] = useState(null)
-  const [markMissed, setMarkMissed] = useState(true)
-
-  useEffect(() => {
-    const onKey = e => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  // Work only moves forward: past the day it sits on, and never into a day
-  // that has already gone by
-  const locked = (d) => d.date <= item.day_date || d.date < todayIso
-
+// A day this work was moved off - kept visible so the week still shows the slip
+function MissedCard({ item }) {
   return (
-    <div className="modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
-      <form
-        className="modal-card wide"
-        onSubmit={e => { e.preventDefault(); if (target) onMove(target, markMissed) }}
-      >
-        <div className="modal-eyebrow">{item.projectName}</div>
-        <h2 className="modal-title">{item.taskTitle}</h2>
-        <div className="modal-divider" />
-
-        <div className="field-label">MOVE TO</div>
-        <div className="day-toggle-row">
-          {days.map(d => (
-            <button
-              type="button"
-              key={d.date}
-              className={`day-toggle wide-label ${target === d.date ? 'selected' : ''}`}
-              disabled={locked(d)}
-              onClick={() => setTarget(d.date)}
-              aria-pressed={target === d.date}
-            >
-              {d.short}
-            </button>
-          ))}
+    <div className="day-card missed">
+      <div className="day-card-line">
+        <span className="missed-mark" aria-hidden="true" />
+        <div className="day-card-body">
+          <div className="day-card-project">{item.projectName}</div>
+          <div className="day-card-task">{item.taskTitle}</div>
+          {item.subtitle && <div className="day-card-sub">{item.subtitle}</div>}
+          <div className="day-card-foot">
+            <span className="day-card-missed">missed · moved to another day</span>
+          </div>
         </div>
-
-        <label className="missed-check">
-          <input
-            type="checkbox"
-            className="task-check"
-            checked={markMissed}
-            onChange={e => setMarkMissed(e.target.checked)}
-          />
-          <span>Mark {fromDay ? fromDay.short : 'this day'} as missed</span>
-        </label>
-
-        <div className="modal-actions">
-          <span style={{ flex: 1 }} />
-          <button type="button" className="btn-ghost" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn-primary" disabled={!target}>Move</button>
-        </div>
-      </form>
+      </div>
     </div>
   )
 }
@@ -282,29 +272,17 @@ export function WeekGrid() {
 
                 {(dayItems.length > 0 || dayMissed.length > 0) && (
                   <div className="day-block-list">
-                    {dayItems.map(it => (
-                      <DayCard
-                        key={it.key}
-                        item={it}
+                    {groupByTask(dayItems).map(g => (
+                      <TaskGroup
+                        key={g.key}
+                        group={g}
                         todayIso={todayIso}
                         frozen={frozen}
-                        onToggle={(completed) => toggleItem(it, completed)}
-                        onMove={() => setMoveItem(it)}
+                        onToggle={toggleItem}
+                        onMove={setMoveItem}
                       />
                     ))}
-                    {dayMissed.map(m => (
-                      <div key={m.key} className="day-card missed">
-                        <span className="missed-mark" aria-hidden="true" />
-                        <div className="day-card-body">
-                          <div className="day-card-project">{m.projectName}</div>
-                          <div className="day-card-task">{m.taskTitle}</div>
-                          {m.subtitle && <div className="day-card-sub">{m.subtitle}</div>}
-                          <div className="day-card-foot">
-                            <span className="day-card-missed">missed</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                    {dayMissed.map(m => <MissedCard key={m.key} item={m} />)}
                   </div>
                 )}
               </section>
@@ -357,49 +335,17 @@ export function WeekGrid() {
               <div className="day-panel-empty">Nothing scheduled for {selected.name}.</div>
             ) : (
               <div className="day-panel-list">
-                {items.map(it => {
-                  const overdue = !it.completed && it.day_date < todayIso
-                  return (
-                    <div key={it.key} className={`day-row ${it.completed ? 'done' : ''} ${overdue ? 'overdue' : ''}`}>
-                      <input
-                        type="checkbox"
-                        className="task-check"
-                        checked={it.completed}
-                        disabled={frozen}
-                        onChange={e => toggleItem(it, e.target.checked)}
-                      />
-                      <div className="day-row-body">
-                        <div className="day-row-project">{it.projectName}</div>
-                        <div className="day-row-task">{it.taskTitle}</div>
-                        {it.subtitle && <div className="day-row-sub">{it.subtitle}</div>}
-                        {overdue && (
-                          <div className="day-row-foot">
-                            <span className="day-row-overdue">{frozen ? 'overdue' : 'overdue · reschedule?'}</span>
-                            {!frozen && (
-                              <button type="button" className="day-row-move" onClick={() => setMoveItem(it)}>
-                                move
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-
-                {missed.map(m => (
-                  <div key={m.key} className="day-row missed">
-                    <span className="missed-mark" aria-hidden="true" />
-                    <div className="day-row-body">
-                      <div className="day-row-project">{m.projectName}</div>
-                      <div className="day-row-task">{m.taskTitle}</div>
-                      {m.subtitle && <div className="day-row-sub">{m.subtitle}</div>}
-                      <div className="day-row-foot">
-                        <span className="day-row-missed">missed · moved to another day</span>
-                      </div>
-                    </div>
-                  </div>
+                {groupByTask(items).map(g => (
+                  <TaskGroup
+                    key={g.key}
+                    group={g}
+                    todayIso={todayIso}
+                    frozen={frozen}
+                    onToggle={toggleItem}
+                    onMove={setMoveItem}
+                  />
                 ))}
+                {missed.map(m => <MissedCard key={m.key} item={m} />)}
               </div>
             )}
           </div>

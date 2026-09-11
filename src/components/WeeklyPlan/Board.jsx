@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
+import { useToday } from '../../hooks/useToday'
 import { ProjectsSidebar } from './ProjectsSidebar'
 import { WeekGrid } from './WeekGrid'
 import {
-  addDays, weekLabel, formatWeekRange, startOfWeek, rollUp, toISODate, formatShortDate,
+  addDays, weekLabel, formatWeekRange, startOfWeek, rollUp, toISODate, formatShortDate, weekCountdown,
 } from '../../utils'
 
 function EndWeekDialog({ unfinished, onEnd, onCarry, onClose }) {
@@ -47,8 +48,9 @@ export function Board() {
   const weekIso = toISODate(weekStart)
   const meta = weekMeta[weekIso]
   const ended = weekEnded
+  const now = useToday()
   // A week that has not started cannot be ended
-  const inFuture = weekStart > startOfWeek()
+  const inFuture = weekStart > startOfWeek(now)
 
   // Which of the two panes a phone shows. Ignored on wide screens, where the CSS
   // puts them side by side and both stay mounted.
@@ -110,7 +112,7 @@ export function Board() {
           <div className="progress-stats">
             {ended
               ? <span className="ended-label">Ended {formatShortDate(meta.endedAt)} · frozen until reopened</span>
-              : <span className="days-left">5 days left - keep moving forward</span>}
+              : <span className="days-left">{weekCountdown(weekStart, now)}</span>}
             <span className="pct">{done}/{total} • {pct}%</span>
           </div>
         </div>
