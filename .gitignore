@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Generated code-graph vault (rebuild: node scripts/graph-to-obsidian.mjs)
+obsidian-task-planner
