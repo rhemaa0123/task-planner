@@ -33,9 +33,12 @@
   /* Text over --accent-fill: the pale paper in light, plain white in dark */
   --on-accent: #f0f0db;
 
-  --good: #6d9e51;
-  --good-soft: rgba(109, 158, 81, 0.16);
-  --good-dim: rgba(109, 158, 81, 0.34);
+  --good: #76c457;
+  /* Green as text: the fill itself is too light to read on cream, so light
+     takes a darker shade of the same hue; dark takes a paler tint */
+  --good-ink: #4d9a33;
+  --good-soft: rgba(118, 196, 87, 0.18);
+  --good-dim: rgba(118, 196, 87, 0.38);
   --warn: #c0392b;
   --warn-soft: rgba(192, 57, 43, 0.12);
   --overdue-fill: rgba(192, 57, 43, 0.1);
@@ -53,17 +56,18 @@
   --shadow-card: 0 1px 2px rgba(48, 54, 79, 0.06);
   /* The wash inside an ended week's dotted enclosure */
   --frozen-wash: rgba(48, 54, 79, 0.05);
+  /* The dashed outline of the two "nothing here yet" boxes */
+  --dash: rgba(48, 54, 79, 0.42);
 
   color-scheme: light;
 }
 
 :root[data-theme="dark"] {
-  /* ---- Dark: the darker step of the palette. Cards are the navy #111844
-     itself on a ground a shade under it; fills and lines take a darkened
-     #4B5694 indigo ---- */
-  --bg: #0d1233;
-  --paper: #111844;
-  --paper-hover: #172060;
+  /* ---- Dark: the navy #111844 exactly for the ground, cards a hair above
+     it; fills and lines take the palette's #4B5694 indigo lifted a touch ---- */
+  --bg: #111844;
+  --paper: #151d52;
+  --paper-hover: #1b2560;
 
   /* User-entered text is pure white; everything secondary is a dimmer neutral
      white - no cream or blue tint, so it reads as "quieter", not "coloured" */
@@ -72,27 +76,28 @@
   --ink-faint: #969aa2;
   --ink-typed: #ffffff;
 
-  --line: #222b64;
+  --line: #252f6e;
   /* A tint of the text accent rather than the fill: the fill alone sits too
      close to the cards for a hairline box to show */
   --line-strong: rgba(141, 154, 222, 0.5);
 
-  --hover-neutral: #172060;
-  --hover-accent: rgba(60, 70, 124, 0.4);
+  --hover-neutral: #1b2560;
+  --hover-accent: rgba(85, 98, 163, 0.32);
 
-  --brand-deep: #3c467c;
+  --brand-deep: #5562a3;
   /* Indigo is too dark to carry text on navy, so the text accent is its
-     lighter tint; the fill is the palette's indigo taken a step darker */
+     lighter tint; the fill is #4B5694 lifted a touch */
   --accent: #8d9ade;
-  --accent-fill: #3c467c;
-  --accent-soft: rgba(75, 86, 148, 0.32);
+  --accent-fill: #5562a3;
+  --accent-soft: rgba(85, 98, 163, 0.35);
   --on-accent: #ffffff;
 
-  --good: #6d9e51;
+  --good: #76c457;
+  --good-ink: #a5cf83;
   /* Solid shades of the green rather than alpha over navy, which turned the
      planned-but-not-done bars and the count pills grey-teal */
-  --good-soft: #2b4a2f;
-  --good-dim: #4a7a3b;
+  --good-soft: #2b532b;
+  --good-dim: #4f8f3c;
   --warn: #f87171;
   --warn-soft: rgba(248, 113, 113, 0.2);
   /* Overdue cards sit in a darker wine, not a lighter pink, so they read as
@@ -109,6 +114,7 @@
   --shadow-float: 0 6px 20px rgba(0, 0, 0, 0.5);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
   --frozen-wash: rgba(255, 255, 255, 0.03);
+  --dash: rgba(141, 154, 222, 0.7);
 
   color-scheme: dark;
 }
@@ -559,7 +565,7 @@ button {
 }
 
 .header-links {
-  font-size: var(--fs-body);
+  font-size: var(--fs-row);
 }
 .header-links a {
   color: var(--accent);
@@ -817,7 +823,7 @@ input[type="text"].task-name-input.done {
 
 .add-project-dashed {
   background: transparent;
-  border: 1px dashed var(--line-strong);
+  border: 2px dashed var(--dash);
   color: var(--ink-faint);
   padding: var(--sp-3);
   border-radius: var(--r);
@@ -987,7 +993,7 @@ input[type="text"].task-name-input.done {
   align-items: center;
   gap: var(--sp-1);
   padding: var(--sp-6) var(--sp-4);
-  border: 1px dashed var(--line-strong);
+  border: 2px dashed var(--dash);
   border-radius: var(--r-card);
   text-align: center;
 }
@@ -1051,7 +1057,7 @@ input[type="text"].task-name-input.done {
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--good-soft);
-  color: var(--good);
+  color: var(--good-ink);
 }
 .day-block-count.full {
   background: var(--good);
@@ -1757,7 +1763,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   place-items: center;
   border-radius: 999px;
   background: var(--good-soft);
-  color: var(--good);
+  color: var(--good-ink);
   font-family: var(--mono);
   font-size: var(--fs-mini);
   font-weight: var(--w-mono);
@@ -1835,7 +1841,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   font-weight: 700;
   margin-top: var(--sp-3);
 }
-.transfer-summary.ok { color: var(--good); }
+.transfer-summary.ok { color: var(--good-ink); }
 .transfer-summary.bad { color: var(--warn); }
 .transfer-summary.muted { color: var(--ink-faint); font-weight: var(--w-row); }
 
@@ -2213,7 +2219,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   font-weight: 400;
   color: var(--ink);
 }
-.wk-stat-big.good b { color: var(--good); }
+.wk-stat-big.good b { color: var(--good-ink); }
 .wk-stat-big.warn b { color: var(--warn); }
 .wk-stat-label {
   margin-top: 2px;
