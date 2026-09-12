@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
-import { toISODate, weekDayList, startOfWeek } from '../../utils'
+import { toISODate, weekDayList, startOfWeek, difficultyOf } from '../../utils'
+import { DifficultyDots } from './Difficulty'
 
 // One row per subtask landing on this day, each stating its own lineage:
 // project name, task name, then the subtask's own name. A task never broken
@@ -28,6 +29,7 @@ function collectDay(projects, iso) {
               subtitle: s.title || '',
               completed: !!s.completed,
               day_date: s.day_date,
+              difficulty: difficultyOf(s),
             })
           }
           if ((s.missedDays || []).includes(iso)) {
@@ -45,6 +47,7 @@ function collectDay(projects, iso) {
           subtitle: '',
           completed: !!t.completed,
           day_date: t.day_date,
+          difficulty: difficultyOf(t),
         })
       }
       if ((t.missedDays || []).includes(iso)) {
@@ -160,18 +163,20 @@ function MoveDialog({ item, days, todayIso, onMove, onClose }) {
 
 // A task spread over several units on one day gets one box, not one per
 // unit: the project and task are written once, then each unit keeps its own
-// line, checkbox and state. Order follows first appearance.
+// line, checkbox and state. Order follows first appearance. The box shows
+// the hardest of its units - that is what the day will feel like.
 function groupByTask(items) {
   const groups = []
   const byTask = new Map()
   for (const it of items) {
     let g = byTask.get(it.taskId)
     if (!g) {
-      g = { key: `g-${it.taskId}`, taskId: it.taskId, projectName: it.projectName, taskTitle: it.taskTitle, units: [] }
+      g = { key: `g-${it.taskId}`, taskId: it.taskId, projectName: it.projectName, taskTitle: it.taskTitle, units: [], difficulty: 1 }
       byTask.set(it.taskId, g)
       groups.push(g)
     }
     g.units.push(it)
+    g.difficulty = Math.max(g.difficulty, it.difficulty)
   }
   return groups
 }
@@ -221,7 +226,10 @@ function TaskGroup({ group, todayIso, frozen, compact, onToggle, onMove }) {
             onChange={e => onToggle(units, e.target.checked)}
           />
           <div className="day-card-body">
-            <div className="day-card-project">{group.projectName}</div>
+            <div className="day-card-head">
+              <span className="day-card-project">{group.projectName}</span>
+              <DifficultyDots level={group.difficulty} />
+            </div>
             <div className="day-card-task">{group.taskTitle}</div>
             {overdueUnits.length > 0 && foot(overdueUnits)}
           </div>
@@ -244,7 +252,10 @@ function TaskGroup({ group, todayIso, frozen, compact, onToggle, onMove }) {
           <div className="day-card-body">
             {i === 0 && (
               <>
-                <div className="day-card-project">{group.projectName}</div>
+                <div className="day-card-head">
+                  <span className="day-card-project">{group.projectName}</span>
+                  <DifficultyDots level={u.difficulty} />
+                </div>
                 <div className="day-card-task">{group.taskTitle}</div>
               </>
             )}
@@ -260,7 +271,7 @@ function TaskGroup({ group, todayIso, frozen, compact, onToggle, onMove }) {
 // The focused day lists every unit on its own row - project, task, subtask -
 // with nothing boxed together; the grid is where a task folds into one card
 const perUnit = (items) => items.map(it => ({
-  key: it.key, taskId: it.taskId, projectName: it.projectName, taskTitle: it.taskTitle, units: [it],
+  key: it.key, taskId: it.taskId, projectName: it.projectName, taskTitle: it.taskTitle, units: [it], difficulty: it.difficulty,
 }))
 
 // A day this work was moved off - kept visible so the week still shows the
@@ -271,7 +282,9 @@ function MissedCard({ item, compact, frozen, onClear }) {
       <div className="day-card-line">
         <span className="missed-mark" aria-hidden="true" />
         <div className="day-card-body">
-          <div className="day-card-project">{item.projectName}</div>
+          <div className="day-card-head">
+            <span className="day-card-project">{item.projectName}</span>
+          </div>
           <div className="day-card-task">{item.taskTitle}</div>
           {!compact && item.subtitle && <div className="day-card-sub">{item.subtitle}</div>}
           <div className="day-card-foot">

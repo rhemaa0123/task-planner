@@ -31,9 +31,9 @@
   --accent-fill: #30364f;
   --accent-soft: rgba(48, 54, 79, 0.12);
 
-  --good: #1f8a4c;
-  --good-soft: rgba(31, 138, 76, 0.14);
-  --good-dim: rgba(31, 138, 76, 0.32);
+  --good: #6d9e51;
+  --good-soft: rgba(109, 158, 81, 0.16);
+  --good-dim: rgba(109, 158, 81, 0.34);
   --warn: #c0392b;
   --warn-soft: rgba(192, 57, 43, 0.12);
   --overdue-fill: rgba(192, 57, 43, 0.1);
@@ -77,9 +77,9 @@
   --accent-fill: #acbac4;
   --accent-soft: rgba(172, 186, 196, 0.18);
 
-  --good: #4ade80;
-  --good-soft: rgba(74, 222, 128, 0.15);
-  --good-dim: rgba(74, 222, 128, 0.3);
+  --good: #6d9e51;
+  --good-soft: rgba(109, 158, 81, 0.2);
+  --good-dim: rgba(109, 158, 81, 0.34);
   --warn: #f87171;
   --warn-soft: rgba(248, 113, 113, 0.2);
   /* Overdue cards sit in a darker wine, not a lighter pink, so they read as
@@ -1015,13 +1015,26 @@ input[type="text"].task-name-input.done {
   gap: 6px;
 }
 
-/* In the grid the cards are a summary. Overdue reads as a chip with the
-   calendar in a matching box, in an orange-red turned down from the panel's
-   warning red so seven blocks of it do not shout */
-.day-grid .day-card-line { padding: 9px 10px; }
-.day-grid .day-card-line + .day-card-line { margin: 0 10px; }
-.day-grid .day-card-task { font-size: var(--fs-row); }
-.day-grid .day-card-foot { margin-top: var(--sp-1); }
+/* In the grid the cards are a summary: a tight box, the project in small
+   caps with the difficulty dots on the same line, the task a point under the
+   row size so a narrow column still holds a name on one line. Overdue reads
+   as a chip with the calendar in a matching box, in an orange-red turned down
+   from the panel's warning red so seven blocks of it do not shout */
+.day-grid .day-card-line {
+  gap: 10px;
+  padding: 12px;
+}
+.day-grid .day-card-line + .day-card-line { margin: 0 12px; }
+.day-grid .day-card-line .task-check,
+.day-grid .day-card-line .missed-mark { margin-top: 0; }
+.day-grid .day-card-project { line-height: 1.3; }
+.day-grid .day-card-task {
+  font-size: var(--fs-body);
+  line-height: 1.35;
+  margin-top: 3px;
+}
+.day-grid .day-card-foot { margin-top: 6px; }
+.day-grid .day-card.missed .day-card-foot { margin-top: 5px; }
 .day-grid .day-card-overdue {
   display: inline-flex;
   align-items: center;
@@ -1076,6 +1089,14 @@ input[type="text"].task-name-input.done {
   flex: 1;
   min-width: 0;
 }
+/* First line of a card: the project on the left, difficulty dots on the right */
+.day-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  min-height: 13px;
+}
 .day-card-project {
   font-family: var(--mono);
   font-size: var(--fs-mini);
@@ -1108,11 +1129,11 @@ input[type="text"].task-name-input.done {
   border-color: var(--line-strong);
 }
 .day-card.missed .day-card-task {
-  text-decoration: line-through;
   color: var(--ink-soft);
 }
 .day-card.missed .missed-mark { margin-top: 1px; }
-.day-card.missed .day-card-line { padding-right: 36px; }
+/* Room for the corner × on the chip's row only - it never rises past it */
+.day-card.missed .day-card-foot { padding-right: 28px; }
 .day-card-missed {
   padding: 1px 6px;
   border: 1px solid var(--line-strong);
@@ -1241,11 +1262,23 @@ input[type="text"].task-name-input.done {
   flex-shrink: 0;
   border: 2px solid var(--line-strong);
   border-radius: var(--r-chip);
-  background: var(--paper);
+  /* No fill of its own: the box sits on paper in the sidebar and on the
+     ground in a day card, and a fill made those two read as different boxes */
+  background: transparent;
   cursor: pointer;
   display: grid;
   place-items: center;
   transition: 0.15s;
+}
+/* A missed day keeps the box, drawn dashed like the card around it - the
+   slot is there, the tick never came */
+.missed-mark {
+  flex-shrink: 0;
+  width: var(--check-size);
+  height: var(--check-size);
+  border: 2px dashed var(--line-strong);
+  border-radius: var(--r-chip);
+  opacity: 0.8;
 }
 .task-check:hover {
   border-color: var(--ink-faint);
@@ -1556,6 +1589,93 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
 }
 .schedule-note:focus { border-color: var(--accent-fill); }
 .schedule-note::placeholder { color: var(--ink-faint); }
+
+/* ---- Difficulty ----
+   Three dots, filled up to the level - easy, medium, hard - in the board's
+   attention orange so a hard day stands out from across the grid. The grid
+   shows them; the schedule dialog lets each subtask's row set them. Hovering
+   names the level in a small pill above the dots. */
+.diff-dots {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  height: 13px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+.diff-dot {
+  display: block;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  box-sizing: border-box;
+  transition: background-color 0.12s, border-color 0.12s, transform 0.12s;
+}
+.diff-dot.on {
+  background: var(--attention);
+  border-color: var(--attention);
+}
+/* Display-only dots (the grid) fill their empties in dim ink rather than a
+   ring, so from a distance the row reads as one mark, not three */
+.diff-dots.static .diff-dot:not(.on) {
+  background: var(--line-strong);
+  border-color: var(--line-strong);
+  opacity: 0.55;
+}
+
+/* The picker's dots are buttons: the hovered one grows a touch, and every
+   dot up to it previews the level it would set */
+.diff-dots.pick { cursor: pointer; }
+.diff-dots.pick .diff-dot { cursor: pointer; }
+.diff-dots.pick .diff-dot:hover { transform: scale(1.3); }
+.diff-dots.pick .diff-dot:focus-visible {
+  outline: 2px solid var(--accent-fill);
+  outline-offset: 2px;
+}
+
+.diff-tip {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 6px);
+  padding: 2px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-chrome);
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+  box-shadow: var(--shadow-card);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(2px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 5;
+}
+/* The grid's dots name their level on hover; the picker names whichever dot
+   is under the cursor, so the tip is switched on by the component instead */
+.diff-dots.static:hover > .diff-tip,
+.diff-tip.show {
+  opacity: 1;
+  transform: none;
+}
+
+/* In the schedule dialog the dots sit between the name and its × */
+.sched-sub-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-shrink: 0;
+}
 
 /* ---- Move dialog ---- */
 .missed-check {

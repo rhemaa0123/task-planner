@@ -117,6 +117,28 @@ export function weekDayList(weekStartIso) {
   }))
 }
 
+/* ---- Difficulty ---- */
+
+// Three levels, drawn as three dots filled up to the level. Lives on each
+// subtask (the unit of a day's work); a task with no subtasks carries its own.
+// Anything unset or out of range reads as the lightest, so every unit shows a
+// dot and old plans need no migration.
+export const DIFFICULTY_LEVELS = [
+  { level: 1, label: 'Easy' },
+  { level: 2, label: 'Medium' },
+  { level: 3, label: 'Hard' },
+]
+export const DEFAULT_DIFFICULTY = 1
+
+export function difficultyOf(unit) {
+  const n = Number(unit?.difficulty)
+  return n >= 1 && n <= DIFFICULTY_LEVELS.length ? Math.round(n) : DEFAULT_DIFFICULTY
+}
+
+export function difficultyLabel(level) {
+  return (DIFFICULTY_LEVELS.find((d) => d.level === level) || DIFFICULTY_LEVELS[0]).label
+}
+
 /* ---- Progress ---- */
 
 // A task with subtasks is as done as its subtasks are; one without is a single
@@ -216,11 +238,13 @@ export function encodePlan(weekStartIso, projects) {
           isDone: !!t.completed,
           assignedDay: dayCodeFor(t.day_date, start),
           note: t.note || '',
+          difficulty: difficultyOf(t),
           subtasks: (t.subtasks || []).map((s) => ({
             id: s.id ? String(s.id) : newId(),
             description: s.title || '',
             isDone: !!s.completed,
             assignedDay: dayCodeFor(s.day_date, start),
+            difficulty: difficultyOf(s),
           })),
         })),
       })),
@@ -243,6 +267,7 @@ const readTasks = (rawTasks) =>
         dayOffset: ownDay,
         completed: !!t.isDone,
         note: typeof t.note === 'string' ? t.note : '',
+        difficulty: difficultyOf(t),
         subtasks: (Array.isArray(t.subtasks) ? t.subtasks : [])
           .filter((s) => s && typeof s === 'object')
           .map((s) => ({
@@ -252,6 +277,7 @@ const readTasks = (rawTasks) =>
               : '',
             dayOffset: dayIndex(s.assignedDay) ?? ownDay,
             completed: !!s.isDone,
+            difficulty: difficultyOf(s),
           })),
       }
     })
@@ -304,6 +330,7 @@ export function materializePlan(plan, targetWeekIso) {
         title: s.title,
         day_date: dateAt(s.dayOffset),
         completed: s.completed,
+        difficulty: s.difficulty,
       }))
       return {
         title: t.title,
@@ -311,6 +338,7 @@ export function materializePlan(plan, targetWeekIso) {
         // Subtasks own the schedule once there are any
         day_date: earliestDay(subtasks) ?? dateAt(t.dayOffset),
         completed: t.completed,
+        difficulty: t.difficulty,
         subtasks,
       }
     }),

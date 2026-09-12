@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState } from 'react'
-import { startOfWeek, toISODate, addDays, fromISODate, earliestDay } from '../utils'
+import { startOfWeek, toISODate, addDays, fromISODate, earliestDay, difficultyOf } from '../utils'
 
 const AppContext = createContext(null)
 
@@ -135,8 +135,9 @@ export function AppProvider({ children }) {
   }))
 
   // Writes back everything the schedule dialog owns: the task's deadline, its
-  // note, and the subtasks spread across weekdays. The task's own day_date
-  // follows the earliest subtask so the week grid still places it.
+  // note, and the subtasks spread across weekdays, each with its difficulty.
+  // The task's own day_date follows the earliest subtask so the week grid
+  // still places it.
   const setTaskSchedule = (taskId, { subtasks = [], note = '', deadline = null, deadlineTime = null } = {}) => {
     const clean = subtasks
       .filter(s => s && s.day_date)
@@ -145,6 +146,7 @@ export function AppProvider({ children }) {
         title: s.title || '',
         day_date: s.day_date,
         completed: !!s.completed,
+        difficulty: difficultyOf(s),
         missedDays: s.missedDays || [],
       }))
 
@@ -219,11 +221,13 @@ export function AppProvider({ children }) {
           note: t.note || '',
           day_date: t.day_date || null,
           completed: !!t.completed,
+          difficulty: difficultyOf(t),
           subtasks: (t.subtasks || []).map(s => ({
             id: generateId(),
             title: s.title || '',
             day_date: s.day_date || null,
             completed: !!s.completed,
+            difficulty: difficultyOf(s),
           })),
         })),
       }

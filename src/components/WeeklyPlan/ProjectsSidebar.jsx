@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
-import { formatDeadline, toISODate, weekDayList, subtaskTally, rollUp } from '../../utils'
+import { formatDeadline, toISODate, weekDayList, subtaskTally, rollUp, difficultyOf, DEFAULT_DIFFICULTY } from '../../utils'
 import { CopyPlanDialog, PastePlanDialog } from './PlanTransfer'
+import { DifficultyPicker } from './Difficulty'
 
 function EditableText({ value, onSave, placeholder, className, autoFocus, readOnly }) {
   const [text, setText] = useState(value || '')
@@ -32,6 +33,14 @@ function EditableText({ value, onSave, placeholder, className, autoFocus, readOn
       readOnly={readOnly}
       tabIndex={readOnly ? -1 : undefined}
       onChange={e => setText(e.target.value)}
+      // Enter is "done typing": the field lets go of focus and the blur below
+      // saves, so the caret leaves rather than sitting in a finished name
+      onKeyDown={e => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          e.currentTarget.blur()
+        }
+      }}
       onBlur={() => {
         if ((text || '') !== (value || '')) onSave(text)
       }}
@@ -254,7 +263,7 @@ function TaskRow({
 }
 
 const rowId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
-const blankRow = () => ({ id: rowId(), title: '', completed: false })
+const blankRow = () => ({ id: rowId(), title: '', completed: false, difficulty: DEFAULT_DIFFICULTY })
 
 function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }) {
   const days = weekDayList(weekStartIso)
@@ -270,6 +279,7 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
         id: s.id || rowId(),
         title: s.title || '',
         completed: !!s.completed,
+        difficulty: difficultyOf(s),
       })
     }
     // A task scheduled before subtasks existed still opens on the day it had
@@ -311,6 +321,7 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
           title: r.title.trim(),
           day_date: d.date,
           completed: r.completed,
+          difficulty: r.difficulty,
         })
       }
     }
@@ -367,17 +378,31 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
                   value={r.title}
                   placeholder="add a note (optional)"
                   onChange={e => patchRow(d.date, r.id, { title: e.target.value })}
+                  // Enter finishes the name, not the dialog - the form would
+                  // otherwise submit and close on the first subtask typed
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      e.currentTarget.blur()
+                    }
+                  }}
                 />
-                {byDay[d.date].length > 1 && (
-                  <button
-                    type="button"
-                    className="sched-sub-del"
-                    onClick={() => removeRow(d.date, r.id)}
-                    title="Remove subtask"
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                  </button>
-                )}
+                <div className="sched-sub-tools">
+                  <DifficultyPicker
+                    value={r.difficulty}
+                    onChange={level => patchRow(d.date, r.id, { difficulty: level })}
+                  />
+                  {byDay[d.date].length > 1 && (
+                    <button
+                      type="button"
+                      className="sched-sub-del"
+                      onClick={() => removeRow(d.date, r.id)}
+                      title="Remove subtask"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
             <button type="button" className="sched-add" onClick={() => addRow(d.date)}>
