@@ -287,17 +287,15 @@ export function WeeksPage() {
 
   return (
     <div className="weeks-page" ref={pageRef} style={{ '--weeks-inset': `${inset}px` }}>
-      <div className="weeks-head">
-        <span className="eyebrow">{weeks.length} {weeks.length === 1 ? 'WEEK' : 'WEEKS'}</span>
-        <button
-          type="button"
-          className="clear-all-btn"
-          onClick={() => setConfirm({ kind: 'all' })}
-          disabled={weeks.length === 0}
-        >
-          <XIcon size={11} /> CLEAR ALL
-        </button>
-      </div>
+      {/* With nothing planned there is nothing to count or clear - only the note stays */}
+      {weeks.length > 0 && (
+        <div className="weeks-head">
+          <span className="eyebrow">{weeks.length} {weeks.length === 1 ? 'WEEK' : 'WEEKS'}</span>
+          <button type="button" className="clear-all-btn" onClick={() => setConfirm({ kind: 'all' })}>
+            <XIcon size={11} /> CLEAR ALL
+          </button>
+        </div>
+      )}
 
       {weeks.length === 0 ? (
         <div className="weeks-empty">

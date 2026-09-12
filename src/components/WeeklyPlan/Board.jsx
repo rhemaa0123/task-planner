@@ -134,7 +134,8 @@ export function Board() {
             <span className="today-link" onClick={() => setWeekStart(startOfWeek())}>Today</span>
           </div>
           <div className="toolbar-right">
-            <button disabled={ended}>Move work</button>
+            {/* Not built yet - shown, but never live */}
+            <button disabled title="Not available yet">Move work</button>
             {ended ? (
               <button onClick={() => setReopening(true)}>Reopen...</button>
             ) : (

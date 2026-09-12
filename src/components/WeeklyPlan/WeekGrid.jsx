@@ -410,7 +410,7 @@ export function WeekGrid() {
       </div>
 
       {!hasWork ? (
-        <div className="week-empty">
+        <div className="week-empty dash-box">
           <b>Nothing scheduled yet</b>
           <span>Your planned work will show up here</span>
         </div>

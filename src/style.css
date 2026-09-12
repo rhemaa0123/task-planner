@@ -65,9 +65,9 @@
 :root[data-theme="dark"] {
   /* ---- Dark: the navy #111844 exactly for the ground, cards a hair above
      it; fills and lines take the palette's #4B5694 indigo lifted a touch ---- */
-  --bg: #111844;
-  --paper: #151d52;
-  --paper-hover: #1b2560;
+  --bg: #0e143c;
+  --paper: #121a4a;
+  --paper-hover: #182158;
 
   /* User-entered text is pure white; everything secondary is a dimmer neutral
      white - no cream or blue tint, so it reads as "quieter", not "coloured" */
@@ -76,12 +76,12 @@
   --ink-faint: #969aa2;
   --ink-typed: #ffffff;
 
-  --line: #252f6e;
+  --line: #222b66;
   /* A tint of the text accent rather than the fill: the fill alone sits too
      close to the cards for a hairline box to show */
   --line-strong: rgba(141, 154, 222, 0.5);
 
-  --hover-neutral: #1b2560;
+  --hover-neutral: #182158;
   --hover-accent: rgba(85, 98, 163, 0.32);
 
   --brand-deep: #5562a3;
@@ -324,7 +324,7 @@ button {
 .week-date-box {
   background: transparent;
   padding: 4px 14px;
-  border-radius: var(--r-chip);
+  border-radius: 8px;
   border: 1px solid var(--line);
   display: flex;
   align-items: baseline;
@@ -513,9 +513,11 @@ button {
   margin-bottom: 0;
 }
 
+/* A red "no" sign - circle and diagonal - haloed in white so it reads on
+   either theme; the OS not-allowed cursor is the fallback */
 .toolbar-right button:disabled {
   opacity: 0.45;
-  cursor: not-allowed;
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23fff' stroke-width='5' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/g%3E%3Cg fill='none' stroke='%23e0453a' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cline x1='6' y1='6' x2='18' y2='18'/%3E%3C/g%3E%3C/svg%3E") 12 12, not-allowed;
 }
 .toolbar-right button:disabled:hover {
   background: var(--paper);
@@ -821,9 +823,27 @@ input[type="text"].task-name-input.done {
   background: var(--hover-neutral);
 }
 
+/* The dash is a mask on a pseudo-element rather than a border: a CSS dashed
+   border scales its dash with its width, and this one wants 6px dashes at a
+   1.5px weight. The stroke sits on the box's outer edge, half of it clipped,
+   so the visible line is exactly half the stroke-width; --dash paints it. */
+.dash-box {
+  position: relative;
+  border: 2px solid transparent;
+}
+.dash-box::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  pointer-events: none;
+  background: var(--dash);
+  -webkit-mask: var(--dash-mask) 0 0 / 100% 100% no-repeat;
+  mask: var(--dash-mask) 0 0 / 100% 100% no-repeat;
+  transition: background-color 0.15s;
+}
 .add-project-dashed {
+  --dash-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' rx='10' fill='none' stroke='%23000' stroke-width='3' stroke-dasharray='6 6'/%3E%3C/svg%3E");
   background: transparent;
-  border: 2px dashed var(--dash);
   color: var(--ink-faint);
   padding: var(--sp-3);
   border-radius: var(--r);
@@ -832,12 +852,10 @@ input[type="text"].task-name-input.done {
   font-size: var(--fs-chrome);
   letter-spacing: 0.6px;
   text-transform: uppercase;
-  transition: border-color 0.15s, color 0.15s;
+  transition: color 0.15s;
 }
-.add-project-dashed:hover {
-  border-color: var(--ink-faint);
-  color: var(--ink-soft);
-}
+.add-project-dashed:hover { color: var(--ink-soft); }
+.add-project-dashed:hover::before { background: var(--ink-faint); }
 
 /* Week Grid (Days) */
 .week-grid-container {
@@ -988,12 +1006,12 @@ input[type="text"].task-name-input.done {
 
 /* Nothing scheduled yet: one quiet box instead of seven empty ones */
 .week-empty {
+  --dash-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' rx='12' fill='none' stroke='%23000' stroke-width='3' stroke-dasharray='6 6'/%3E%3C/svg%3E");
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sp-1);
   padding: var(--sp-6) var(--sp-4);
-  border: 2px dashed var(--dash);
   border-radius: var(--r-card);
   text-align: center;
 }
@@ -2031,15 +2049,6 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   border-color: var(--warn);
   background: var(--warn-soft);
 }
-.clear-all-btn:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-.clear-all-btn:disabled:hover {
-  border-color: var(--line);
-  background: var(--paper);
-}
-
 /* Nothing planned in any week */
 .weeks-empty {
   display: flex;

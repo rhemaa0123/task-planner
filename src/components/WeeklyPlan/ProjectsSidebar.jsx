@@ -704,7 +704,7 @@ export function ProjectsSidebar() {
         )
       })}
 
-      <button className="add-project-dashed" onClick={handleCreateProject} disabled={frozen}>+ ADD PROJECT</button>
+      <button className="add-project-dashed dash-box" onClick={handleCreateProject} disabled={frozen}>+ ADD PROJECT</button>
       </aside>
 
       {deadlineProject && (
