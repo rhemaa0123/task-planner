@@ -58,39 +58,41 @@
 }
 
 :root[data-theme="dark"] {
-  /* ---- Dark: navy ground #111844, indigo #4B5694 for every fill and line;
-     cards a step up from the ground ---- */
-  --bg: #111844;
-  --paper: #182058;
-  --paper-hover: #1f2866;
+  /* ---- Dark: the darker step of the palette. Cards are the navy #111844
+     itself on a ground a shade under it; fills and lines take a darkened
+     #4B5694 indigo ---- */
+  --bg: #0d1233;
+  --paper: #111844;
+  --paper-hover: #172060;
 
-  /* User-entered text is pure white; everything secondary is a dimmer white
-     with a trace of the ground's blue, so on a saturated navy it still reads
-     as "quieter" rather than warm */
+  /* User-entered text is pure white; everything secondary is a dimmer neutral
+     white - no cream or blue tint, so it reads as "quieter", not "coloured" */
   --ink: #ffffff;
-  --ink-soft: #c6cbe0;
-  --ink-faint: #9aa2c8;
+  --ink-soft: #c3c7cd;
+  --ink-faint: #969aa2;
   --ink-typed: #ffffff;
 
-  --line: #27306e;
+  --line: #222b64;
   /* A tint of the text accent rather than the fill: the fill alone sits too
      close to the cards for a hairline box to show */
-  --line-strong: rgba(141, 154, 222, 0.55);
+  --line-strong: rgba(141, 154, 222, 0.5);
 
-  --hover-neutral: #1f2866;
-  --hover-accent: rgba(75, 86, 148, 0.3);
+  --hover-neutral: #172060;
+  --hover-accent: rgba(60, 70, 124, 0.4);
 
-  --brand-deep: #4b5694;
+  --brand-deep: #3c467c;
   /* Indigo is too dark to carry text on navy, so the text accent is its
-     lighter tint; the fill keeps the true colour */
+     lighter tint; the fill is the palette's indigo taken a step darker */
   --accent: #8d9ade;
-  --accent-fill: #4b5694;
-  --accent-soft: rgba(75, 86, 148, 0.35);
+  --accent-fill: #3c467c;
+  --accent-soft: rgba(75, 86, 148, 0.32);
   --on-accent: #ffffff;
 
   --good: #6d9e51;
-  --good-soft: rgba(109, 158, 81, 0.2);
-  --good-dim: rgba(109, 158, 81, 0.34);
+  /* Solid shades of the green rather than alpha over navy, which turned the
+     planned-but-not-done bars and the count pills grey-teal */
+  --good-soft: #2b4a2f;
+  --good-dim: #4a7a3b;
   --warn: #f87171;
   --warn-soft: rgba(248, 113, 113, 0.2);
   /* Overdue cards sit in a darker wine, not a lighter pink, so they read as
@@ -103,10 +105,10 @@
 
   --attention: #e8825e;
 
-  --scrim: rgba(6, 9, 30, 0.75);
+  --scrim: rgba(4, 6, 24, 0.78);
   --shadow-float: 0 6px 20px rgba(0, 0, 0, 0.5);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --frozen-wash: rgba(255, 255, 255, 0.035);
+  --frozen-wash: rgba(255, 255, 255, 0.03);
 
   color-scheme: dark;
 }
@@ -311,10 +313,13 @@ button {
   margin-left: -12px;
 }
 
-/* No box of its own: the week label and its dates sit on one baseline
-   between the chevrons */
+/* A hairline enclosure with nothing inside it: the week label and its dates
+   sit on one baseline between the chevrons */
 .week-date-box {
-  padding: 4px 6px;
+  background: transparent;
+  padding: 4px 14px;
+  border-radius: var(--r-chip);
+  border: 1px solid var(--line);
   display: flex;
   align-items: baseline;
   /* breathing room between the week label and its date range */
@@ -387,23 +392,20 @@ button {
   white-space: nowrap;
 }
 
-/* Today - spotlight hover like the cog: a soft pool of light in a hairline ring */
+/* Today hovers like the nav tabs above it: a flat chip of paper behind the
+   word, nothing more */
 .today-link {
   color: var(--ink-faint);
   font-size: var(--fs-body);
   cursor: pointer;
   margin-left: 4px;
-  padding: 3px 12px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  transition: color 0.18s ease, background 0.25s ease, border-color 0.18s ease;
+  padding: 5px 10px;
+  border-radius: var(--r-chip);
+  transition: color 0.15s ease, background 0.15s ease;
 }
 .today-link:hover {
-  color: var(--accent);
-  border-color: var(--line);
-  background:
-    radial-gradient(circle at 50% 45%, var(--accent-soft), transparent 72%),
-    var(--hover-neutral);
+  color: var(--ink);
+  background: var(--paper);
 }
 
 .toolbar-right {
@@ -804,6 +806,8 @@ input[type="text"].task-name-input.done {
 .add-task-plus {
   width: var(--check-size);
   height: var(--check-size);
+  /* Drawn 3px smaller than its box, so it shrinks without moving the label */
+  padding: 1.5px;
   flex-shrink: 0;
 }
 .add-task-btn:hover {
@@ -1985,9 +1989,12 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
 /* ============================================================
    Weeks
    ============================================================ */
+/* The column's left edge sits under the WEEKS tab (WeeksPage measures the
+   tab and sets --weeks-inset) and the right edge mirrors it, so the list is
+   centred whatever the window. Never narrower than a phone's width. */
 .weeks-page {
-  max-width: 1100px;
   width: 100%;
+  max-width: max(320px, min(1100px, calc(100% - 2 * var(--weeks-inset, 0px))));
   margin: 0 auto;
 }
 
@@ -2018,11 +2025,42 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   border-color: var(--warn);
   background: var(--warn-soft);
 }
+.clear-all-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.clear-all-btn:disabled:hover {
+  border-color: var(--line);
+  background: var(--paper);
+}
+
+/* Nothing planned in any week */
+.weeks-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-6) var(--sp-4);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-card);
+  text-align: center;
+}
+.weeks-empty b {
+  color: var(--ink);
+  font-size: var(--fs-row);
+  font-weight: 600;
+}
+.weeks-empty span {
+  color: var(--ink-faint);
+  font-size: var(--fs-body);
+}
 
 .weeks-list {
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
+  /* Rows stack when the column is narrow, however wide the window is */
+  container: weeks / inline-size;
 }
 
 /* Year divider: the year, then a rule out to the right edge */
@@ -2376,7 +2414,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
     padding: 5px 10px;
     font-size: var(--fs-chrome);
   }
-  .week-date-box { gap: var(--sp-3); padding: 4px; }
+  .week-date-box { gap: var(--sp-3); padding: 4px 10px; }
   .today-link { margin-left: 0; }
 
   .progress-section { margin-bottom: var(--sp-5); }
@@ -2413,7 +2451,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
 }
 
 /* Weeks: title and stat share the first line, bars take the second */
-@media (max-width: 700px) {
+@container weeks (max-width: 700px) {
   .wk-row {
     grid-template-columns: 1fr auto auto;
     grid-template-areas:
@@ -2430,6 +2468,8 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   .wk-stat-big { font-size: 20px; }
   .wk-bar-slot { height: 36px; }
   .wk-title { font-size: var(--fs-section); white-space: normal; }
+}
+@media (max-width: 700px) {
   .weeks-head { margin-bottom: var(--sp-3); }
 }
 

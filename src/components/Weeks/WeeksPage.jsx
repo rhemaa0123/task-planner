@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
 import {
   toISODate, fromISODate, addDays, startOfWeek, rollUp, dayLoad, encodePlan,
@@ -106,6 +106,33 @@ function Stat({ week }) {
   )
 }
 
+// The list's left edge sits under the WEEKS tab in the header, and the right
+// edge mirrors it, so the column is centred. Measured, since the tab's place
+// depends on the brand and the two tabs before it; re-measured on resize and
+// once the webfont has settled the brand's width.
+function useWeeksInset(ref) {
+  const [inset, setInset] = useState(0)
+  useLayoutEffect(() => {
+    const measure = () => {
+      const page = ref.current
+      const tab = document.querySelector('.nav-tab[href="#/weeks"]')
+      const parent = page?.parentElement
+      if (!page || !tab || !parent) return
+      const contentLeft = parent.getBoundingClientRect().left + parseFloat(getComputedStyle(parent).paddingLeft)
+      setInset(Math.max(0, Math.round(tab.getBoundingClientRect().left - contentLeft)))
+    }
+    measure()
+    let cancelled = false
+    document.fonts?.ready.then(() => { if (!cancelled) measure() })
+    window.addEventListener('resize', measure)
+    return () => {
+      cancelled = true
+      window.removeEventListener('resize', measure)
+    }
+  }, [ref])
+  return inset
+}
+
 const subtitleFor = (w) => {
   if (w.kind === 'current') return 'THIS WEEK'
   if (w.kind === 'future') return 'UPCOMING'
@@ -130,10 +157,13 @@ export function WeeksPage() {
   const todayIso = toISODate(new Date())
   const [futureOpen, setFutureOpen] = useState(false)
   const [confirm, setConfirm] = useState(null)
+  const pageRef = useRef(null)
+  const inset = useWeeksInset(pageRef)
 
-  // Every week that holds a plan, plus the current one whether or not it does
+  // Every week that holds a plan - the current one included only when it
+  // does, so an empty week never sits in the list and removing this week's
+  // plan takes its row with it
   const isos = new Set(allProjects.map(p => p.week_start).filter(Boolean))
-  isos.add(thisWeekIso)
 
   const weeks = [...isos].sort().reverse().map(iso => {
     const projects = allProjects.filter(p => p.week_start === iso)
@@ -256,15 +286,27 @@ export function WeeksPage() {
   }
 
   return (
-    <div className="weeks-page">
+    <div className="weeks-page" ref={pageRef} style={{ '--weeks-inset': `${inset}px` }}>
       <div className="weeks-head">
         <span className="eyebrow">{weeks.length} {weeks.length === 1 ? 'WEEK' : 'WEEKS'}</span>
-        <button type="button" className="clear-all-btn" onClick={() => setConfirm({ kind: 'all' })}>
+        <button
+          type="button"
+          className="clear-all-btn"
+          onClick={() => setConfirm({ kind: 'all' })}
+          disabled={weeks.length === 0}
+        >
           <XIcon size={11} /> CLEAR ALL
         </button>
       </div>
 
-      <div className="weeks-list">{rendered}</div>
+      {weeks.length === 0 ? (
+        <div className="weeks-empty">
+          <b>Nothing planned yet</b>
+          <span>Weeks show up here once they hold a project</span>
+        </div>
+      ) : (
+        <div className="weeks-list">{rendered}</div>
+      )}
 
       {confirm?.kind === 'week' && (
         <ConfirmDialog
@@ -276,7 +318,6 @@ export function WeeksPage() {
           onConfirm={() => {
             deleteWeek(confirm.week.iso)
             setConfirm(null)
-            showToast(`Removed ${formatWeekTitle(confirm.week.iso)}`)
           }}
         />
       )}
@@ -291,7 +332,6 @@ export function WeeksPage() {
           onConfirm={() => {
             clearAll()
             setConfirm(null)
-            showToast('Cleared all weeks')
           }}
         />
       )}
