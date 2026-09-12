@@ -30,6 +30,8 @@
   --accent: #3f5f78;
   --accent-fill: #30364f;
   --accent-soft: rgba(48, 54, 79, 0.12);
+  /* Text over --accent-fill: the pale paper in light, plain white in dark */
+  --on-accent: #f0f0db;
 
   --good: #6d9e51;
   --good-soft: rgba(109, 158, 81, 0.16);
@@ -49,33 +51,42 @@
   --scrim: rgba(48, 54, 79, 0.45);
   --shadow-float: 0 6px 20px rgba(48, 54, 79, 0.18);
   --shadow-card: 0 1px 2px rgba(48, 54, 79, 0.06);
+  /* The wash inside an ended week's dotted enclosure */
+  --frozen-wash: rgba(48, 54, 79, 0.05);
 
   color-scheme: light;
 }
 
 :root[data-theme="dark"] {
-  /* ---- Dark: slate ground, white text - a step under the palette's slate ---- */
-  --bg: #1f2334;
-  --paper: #2a2f45;
-  --paper-hover: #343a52;
+  /* ---- Dark: navy ground #111844, indigo #4B5694 for every fill and line;
+     cards a step up from the ground ---- */
+  --bg: #111844;
+  --paper: #182058;
+  --paper-hover: #1f2866;
 
-  /* User-entered text is pure white; everything secondary is a dimmer neutral
-     white - no cream or blue tint, so it reads as "quieter", not "coloured" */
+  /* User-entered text is pure white; everything secondary is a dimmer white
+     with a trace of the ground's blue, so on a saturated navy it still reads
+     as "quieter" rather than warm */
   --ink: #ffffff;
-  --ink-soft: #c3c7cd;
-  --ink-faint: #969aa2;
+  --ink-soft: #c6cbe0;
+  --ink-faint: #9aa2c8;
   --ink-typed: #ffffff;
 
-  --line: #393f55;
-  --line-strong: rgba(172, 186, 196, 0.45);
+  --line: #27306e;
+  /* A tint of the text accent rather than the fill: the fill alone sits too
+     close to the cards for a hairline box to show */
+  --line-strong: rgba(141, 154, 222, 0.55);
 
-  --hover-neutral: #343a52;
-  --hover-accent: rgba(172, 186, 196, 0.14);
+  --hover-neutral: #1f2866;
+  --hover-accent: rgba(75, 86, 148, 0.3);
 
-  --brand-deep: #acbac4;
-  --accent: #94b4c1;
-  --accent-fill: #acbac4;
-  --accent-soft: rgba(172, 186, 196, 0.18);
+  --brand-deep: #4b5694;
+  /* Indigo is too dark to carry text on navy, so the text accent is its
+     lighter tint; the fill keeps the true colour */
+  --accent: #8d9ade;
+  --accent-fill: #4b5694;
+  --accent-soft: rgba(75, 86, 148, 0.35);
+  --on-accent: #ffffff;
 
   --good: #6d9e51;
   --good-soft: rgba(109, 158, 81, 0.2);
@@ -92,9 +103,10 @@
 
   --attention: #e8825e;
 
-  --scrim: rgba(14, 16, 26, 0.75);
+  --scrim: rgba(6, 9, 30, 0.75);
   --shadow-float: 0 6px 20px rgba(0, 0, 0, 0.5);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --frozen-wash: rgba(255, 255, 255, 0.035);
 
   color-scheme: dark;
 }
@@ -299,15 +311,14 @@ button {
   margin-left: -12px;
 }
 
+/* No box of its own: the week label and its dates sit on one baseline
+   between the chevrons */
 .week-date-box {
-  background: var(--paper);
-  padding: 4px 14px;
-  border-radius: var(--r-chip);
-  border: 1px solid var(--line);
+  padding: 4px 6px;
   display: flex;
-  align-items: center;
+  align-items: baseline;
   /* breathing room between the week label and its date range */
-  gap: var(--sp-6);
+  gap: var(--sp-5);
 }
 
 .proj-hover-action {
@@ -330,10 +341,40 @@ button {
 }
 .icon-btn:hover { color: var(--ink); background: transparent; }
 
+/* The two actions on a project's head - deadline and delete - take the
+   cog's spotlight on hover; delete warms to the warning red */
+.proj-action {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--ink-faint);
+  transition: color 0.18s ease, background 0.25s ease, border-color 0.18s ease;
+}
+.proj-action.set { color: var(--accent); }
+.proj-action:hover {
+  color: var(--accent);
+  border-color: var(--line);
+  background:
+    radial-gradient(circle at 50% 45%, var(--accent-soft), transparent 72%),
+    var(--hover-neutral);
+}
+.proj-action.danger:hover {
+  color: var(--warn);
+  border-color: var(--warn-dim-line);
+  background:
+    radial-gradient(circle at 50% 45%, var(--warn-soft), transparent 72%),
+    var(--hover-neutral);
+}
+
 .week-title {
   color: var(--accent);
   font-weight: 600;
-  font-size: var(--fs-body);
+  font-size: var(--fs-title);
   white-space: nowrap;
 }
 
@@ -346,13 +387,24 @@ button {
   white-space: nowrap;
 }
 
+/* Today - spotlight hover like the cog: a soft pool of light in a hairline ring */
 .today-link {
   color: var(--ink-faint);
   font-size: var(--fs-body);
   cursor: pointer;
-  margin-left: 8px;
+  margin-left: 4px;
+  padding: 3px 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  transition: color 0.18s ease, background 0.25s ease, border-color 0.18s ease;
 }
-.today-link:hover { color: var(--ink); }
+.today-link:hover {
+  color: var(--accent);
+  border-color: var(--line);
+  background:
+    radial-gradient(circle at 50% 45%, var(--accent-soft), transparent 72%),
+    var(--hover-neutral);
+}
 
 .toolbar-right {
   display: flex;
@@ -444,6 +496,7 @@ button {
   border: 1px dotted var(--line-strong);
   border-radius: var(--r-card);
   padding: var(--sp-4);
+  background: var(--frozen-wash);
 }
 .week-head.frozen {
   margin-bottom: var(--sp-4);
@@ -504,7 +557,7 @@ button {
 }
 
 .header-links {
-  font-size: 0.75rem;
+  font-size: var(--fs-body);
 }
 .header-links a {
   color: var(--accent);
@@ -642,7 +695,7 @@ input[type="text"].task-name-input.done {
   padding: 0;
   color: var(--attention);
   font-family: var(--mono);
-  font-size: var(--fs-mini);
+  font-size: var(--fs-micro);
   font-weight: var(--w-mono);
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -744,7 +797,7 @@ input[type="text"].task-name-input.done {
   font-size: var(--fs-body);
   line-height: 1.5;
   /* 14px grip + 8px gap, so the plus sits under the checkboxes */
-  padding: 7px var(--sp-2) 7px 22px;
+  padding: 5px var(--sp-2) 5px 22px;
   border-radius: var(--r);
   transition: background-color 0.12s, color 0.12s;
 }
@@ -820,7 +873,7 @@ input[type="text"].task-name-input.done {
 .day-tab.selected {
   background: var(--accent-fill);
   border-color: var(--accent-fill);
-  color: var(--paper);
+  color: var(--on-accent);
 }
 
 .day-tab-label {
@@ -1240,7 +1293,7 @@ input[type="text"].task-name-input.done {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: 7px var(--sp-2) 7px 0;
+  padding: 5px var(--sp-2) 5px 0;
   border-radius: var(--r);
   transition: background-color 0.12s, transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.15s ease;
 }
@@ -1260,7 +1313,7 @@ input[type="text"].task-name-input.done {
   width: var(--check-size);
   height: var(--check-size);
   flex-shrink: 0;
-  border: 2px solid var(--line-strong);
+  border: 1.5px solid var(--line-strong);
   border-radius: var(--r-chip);
   /* No fill of its own: the box sits on paper in the sidebar and on the
      ground in a day card, and a fill made those two read as different boxes */
@@ -1276,7 +1329,7 @@ input[type="text"].task-name-input.done {
   flex-shrink: 0;
   width: var(--check-size);
   height: var(--check-size);
-  border: 2px dashed var(--line-strong);
+  border: 1.5px dashed var(--line-strong);
   border-radius: var(--r-chip);
   opacity: 0.8;
 }
@@ -1496,7 +1549,7 @@ input[type="text"].task-name-input.done {
 .day-toggle.selected {
   background: var(--accent-fill);
   border-color: var(--accent-fill);
-  color: var(--paper);
+  color: var(--on-accent);
 }
 /* The day the work is leaving is named, not boxed */
 .day-toggle.from:disabled {
@@ -1876,7 +1929,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
 .btn-primary {
   background: var(--accent-fill);
   border: 1px solid var(--accent-fill);
-  color: var(--paper);
+  color: var(--on-accent);
   font-weight: 500;
   padding: var(--sp-2) var(--sp-4);
   border-radius: var(--r-chip);
@@ -2205,9 +2258,11 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
 .pane-switch { display: none; }
 
 /* ---- Frozen (ended) week ----
-   Display only. Nothing on the plan responds - no hover, no focus, no drag -
-   until the week is reopened. Moving between days stays live, since reading
-   the plan is the point. Hidden with visibility so nothing shifts. */
+   Display only. The plan shows exactly as it was left - every badge, prompt
+   and button at full strength - and nothing in it responds until the week
+   is reopened. Moving between days stays live, since reading the plan is the
+   point. Only the handles that exist for hover stay away, with visibility so
+   nothing shifts. */
 .task-check:disabled { cursor: default; }
 .task-check:disabled:hover { border-color: var(--line-strong); }
 .task-check:disabled:checked { border-color: var(--good); }
@@ -2220,17 +2275,23 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
 .planning-board.ended .project-card { cursor: default; }
 .planning-board.ended .proj-hover-action,
 .planning-board.ended .task-grip,
-.planning-board.ended .task-actions,
+.planning-board.ended .task-del,
+.planning-board.ended .task-item.has-day .assign-date,
 .planning-board.ended .day-card-clear {
   visibility: hidden;
+}
+/* "Assign days" on an undated task is part of the plan as it was left, so it
+   stays; only its hover flourishes go */
+.planning-board.ended .task-item:not(.has-day):hover .assign-date {
+  font-weight: var(--w-mono);
+}
+.planning-board.ended .task-item:not(.has-day):hover .assign-date .arrow,
+.planning-board.ended .task-item:not(.has-day):hover .assign-date .cal-box {
+  opacity: 0;
 }
 .planning-board.ended .task-item:hover,
 .planning-board.ended .day-panel-list .day-card:hover {
   background: transparent;
-}
-.planning-board.ended .add-task-btn,
-.planning-board.ended .add-project-dashed {
-  opacity: 0.45;
 }
 
 /* ---- One pane at a time ----
@@ -2265,7 +2326,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   .pane-tab.selected {
     background: var(--accent-fill);
     border-color: var(--accent-fill);
-    color: var(--paper);
+    color: var(--on-accent);
   }
   .pane-tab-count {
     font-family: var(--mono);
@@ -2278,7 +2339,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   }
   .pane-tab.selected .pane-tab-count {
     background: rgba(0, 0, 0, 0.22);
-    color: var(--paper);
+    color: var(--on-accent);
   }
 
   .planning-board {
@@ -2315,7 +2376,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
     padding: 5px 10px;
     font-size: var(--fs-chrome);
   }
-  .week-date-box { gap: var(--sp-3); padding: 4px 10px; }
+  .week-date-box { gap: var(--sp-3); padding: 4px; }
   .today-link { margin-left: 0; }
 
   .progress-section { margin-bottom: var(--sp-5); }

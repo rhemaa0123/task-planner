@@ -643,23 +643,21 @@ export function ProjectsSidebar() {
                   </div>
                 )}
 
-                <div className="proj-hover-action" style={{display: 'flex', alignItems: 'center', gap: 8}}>
+                <div className="proj-hover-action" style={{display: 'flex', alignItems: 'center', gap: 6}}>
                   <button
-                    className="icon-btn"
+                    className={`proj-action ${p.deadline ? 'set' : ''}`}
                     onClick={() => setDeadlineFor(p.id)}
                     disabled={frozen}
                     title={p.deadline ? `Deadline ${isoToDisplay(p.deadline)}` : 'Set deadline'}
-                    style={{width: 20, height: 20, padding: 0, color: p.deadline ? 'var(--accent)' : 'var(--ink-faint)'}}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
                     </svg>
                   </button>
                   <button
-                    className="icon-btn"
+                    className="proj-action danger"
                     onClick={() => deleteProject(p.id)}
                     disabled={frozen}
-                    style={{width: 20, height: 20, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'}}
                     title="Delete Project"
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
