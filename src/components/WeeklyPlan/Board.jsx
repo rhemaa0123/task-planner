@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext'
 import { useToday } from '../../hooks/useToday'
 import { ProjectsSidebar } from './ProjectsSidebar'
 import { WeekGrid } from './WeekGrid'
+import { DashedOutline } from '../Dash'
 import {
   addDays, weekLabel, formatWeekRange, formatWeekTitle, startOfWeek, rollUp, toISODate, fromISODate,
   formatShortDate, weekCountdown,
@@ -134,6 +135,7 @@ export function Board() {
       {/* An ended week sits in two dotted enclosures - the week and its
           progress above, the plan below - so it reads as frozen, not finished */}
       <div className={`week-head ${ended ? 'frozen' : ''}`}>
+        {ended && <DashedOutline r={12} />}
         <div className="toolbar">
           <div className="toolbar-left" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button className="icon-btn" onClick={() => setWeekStart(addDays(weekStart, -7))}>
@@ -236,6 +238,7 @@ export function Board() {
       </div>
 
       <div className={`week-body ${ended ? 'frozen' : ''}`}>
+        {ended && <DashedOutline r={12} />}
         {/* Phone only: the two panes are too tall to stack, so they take turns */}
         <div className="pane-switch" role="tablist">
           <button

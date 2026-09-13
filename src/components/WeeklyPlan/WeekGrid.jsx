@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { toISODate, weekDayList, startOfWeek, difficultyOf } from '../../utils'
 import { DifficultyDots } from './Difficulty'
+import { DashedOutline } from '../Dash'
 
 // One row per subtask landing on this day, each stating its own lineage:
 // project name, task name, then the subtask's own name. A task never broken
@@ -279,6 +280,9 @@ const perUnit = (items) => items.map(it => ({
 function MissedCard({ item, compact, frozen, onClear }) {
   return (
     <div className="day-card missed">
+      {/* Only the grid boxes this card - the list lays it flat with the
+          native border above, so the extra dashed corner is grid-only */}
+      {compact && <DashedOutline r={10} />}
       <div className="day-card-line">
         <span className="missed-mark" aria-hidden="true" />
         <div className="day-card-body">
@@ -411,6 +415,7 @@ export function WeekGrid() {
 
       {!hasWork ? (
         <div className="week-empty dash-box">
+          <DashedOutline r={12} />
           <b>Nothing scheduled yet</b>
           <span>Your planned work will show up here</span>
         </div>

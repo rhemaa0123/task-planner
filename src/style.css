@@ -164,15 +164,6 @@
   --check-size: 18px;
   --icon-size: 13px;
 
-  /* The one dashed line, for every box drawn in pencil - "nothing here yet",
-     a frozen week, a missed day, a week still ahead: 6px dashes at a 1px
-     weight. A CSS dashed border cannot do this, since it scales the dash with
-     the width, so it is an SVG mask on a pseudo-element (.dash-box). The
-     stroke is centred on the box's edge with its outer half clipped, so the
-     visible line is exactly half the stroke-width - one pixel - whatever the
-     corner radius. One mask per radius in use. */
-  --dash-mask-r10: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' rx='10' fill='none' stroke='%23000' stroke-width='2' stroke-dasharray='6 6'/%3E%3C/svg%3E");
-  --dash-mask-r12: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' rx='12' fill='none' stroke='%23000' stroke-width='2' stroke-dasharray='6 6'/%3E%3C/svg%3E");
 }
 
 * {
@@ -517,14 +508,14 @@ button {
 }
 .week-head.frozen,
 .week-body.frozen {
-  --dash-mask: var(--dash-mask-r12);
+  position: relative;
   border: 1px solid transparent;
   border-radius: var(--r-card);
   padding: var(--sp-4);
   background: var(--frozen-wash);
 }
-.week-head.frozen::before,
-.week-body.frozen::before { background: var(--line-strong); }
+.week-head.frozen .dash-rect,
+.week-body.frozen .dash-rect { stroke: var(--line-strong); }
 .week-head.frozen {
   margin-bottom: var(--sp-4);
 }
@@ -870,30 +861,35 @@ input[type="text"].task-name-input.done {
   background: var(--hover-neutral);
 }
 
-/* The dashed hairline (see --dash-mask-r10 above). The box keeps a 1px
+/* The dashed hairline (see DashedOutline in Dash.jsx). The box keeps a 1px
    transparent border so its content sits where a bordered box's would, and
-   the pseudo-element covers the border box exactly, painting --dash through
-   the mask - so the line lands in the border's own pixel. */
-.dash-box,
-.week-head.frozen,
-.week-body.frozen {
+   the svg child - laid out at 100% of this `position: relative` box, not
+   stretched into it as a background/mask would be - draws the line in
+   `--dash` by default; a context below can override the colour. */
+.dash-box {
   position: relative;
+  border: 1px solid transparent;
 }
-.dash-box::before,
-.week-head.frozen::before,
-.week-body.frozen::before {
-  content: '';
+.dash-svg {
   position: absolute;
-  inset: -1px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
-  background: var(--dash);
-  -webkit-mask: var(--dash-mask) 0 0 / 100% 100% no-repeat;
-  mask: var(--dash-mask) 0 0 / 100% 100% no-repeat;
-  transition: background-color 0.15s;
+  overflow: visible;
 }
-.dash-box { border: 1px solid transparent; }
+.dash-rect {
+  x: 0.5px;
+  y: 0.5px;
+  width: calc(100% - 1px);
+  height: calc(100% - 1px);
+  fill: none;
+  stroke-width: 1px;
+  stroke-dasharray: 6 6;
+  stroke: var(--dash);
+  transition: stroke 0.15s;
+}
 .add-project-dashed {
-  --dash-mask: var(--dash-mask-r10);
   background: transparent;
   color: var(--ink-faint);
   padding: var(--sp-3);
@@ -906,7 +902,7 @@ input[type="text"].task-name-input.done {
   transition: color 0.15s;
 }
 .add-project-dashed:hover { color: var(--ink-soft); }
-.add-project-dashed:hover::before { background: var(--ink-faint); }
+.add-project-dashed:hover .dash-rect { stroke: var(--ink-faint); }
 
 /* Week Grid (Days) */
 .week-grid-container {
@@ -1057,7 +1053,6 @@ input[type="text"].task-name-input.done {
 
 /* Nothing scheduled yet: one quiet box instead of seven empty ones */
 .week-empty {
-  --dash-mask: var(--dash-mask-r12);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1261,20 +1256,12 @@ input[type="text"].task-name-input.done {
   border-color: var(--line-strong);
 }
 /* In the grid the missed card is boxed, and its dash is the one every other
-   pencilled box uses - the list lays it flat with no edge at all */
+   pencilled box uses (DashedOutline, rendered only in this context) - the
+   list lays it flat with no edge at all */
 .day-grid .day-card.missed {
-  --dash-mask: var(--dash-mask-r10);
   border-color: transparent;
 }
-.day-grid .day-card.missed::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  pointer-events: none;
-  background: var(--line-strong);
-  -webkit-mask: var(--dash-mask) 0 0 / 100% 100% no-repeat;
-  mask: var(--dash-mask) 0 0 / 100% 100% no-repeat;
-}
+.day-grid .day-card.missed .dash-rect { stroke: var(--line-strong); }
 .day-card.missed .day-card-task {
   color: var(--ink-soft);
 }
@@ -2117,7 +2104,6 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
 }
 /* Nothing planned in any week */
 .weeks-empty {
-  --dash-mask: var(--dash-mask-r12);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2186,24 +2172,15 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   background: var(--accent-fill);
 }
 /* Upcoming weeks are pencilled in, not inked - the same dash as every other
-   pencilled box. ::after, since ::before is the current week's edge mark;
-   the row's clip has to lift for the line to show in the border's pixel */
+   pencilled box (DashedOutline, a real child now, so it coexists with the
+   current week's ::before edge mark without needing a pseudo-element of
+   its own). */
 .wk-row.future,
 .wk-row.group {
-  --dash-mask: var(--dash-mask-r12);
-  overflow: visible;
   border-color: transparent;
 }
-.wk-row.future::after,
-.wk-row.group::after {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  pointer-events: none;
-  background: var(--line-strong);
-  -webkit-mask: var(--dash-mask) 0 0 / 100% 100% no-repeat;
-  mask: var(--dash-mask) 0 0 / 100% 100% no-repeat;
-}
+.wk-row.future .dash-rect,
+.wk-row.group .dash-rect { stroke: var(--line-strong); }
 .wk-row.group { background: transparent; }
 
 .wk-main {

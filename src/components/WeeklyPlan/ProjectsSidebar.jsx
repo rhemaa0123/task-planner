@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext'
 import { formatDeadline, toISODate, weekDayList, subtaskTally, rollUp, difficultyOf, DEFAULT_DIFFICULTY } from '../../utils'
 import { CopyPlanDialog, PastePlanDialog } from './PlanTransfer'
 import { DifficultyPicker } from './Difficulty'
+import { DashedOutline } from '../Dash'
 
 function EditableText({ value, onSave, onEnter, placeholder, className, autoFocus, readOnly }) {
   const [text, setText] = useState(value || '')
@@ -721,7 +722,10 @@ export function ProjectsSidebar() {
         )
       })}
 
-      <button className="add-project-dashed dash-box" onClick={handleCreateProject} disabled={frozen}>+ ADD PROJECT</button>
+      <button className="add-project-dashed dash-box" onClick={handleCreateProject} disabled={frozen}>
+        <DashedOutline r={10} />
+        + ADD PROJECT
+      </button>
       </aside>
 
       {deadlineProject && (

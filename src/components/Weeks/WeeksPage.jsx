@@ -4,6 +4,7 @@ import {
   toISODate, fromISODate, addDays, startOfWeek, rollUp, dayLoad, encodePlan,
   formatWeekTitle, formatShortDate,
 } from '../../utils'
+import { DashedOutline } from '../Dash'
 
 function ConfirmDialog({ eyebrow, title, copy, action, onConfirm, onClose }) {
   useEffect(() => {
@@ -208,6 +209,7 @@ export function WeeksPage() {
     const max = Math.max(1, ...w.days.map(d => d.total))
     return (
       <div key={w.iso} className={`wk-row ${w.kind} ${w.ended ? 'ended' : ''}`}>
+        {w.kind === 'future' && <DashedOutline r={12} />}
         <button type="button" className="wk-main" onClick={() => openWeek(w.iso)} title="Open this week">
           <div className="wk-title">{formatWeekTitle(w.iso)}</div>
           <div className="wk-sub">{subtitleFor(w)}</div>
@@ -244,6 +246,7 @@ export function WeeksPage() {
     lastYear = y
     rendered.push(
       <div key="future-group" className={`wk-row group ${futureOpen ? 'open' : ''}`}>
+        <DashedOutline r={12} />
         <button type="button" className="wk-main" onClick={() => setFutureOpen(o => !o)} aria-expanded={futureOpen}>
           <div className="wk-title">{futureRange}</div>
           <div className="wk-sub">{future.length} UPCOMING {future.length === 1 ? 'WEEK' : 'WEEKS'}</div>
@@ -299,6 +302,7 @@ export function WeeksPage() {
 
       {weeks.length === 0 ? (
         <div className="weeks-empty dash-box">
+          <DashedOutline r={12} />
           <b>Nothing planned yet</b>
           <span>Weeks show up here once they hold a project</span>
         </div>
