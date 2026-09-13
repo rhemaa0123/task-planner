@@ -49,10 +49,12 @@
 
   /* The one call to action on the board - "assign days" - burnt orange so it
      is seen without reading as an error. Move mode borrows it: the soft and
-     line tints fill the "Move → date" button */
+     line tints fill the "Move → date" button, and the wash - fainter still -
+     tints the enclosure around the whole toolbar while it is active */
   --attention: #c2542f;
   --attention-soft: rgba(194, 84, 47, 0.14);
   --attention-line: rgba(194, 84, 47, 0.5);
+  --attention-wash: rgba(194, 84, 47, 0.05);
 
   --scrim: rgba(48, 54, 79, 0.45);
   --shadow-float: 0 6px 20px rgba(48, 54, 79, 0.18);
@@ -115,6 +117,7 @@
   --attention: #e8825e;
   --attention-soft: rgba(232, 130, 94, 0.2);
   --attention-line: rgba(232, 130, 94, 0.55);
+  --attention-wash: rgba(232, 130, 94, 0.045);
 
   --scrim: rgba(5, 5, 8, 0.72);
   --shadow-float: 0 8px 24px rgba(0, 0, 0, 0.55);
@@ -507,7 +510,8 @@ button {
   min-height: 0;
 }
 .week-head.frozen,
-.week-body.frozen {
+.week-body.frozen,
+.week-head.moving {
   position: relative;
   border: 1px solid transparent;
   border-radius: var(--r-card);
@@ -516,11 +520,20 @@ button {
 }
 .week-head.frozen .dash-rect,
 .week-body.frozen .dash-rect { stroke: var(--line-strong); }
-.week-head.frozen {
+.week-head.frozen,
+.week-head.moving {
   margin-bottom: var(--sp-4);
 }
-.week-head.frozen .progress-section {
+.week-head.frozen .progress-section,
+.week-head.moving .progress-section {
   margin-bottom: 0;
+}
+/* Move mode draws its own enclosure - solid, not dashed, and in the same
+   attention orange as the controls inside it, so the whole toolbar reads as
+   one active unit rather than the frozen week's read-only one */
+.week-head.moving {
+  border-color: var(--attention-line);
+  background: var(--attention-wash);
 }
 
 /* A red "no" sign - circle and diagonal - haloed in white so it reads on
@@ -2502,7 +2515,8 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   .day-grid { grid-template-columns: 1fr; }
   .day-block { min-height: 0; }
   .week-head.frozen,
-  .week-body.frozen { padding: var(--sp-3); }
+  .week-body.frozen,
+  .week-head.moving { padding: var(--sp-3); }
 
   .project-card { padding: var(--sp-3); }
 

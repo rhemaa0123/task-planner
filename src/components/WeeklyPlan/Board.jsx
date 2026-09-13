@@ -134,8 +134,8 @@ export function Board() {
     <>
       {/* An ended week sits in two dotted enclosures - the week and its
           progress above, the plan below - so it reads as frozen, not finished */}
-      <div className={`week-head ${ended ? 'frozen' : ''}`}>
-        {ended && <DashedOutline r={12} />}
+      <div className={`week-head ${moving ? 'moving' : ended ? 'frozen' : ''}`}>
+        {ended && !moving && <DashedOutline r={12} />}
         <div className="toolbar">
           <div className="toolbar-left" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button className="icon-btn" onClick={() => setWeekStart(addDays(weekStart, -7))}>

@@ -23,7 +23,10 @@ export function startOfWeek(date = new Date()) {
 
 export function formatWeekRange(startDate) {
   const end = addDays(startDate, 6)
-  const format = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  // day: 'numeric' alone drops the leading zero on the 1st-9th - every other
+  // date in the app pads to two digits, so this one falls in line
+  const format = (d) =>
+    `${d.toLocaleDateString('en-US', { month: 'short' })} ${String(d.getDate()).padStart(2, '0')}`
   return `${format(startDate)} - ${format(end)}`
 }
 
