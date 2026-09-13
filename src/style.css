@@ -48,8 +48,11 @@
   --warn-dim-fill: rgba(196, 86, 58, 0.1);
 
   /* The one call to action on the board - "assign days" - burnt orange so it
-     is seen without reading as an error */
+     is seen without reading as an error. Move mode borrows it: the soft and
+     line tints fill the "Move → date" button */
   --attention: #c2542f;
+  --attention-soft: rgba(194, 84, 47, 0.14);
+  --attention-line: rgba(194, 84, 47, 0.5);
 
   --scrim: rgba(48, 54, 79, 0.45);
   --shadow-float: 0 6px 20px rgba(48, 54, 79, 0.18);
@@ -63,58 +66,61 @@
 }
 
 :root[data-theme="dark"] {
-  /* ---- Dark: the navy #111844 exactly for the ground, cards a hair above
-     it; fills and lines take the palette's #4B5694 indigo lifted a touch ---- */
-  --bg: #0e143c;
-  --paper: #121a4a;
-  --paper-hover: #182158;
+  /* ---- Dark: lavender on graphite. The ground is a near-neutral charcoal
+     with only a whisper of violet in it - a saturated navy reads as bright
+     even when it is dark - and one muted lavender carries all the colour:
+     text accents, the selected tab, the primary button. Nothing else on the
+     page is tinted. ---- */
+  --bg: #131317;
+  --paper: #1b1b21;
+  --paper-hover: #23232a;
 
-  /* User-entered text is pure white; everything secondary is a dimmer neutral
-     white - no cream or blue tint, so it reads as "quieter", not "coloured" */
-  --ink: #ffffff;
-  --ink-soft: #c3c7cd;
-  --ink-faint: #969aa2;
-  --ink-typed: #ffffff;
+  /* Typed text is an off-white a shade under pure, which glares on charcoal;
+     the secondary steps are neutral greys, so they read as "quieter", not
+     "coloured" */
+  --ink: #f1f0f5;
+  --ink-soft: #b8b6c4;
+  --ink-faint: #86848f;
+  --ink-typed: #f1f0f5;
 
-  --line: #222b66;
-  /* A tint of the text accent rather than the fill: the fill alone sits too
-     close to the cards for a hairline box to show */
-  --line-strong: rgba(141, 154, 222, 0.5);
+  --line: #28282f;
+  --line-strong: #3d3c48;
 
-  --hover-neutral: #182158;
-  --hover-accent: rgba(85, 98, 163, 0.32);
+  --hover-neutral: #23232a;
+  --hover-accent: rgba(181, 169, 238, 0.14);
 
-  --brand-deep: #5562a3;
-  /* Indigo is too dark to carry text on navy, so the text accent is its
-     lighter tint; the fill is #4B5694 lifted a touch */
-  --accent: #8d9ade;
-  --accent-fill: #5562a3;
-  --accent-soft: rgba(85, 98, 163, 0.35);
+  --brand-deep: #8f83dd;
+  /* The lavender as text, and a deeper cut of it as the fill under white */
+  --accent: #b5a9ee;
+  --accent-fill: #6b5fc8;
+  --accent-soft: rgba(181, 169, 238, 0.16);
   --on-accent: #ffffff;
 
   --good: #76c457;
   --good-ink: #a5cf83;
-  /* Solid shades of the green rather than alpha over navy, which turned the
-     planned-but-not-done bars and the count pills grey-teal */
-  --good-soft: #2b532b;
-  --good-dim: #4f8f3c;
-  --warn: #f87171;
-  --warn-soft: rgba(248, 113, 113, 0.2);
+  /* Solid shades of the green rather than alpha over charcoal, which turns
+     the planned-but-not-done bars and the count pills grey */
+  --good-soft: #253520;
+  --good-dim: #4a7d3b;
+  --warn: #f27474;
+  --warn-soft: rgba(242, 116, 116, 0.16);
   /* Overdue cards sit in a darker wine, not a lighter pink, so they read as
      a shadow on the day rather than a highlight */
-  --overdue-fill: rgba(110, 38, 44, 0.55);
-  --overdue-line: rgba(248, 113, 113, 0.14);
-  --warn-dim: #e07a5e;
-  --warn-dim-line: rgba(224, 122, 94, 0.45);
-  --warn-dim-fill: rgba(224, 122, 94, 0.12);
+  --overdue-fill: rgba(92, 36, 42, 0.5);
+  --overdue-line: rgba(242, 116, 116, 0.16);
+  --warn-dim: #dd8068;
+  --warn-dim-line: rgba(221, 128, 104, 0.45);
+  --warn-dim-fill: rgba(221, 128, 104, 0.12);
 
   --attention: #e8825e;
+  --attention-soft: rgba(232, 130, 94, 0.2);
+  --attention-line: rgba(232, 130, 94, 0.55);
 
-  --scrim: rgba(4, 6, 24, 0.78);
-  --shadow-float: 0 6px 20px rgba(0, 0, 0, 0.5);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --frozen-wash: rgba(255, 255, 255, 0.03);
-  --dash: rgba(141, 154, 222, 0.7);
+  --scrim: rgba(5, 5, 8, 0.72);
+  --shadow-float: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --frozen-wash: rgba(255, 255, 255, 0.025);
+  --dash: rgba(181, 169, 238, 0.42);
 
   color-scheme: dark;
 }
@@ -157,6 +163,16 @@
   --grip-size: 16px;
   --check-size: 18px;
   --icon-size: 13px;
+
+  /* The one dashed line, for every box drawn in pencil - "nothing here yet",
+     a frozen week, a missed day, a week still ahead: 6px dashes at a 1px
+     weight. A CSS dashed border cannot do this, since it scales the dash with
+     the width, so it is an SVG mask on a pseudo-element (.dash-box). The
+     stroke is centred on the box's edge with its outer half clipped, so the
+     visible line is exactly half the stroke-width - one pixel - whatever the
+     corner radius. One mask per radius in use. */
+  --dash-mask-r10: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' rx='10' fill='none' stroke='%23000' stroke-width='2' stroke-dasharray='6 6'/%3E%3C/svg%3E");
+  --dash-mask-r12: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' rx='12' fill='none' stroke='%23000' stroke-width='2' stroke-dasharray='6 6'/%3E%3C/svg%3E");
 }
 
 * {
@@ -501,11 +517,14 @@ button {
 }
 .week-head.frozen,
 .week-body.frozen {
-  border: 1px dotted var(--line-strong);
+  --dash-mask: var(--dash-mask-r12);
+  border: 1px solid transparent;
   border-radius: var(--r-card);
   padding: var(--sp-4);
   background: var(--frozen-wash);
 }
+.week-head.frozen::before,
+.week-body.frozen::before { background: var(--line-strong); }
 .week-head.frozen {
   margin-bottom: var(--sp-4);
 }
@@ -522,6 +541,34 @@ button {
 .toolbar-right button:disabled:hover {
   background: var(--paper);
   color: var(--ink-soft);
+}
+
+/* ---- Move mode ----
+   Cut and paste for a week. "Move work" picks the week up; the board then
+   browses as usual, the week on screen being the destination, and
+   "Move → date" sets it down. The label, the line under the bar and the
+   confirm button take the attention orange so the state reads from across
+   the room; Cancel sits where Today was. End week waits it out, dimmed. */
+.week-title.moving { color: var(--attention); }
+.progress-stats .move-hint { color: var(--attention); }
+.progress-stats .move-hint b { font-weight: 600; }
+.toolbar-right button.move-confirm {
+  background: var(--attention-soft);
+  border-color: var(--attention-line);
+  color: var(--attention);
+  font-weight: 600;
+}
+.toolbar-right button.move-confirm:hover {
+  background: var(--attention);
+  border-color: var(--attention);
+  color: #fff;
+}
+/* Same week, or an ended one: the button stays put but cannot be pressed */
+.toolbar-right button.move-confirm:disabled,
+.toolbar-right button.move-confirm:disabled:hover {
+  background: var(--attention-soft);
+  border-color: var(--attention-line);
+  color: var(--attention);
 }
 
 /* ---- 2-Pane Planning Board ---- */
@@ -823,26 +870,30 @@ input[type="text"].task-name-input.done {
   background: var(--hover-neutral);
 }
 
-/* The dash is a mask on a pseudo-element rather than a border: a CSS dashed
-   border scales its dash with its width, and this one wants 6px dashes at a
-   1.5px weight. The stroke sits on the box's outer edge, half of it clipped,
-   so the visible line is exactly half the stroke-width; --dash paints it. */
-.dash-box {
+/* The dashed hairline (see --dash-mask-r10 above). The box keeps a 1px
+   transparent border so its content sits where a bordered box's would, and
+   the pseudo-element covers the border box exactly, painting --dash through
+   the mask - so the line lands in the border's own pixel. */
+.dash-box,
+.week-head.frozen,
+.week-body.frozen {
   position: relative;
-  border: 2px solid transparent;
 }
-.dash-box::before {
+.dash-box::before,
+.week-head.frozen::before,
+.week-body.frozen::before {
   content: '';
   position: absolute;
-  inset: -2px;
+  inset: -1px;
   pointer-events: none;
   background: var(--dash);
   -webkit-mask: var(--dash-mask) 0 0 / 100% 100% no-repeat;
   mask: var(--dash-mask) 0 0 / 100% 100% no-repeat;
   transition: background-color 0.15s;
 }
+.dash-box { border: 1px solid transparent; }
 .add-project-dashed {
-  --dash-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' rx='10' fill='none' stroke='%23000' stroke-width='3' stroke-dasharray='6 6'/%3E%3C/svg%3E");
+  --dash-mask: var(--dash-mask-r10);
   background: transparent;
   color: var(--ink-faint);
   padding: var(--sp-3);
@@ -1006,7 +1057,7 @@ input[type="text"].task-name-input.done {
 
 /* Nothing scheduled yet: one quiet box instead of seven empty ones */
 .week-empty {
-  --dash-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' rx='12' fill='none' stroke='%23000' stroke-width='3' stroke-dasharray='6 6'/%3E%3C/svg%3E");
+  --dash-mask: var(--dash-mask-r12);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1209,6 +1260,21 @@ input[type="text"].task-name-input.done {
   border-style: dashed;
   border-color: var(--line-strong);
 }
+/* In the grid the missed card is boxed, and its dash is the one every other
+   pencilled box uses - the list lays it flat with no edge at all */
+.day-grid .day-card.missed {
+  --dash-mask: var(--dash-mask-r10);
+  border-color: transparent;
+}
+.day-grid .day-card.missed::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background: var(--line-strong);
+  -webkit-mask: var(--dash-mask) 0 0 / 100% 100% no-repeat;
+  mask: var(--dash-mask) 0 0 / 100% 100% no-repeat;
+}
 .day-card.missed .day-card-task {
   color: var(--ink-soft);
 }
@@ -1357,7 +1423,7 @@ input[type="text"].task-name-input.done {
   flex-shrink: 0;
   width: var(--check-size);
   height: var(--check-size);
-  border: 1.5px dashed var(--line-strong);
+  border: 1px dashed var(--line-strong);
   border-radius: var(--r-chip);
   opacity: 0.8;
 }
@@ -2051,12 +2117,12 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
 }
 /* Nothing planned in any week */
 .weeks-empty {
+  --dash-mask: var(--dash-mask-r12);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sp-1);
   padding: var(--sp-6) var(--sp-4);
-  border: 1px dashed var(--line-strong);
   border-radius: var(--r-card);
   text-align: center;
 }
@@ -2119,11 +2185,24 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   width: 4px;
   background: var(--accent-fill);
 }
-/* Upcoming weeks are penciled in, not inked */
+/* Upcoming weeks are pencilled in, not inked - the same dash as every other
+   pencilled box. ::after, since ::before is the current week's edge mark;
+   the row's clip has to lift for the line to show in the border's pixel */
 .wk-row.future,
 .wk-row.group {
-  border-style: dashed;
-  border-color: var(--line-strong);
+  --dash-mask: var(--dash-mask-r12);
+  overflow: visible;
+  border-color: transparent;
+}
+.wk-row.future::after,
+.wk-row.group::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  background: var(--line-strong);
+  -webkit-mask: var(--dash-mask) 0 0 / 100% 100% no-repeat;
+  mask: var(--dash-mask) 0 0 / 100% 100% no-repeat;
 }
 .wk-row.group { background: transparent; }
 

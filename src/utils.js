@@ -83,6 +83,12 @@ export function formatDeadline(iso) {
   return `${wd} ${mo} ${String(d).padStart(2, '0')}`
 }
 
+// Whole weeks from one Monday to another, signed - rounded because a DST
+// boundary makes the span an hour short or long
+export function weeksBetween(fromIso, toIso) {
+  return Math.round((fromISODate(toIso) - fromISODate(fromIso)) / WEEK_MS)
+}
+
 // "2026-09-07" -> "Sep 07 – Sep 13", the shape the weeks list uses
 export function formatWeekTitle(weekStartIso) {
   const start = fromISODate(weekStartIso)

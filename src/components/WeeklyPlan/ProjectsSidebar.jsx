@@ -4,13 +4,23 @@ import { formatDeadline, toISODate, weekDayList, subtaskTally, rollUp, difficult
 import { CopyPlanDialog, PastePlanDialog } from './PlanTransfer'
 import { DifficultyPicker } from './Difficulty'
 
-function EditableText({ value, onSave, placeholder, className, autoFocus, readOnly }) {
+function EditableText({ value, onSave, onEnter, placeholder, className, autoFocus, readOnly }) {
   const [text, setText] = useState(value || '')
   const ref = useRef(null)
+  // What the parent last received - Enter saves, and the blur that follows
+  // when focus moves on must not save the same name a second time
+  const committed = useRef(value || '')
 
   useEffect(() => {
     setText(value || '')
+    committed.current = value || ''
   }, [value])
+
+  const commit = () => {
+    if ((text || '') === committed.current) return
+    committed.current = text || ''
+    onSave(text)
+  }
 
   // Focusing before the webfont settles leaves the caret sized to the fallback
   // font until the first keystroke forces a relayout
@@ -33,17 +43,18 @@ function EditableText({ value, onSave, placeholder, className, autoFocus, readOn
       readOnly={readOnly}
       tabIndex={readOnly ? -1 : undefined}
       onChange={e => setText(e.target.value)}
-      // Enter is "done typing": the field lets go of focus and the blur below
-      // saves, so the caret leaves rather than sitting in a finished name
+      // Enter is "done typing": the name is saved and, given something to
+      // hand on to, `onEnter` carries the caret to the next row (a new task).
+      // An empty name just lets go of focus - Enter on nothing should not
+      // leave a trail of blank rows.
       onKeyDown={e => {
-        if (e.key === 'Enter') {
-          e.preventDefault()
-          e.currentTarget.blur()
-        }
+        if (e.key !== 'Enter') return
+        e.preventDefault()
+        commit()
+        if (onEnter && text.trim()) onEnter()
+        else e.currentTarget.blur()
       }}
-      onBlur={() => {
-        if ((text || '') !== (value || '')) onSave(text)
-      }}
+      onBlur={commit}
     />
   )
 }
@@ -196,7 +207,7 @@ function DeadlineDialog({ project, onSave, onClose }) {
 // the title or ticking the box never starts a drag by accident
 function TaskRow({
   task, autoFocus, frozen, rowRef, armed, dragging, transform,
-  onArm, onDragStart, onDragEnd, onRename, onToggle, onOpenSchedule, onDelete,
+  onArm, onDragStart, onDragEnd, onRename, onEnter, onToggle, onOpenSchedule, onDelete,
 }) {
   const { done, total } = subtaskTally(task)
   return (
@@ -231,6 +242,7 @@ function TaskRow({
         autoFocus={autoFocus}
         readOnly={frozen}
         onSave={val => onRename(task.id, val)}
+        onEnter={frozen ? undefined : () => onEnter(task.id)}
       />
       {total > 0 && (
         <span
@@ -477,8 +489,10 @@ export function ProjectsSidebar() {
     await addProject('')
   }
 
-  const handleAddTask = async (projectId) => {
-    const id = await addTask(projectId, '', null)
+  // The new row takes the caret. `after` puts it under a given task rather
+  // than at the end of the list - Enter on a row continues from that row.
+  const handleAddTask = (projectId, after = null) => {
+    const id = addTask(projectId, '', null, { after })
     if (id) setFocusTaskId(id)
   }
 
@@ -629,6 +643,8 @@ export function ProjectsSidebar() {
                     autoFocus={!p.name && !frozen}
                     readOnly={frozen}
                     onSave={(newName) => updateProjectName(p.id, newName)}
+                    // A named project wants its first task next
+                    onEnter={frozen ? undefined : () => handleAddTask(p.id)}
                   />
                   {p.deadline && (
                     <span className="proj-deadline">{formatDeadline(p.deadline)}</span>
@@ -686,6 +702,7 @@ export function ProjectsSidebar() {
                   onDragStart={(e) => onTaskDragStart(e, p.id, i)}
                   onDragEnd={endTaskDrag}
                   onRename={updateTaskTitle}
+                  onEnter={(afterId) => handleAddTask(p.id, afterId)}
                   onToggle={toggleTask}
                   onOpenSchedule={setScheduleFor}
                   onDelete={deleteTask}

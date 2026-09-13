@@ -298,7 +298,7 @@ export function WeeksPage() {
       )}
 
       {weeks.length === 0 ? (
-        <div className="weeks-empty">
+        <div className="weeks-empty dash-box">
           <b>Nothing planned yet</b>
           <span>Weeks show up here once they hold a project</span>
         </div>

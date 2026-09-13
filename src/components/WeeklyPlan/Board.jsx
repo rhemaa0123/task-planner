@@ -74,7 +74,8 @@ function ReopenDialog({ range, onReopen, onClose }) {
 
 export function Board() {
   const {
-    projects, allProjects, weekStart, setWeekStart, weekMeta, weekEnded, endWeek, reopenWeek, carryForward, showToast,
+    projects, allProjects, weekStart, setWeekStart, weekMeta, weekEnded, endWeek, reopenWeek, carryForward, moveWeek,
+    showToast,
   } = useApp()
   const weekText = weekLabel(weekStart)
   const weekIso = toISODate(weekStart)
@@ -101,6 +102,30 @@ export function Board() {
   const [ending, setEnding] = useState(false)
   const [reopening, setReopening] = useState(false)
 
+  // Move work is cut and paste for a week: "Move work" picks up the week on
+  // screen (its Monday is held here), the chevrons browse to another, and
+  // "Move → date" sets it down there. The board keeps showing whichever week
+  // is being browsed, so what is already planned there is in view.
+  const [moving, setMoving] = useState(null)
+  const movingHere = moving !== null && moving === weekIso
+  const movingLabel = moving ? formatWeekTitle(moving) : ''
+  const moveBlock = !moving ? null
+    : movingHere ? 'Pick another week'
+    : ended ? 'This week has ended - reopen it to move work here'
+    : null
+  const cancelMove = () => setMoving(null)
+  const confirmMove = () => {
+    if (moveBlock) return
+    moveWeek(moving, weekIso)
+    setMoving(null)
+  }
+  useEffect(() => {
+    if (moving === null) return
+    const onKey = (e) => { if (e.key === 'Escape') cancelMove() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [moving])
+
   // `projects` is already scoped to the visible week, so every task counts
   const { done, total, pct } = rollUp(projects.flatMap(p => p.tasks || []))
 
@@ -116,7 +141,9 @@ export function Board() {
             </button>
 
             <div className="week-date-box">
-              {weekText && (
+              {moving ? (
+                <span className="week-title moving">Move to</span>
+              ) : weekText && (
                 <span
                   className="week-title"
                   style={{ color: weekText === 'This week' ? 'var(--good-ink)' : 'var(--ink-faint)' }}
@@ -131,17 +158,37 @@ export function Board() {
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </button>
 
-            <span className="today-link" onClick={() => setWeekStart(startOfWeek())}>Today</span>
+            {moving ? (
+              <span className="today-link" onClick={cancelMove}>Cancel</span>
+            ) : (
+              <span className="today-link" onClick={() => setWeekStart(startOfWeek())}>Today</span>
+            )}
           </div>
           <div className="toolbar-right">
-            {/* Not built yet - shown, but never live */}
-            <button disabled title="Not available yet">Move work</button>
+            {moving ? (
+              <button
+                className="move-confirm"
+                onClick={confirmMove}
+                disabled={!!moveBlock}
+                title={moveBlock || `Move ${movingLabel} into this week`}
+              >
+                Move → {formatShortDate(weekIso)}
+              </button>
+            ) : (
+              <button
+                onClick={() => setMoving(weekIso)}
+                disabled={ended || projects.length === 0}
+                title={ended ? 'This week has ended' : projects.length === 0 ? 'Nothing to move' : 'Move this week\'s work to another week'}
+              >
+                Move work
+              </button>
+            )}
             {ended ? (
-              <button onClick={() => setReopening(true)}>Reopen...</button>
+              <button onClick={() => setReopening(true)} disabled={!!moving}>Reopen...</button>
             ) : (
               <button
                 onClick={() => setEnding(true)}
-                disabled={inFuture}
+                disabled={inFuture || !!moving}
                 title={inFuture ? 'This week has not started yet' : undefined}
               >
                 End week
@@ -158,7 +205,11 @@ export function Board() {
             <span className="progress-pct">{done}/{total} • {pct}%</span>
           </div>
           <div className="progress-stats">
-            {ended ? (
+            {moving ? (
+              <span className="days-left move-hint">
+                Pick where to move {movingHere ? 'this week' : <b>{movingLabel}</b>} to
+              </span>
+            ) : ended ? (
               <span className="ended-label">Ended {formatShortDate(meta.endedAt)}</span>
             ) : openEarlier.length > 0 ? (
               <span className="days-left">

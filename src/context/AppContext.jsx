@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState } from 'react'
-import { startOfWeek, toISODate, addDays, fromISODate, earliestDay, difficultyOf } from '../utils'
+import React, { createContext, useContext, useState, useRef } from 'react'
+import { startOfWeek, toISODate, addDays, fromISODate, earliestDay, difficultyOf, weeksBetween } from '../utils'
 
 const AppContext = createContext(null)
 
@@ -33,6 +33,11 @@ const readStore = () => {
 
 export function AppProvider({ children }) {
   const [allProjects, setAllProjects] = useState(readStore)
+  // The plan as last written, readable in the same tick as the write. Every
+  // mutation builds on this rather than on the rendered state, so two calls
+  // back to back - rename a project, then add a task under it - see each
+  // other instead of the state from before both.
+  const latest = useRef(allProjects)
   const [weekMeta, setWeekMeta] = useState(readWeekMeta)
   const [weekStart, setWeekStart] = useState(() => startOfWeek())
   const [toasts, setToasts] = useState([])
@@ -71,9 +76,11 @@ export function AppProvider({ children }) {
   }
 
   const save = (next) => {
+    latest.current = next
     setAllProjects(next)
     persist(STORE_KEY, next)
   }
+  const current = () => latest.current
 
   const saveMeta = (next) => {
     setWeekMeta(next)
@@ -83,33 +90,40 @@ export function AppProvider({ children }) {
   // Mutations
   const addProject = (name = '') => {
     const id = generateId()
-    save([...allProjects, { id, name: name.trim(), week_start: weekStartIso, tasks: [] }])
+    save([...current(), { id, name: name.trim(), week_start: weekStartIso, tasks: [] }])
     return id
   }
 
   const updateProjectName = (projectId, name) => {
-    save(allProjects.map(p => String(p.id) === String(projectId) ? { ...p, name } : p))
+    save(current().map(p => String(p.id) === String(projectId) ? { ...p, name } : p))
   }
 
   const deleteProject = (projectId) => {
-    save(allProjects.filter(p => String(p.id) !== String(projectId)))
+    save(current().filter(p => String(p.id) !== String(projectId)))
   }
 
   const setProjectDeadline = (projectId, deadline) => {
-    save(allProjects.map(p => String(p.id) === String(projectId) ? { ...p, deadline } : p))
+    save(current().map(p => String(p.id) === String(projectId) ? { ...p, deadline } : p))
   }
 
-  const addTask = (projectId, title = '', dayDate = null) => {
+  // Lands at the end of the project's list, or straight after `after` when
+  // given - Enter on a task row puts the new one under it, not at the bottom
+  const addTask = (projectId, title = '', dayDate = null, { after = null } = {}) => {
     const id = generateId()
-    save(allProjects.map(p => String(p.id) === String(projectId)
-      ? { ...p, tasks: [...(p.tasks || []), { id, project_id: projectId, title, day_date: dayDate, completed: false, subtasks: [] }] }
-      : p))
+    const task = { id, project_id: projectId, title, day_date: dayDate, completed: false, subtasks: [] }
+    save(current().map(p => {
+      if (String(p.id) !== String(projectId)) return p
+      const tasks = [...(p.tasks || [])]
+      const at = after == null ? -1 : tasks.findIndex(t => String(t.id) === String(after))
+      tasks.splice(at === -1 ? tasks.length : at + 1, 0, task)
+      return { ...p, tasks }
+    }))
     return id
   }
 
   // Rewrites one task wherever it lives, leaving every other project untouched
   const patchTask = (taskId, fn) => {
-    save(allProjects.map(p => ({
+    save(current().map(p => ({
       ...p,
       tasks: (p.tasks || []).map(t => String(t.id) === String(taskId) ? fn(t) : t),
     })))
@@ -120,7 +134,7 @@ export function AppProvider({ children }) {
   const setTaskDay = (taskId, dayDate) => patchTask(taskId, t => ({ ...t, day_date: dayDate }))
 
   const deleteTask = (taskId) => {
-    save(allProjects.map(p => ({
+    save(current().map(p => ({
       ...p,
       tasks: (p.tasks || []).filter(t => String(t.id) !== String(taskId)),
     })))
@@ -233,7 +247,7 @@ export function AppProvider({ children }) {
       }
     })
 
-    save([...allProjects, ...built])
+    save([...current(), ...built])
     return { projects: built.length, tasks: built.reduce((n, p) => n + p.tasks.length, 0) }
   }
 
@@ -257,9 +271,10 @@ export function AppProvider({ children }) {
     const nextIso = toISODate(addDays(fromISODate(iso), 7))
     const shift = (d) => (d ? toISODate(addDays(fromISODate(d), 7)) : null)
 
-    const thisWeek = allProjects.filter(p => p.week_start === iso)
-    const nextWeek = allProjects.filter(p => p.week_start === nextIso)
-    const others = allProjects.filter(p => p.week_start !== iso && p.week_start !== nextIso)
+    const all = current()
+    const thisWeek = all.filter(p => p.week_start === iso)
+    const nextWeek = all.filter(p => p.week_start === nextIso)
+    const others = all.filter(p => p.week_start !== iso && p.week_start !== nextIso)
 
     const nextByName = new Map(nextWeek.map(p => [p.name, { ...p, tasks: [...(p.tasks || [])] }]))
     const stayed = []
@@ -309,9 +324,45 @@ export function AppProvider({ children }) {
     return moved
   }
 
+  // Cut and paste for a whole week: every project in `fromIso` lands in
+  // `toIso` with its deadline and every task's, subtask's and missed day
+  // shifted by the same number of weeks, so Tuesday's work is still on
+  // Tuesday and nothing else about it changes. Work already planned in the
+  // destination stays put; the moved projects join the list below it.
+  const moveWeek = (fromIso, toIso) => {
+    const weeks = weeksBetween(fromIso, toIso)
+    if (!weeks) return 0
+    const shift = (d) => (d ? toISODate(addDays(fromISODate(d), weeks * 7)) : d)
+    const shiftAll = (days) => (days || []).map(shift)
+
+    const all = current()
+    const moved = all
+      .filter(p => p.week_start === fromIso)
+      .map(p => ({
+        ...p,
+        week_start: toIso,
+        deadline: shift(p.deadline),
+        tasks: (p.tasks || []).map(t => ({
+          ...t,
+          day_date: shift(t.day_date),
+          deadline: shift(t.deadline),
+          missedDays: shiftAll(t.missedDays),
+          subtasks: (t.subtasks || []).map(s => ({
+            ...s,
+            day_date: shift(s.day_date),
+            missedDays: shiftAll(s.missedDays),
+          })),
+        })),
+      }))
+    if (!moved.length) return 0
+
+    save([...all.filter(p => p.week_start !== fromIso), ...moved])
+    return moved.length
+  }
+
   // Removes a week's plan outright, along with its ended flag
   const deleteWeek = (iso) => {
-    save(allProjects.filter(p => p.week_start !== iso))
+    save(current().filter(p => p.week_start !== iso))
     if (weekMeta[iso]) {
       const next = { ...weekMeta }
       delete next[iso]
@@ -326,7 +377,7 @@ export function AppProvider({ children }) {
 
   // Indices are positions within one project's task list
   const reorderTasks = (projectId, fromIndex, toIndex) => {
-    save(allProjects.map(p => {
+    save(current().map(p => {
       if (String(p.id) !== String(projectId)) return p
       const tasks = [...(p.tasks || [])]
       const [moved] = tasks.splice(fromIndex, 1)
@@ -338,18 +389,19 @@ export function AppProvider({ children }) {
   const reorderProjects = (fromIndex, toIndex) => {
     // Indices come from the visible week, so reorder that slice and lay it back
     // into the week's slots, leaving other weeks untouched
-    const weekOrder = Array.from(projects)
+    const all = current()
+    const weekOrder = all.filter(p => p.week_start === weekStartIso)
     const [moved] = weekOrder.splice(fromIndex, 1)
     weekOrder.splice(toIndex, 0, moved)
 
     let slot = 0
-    save(allProjects.map(p => p.week_start === weekStartIso ? weekOrder[slot++] : p))
+    save(all.map(p => p.week_start === weekStartIso ? weekOrder[slot++] : p))
   }
 
   return (
     <AppContext.Provider value={{
       projects, allProjects, weekStart, setWeekStart, toasts, showToast,
-      weekMeta, weekEnded, endWeek, reopenWeek, carryForward, deleteWeek, clearAll,
+      weekMeta, weekEnded, endWeek, reopenWeek, carryForward, moveWeek, deleteWeek, clearAll,
       addProject, updateProjectName, deleteProject, setProjectDeadline, reorderProjects, importPlan,
       addTask, updateTaskTitle, setTaskDay, setTaskSchedule, toggleSubtask, moveScheduled, clearMissedDay,
       deleteTask, toggleTask, reorderTasks,
