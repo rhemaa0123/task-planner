@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
-import { formatDeadline, toISODate, weekDayList, subtaskTally, rollUp, difficultyOf, DEFAULT_DIFFICULTY } from '../../utils'
+import { formatDeadline, toISODate, weekDayList, subtaskTally, rollUp } from '../../utils'
 import { CopyPlanDialog, PastePlanDialog } from './PlanTransfer'
-import { DifficultyPicker } from './Difficulty'
 import { DashedOutline } from '../Dash'
 
 function EditableText({ value, onSave, onEnter, placeholder, className, autoFocus, readOnly }) {
@@ -55,7 +54,13 @@ function EditableText({ value, onSave, onEnter, placeholder, className, autoFocu
         if (onEnter && text.trim()) onEnter()
         else e.currentTarget.blur()
       }}
-      onBlur={commit}
+      // A long name scrolls to keep the caret in view and Chromium leaves it
+      // there after focus moves on, showing the tail of the name with its
+      // start cut off - so the field is put back to its beginning
+      onBlur={e => {
+        commit()
+        e.currentTarget.scrollLeft = 0
+      }}
     />
   )
 }
@@ -107,11 +112,36 @@ const slideTransform = (els, from, over, index) => {
   return 'none'
 }
 
+// Where a row from elsewhere would go in: before the first row whose midpoint
+// is below the pointer, or after the last. Unlike slotAtPointer this can
+// answer "the end", since the list is not the one the row came from.
+const insertSlot = (els, originTop, clientY) => {
+  const live = els.filter(Boolean)
+  const i = live.findIndex(el => clientY < originTop + el.offsetTop + el.offsetHeight / 2)
+  return i === -1 ? live.length : i
+}
+
+// Every drop target below cancels dragenter as well as dragover. A drop is
+// only allowed if the last of the two was cancelled, and the step that
+// moves the pointer onto a new element fires dragenter alone - while rows
+// are still sliding, that can be the last event before the button comes up.
+//
 // Chromium nulls relatedTarget during a drag, so leaving is decided by coordinates
 const pointerOutside = (e) => {
   const r = e.currentTarget.getBoundingClientRect()
   return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom
 }
+
+// Firefox will not start a drag that carries no data, but the payload must
+// not be text: a drop that misses every target here - the browser's own tab
+// strip, the desktop - is handed to whatever it lands on, and a tab strip
+// opens a page for any text it is given ("task:0" became a blank tab). A
+// private type is data only this component knows to read, so a drop
+// anywhere else is a no-op.
+const DRAG_TYPE = 'application/x-task-planner'
+
+// Matches the scale in .assign-date:hover
+const MAGNIFY = 1.14
 
 const GripIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></svg>
@@ -254,7 +284,18 @@ function TaskRow({
         </span>
       )}
       <div className="task-actions">
-        <button type="button" className="assign-date" onClick={() => onOpenSchedule(task.id)} disabled={frozen} title="Schedule across days">
+        {/* The chip magnifies on hover as a transform, which takes no room of
+            its own - it grew leftwards over the end of the name. Measured
+            here, the growth becomes a margin the row makes room for (see
+            .assign-date:hover), so the name gives way instead */}
+        <button
+          type="button"
+          className="assign-date"
+          onClick={() => onOpenSchedule(task.id)}
+          onMouseEnter={e => e.currentTarget.style.setProperty('--grow', `${Math.ceil(e.currentTarget.offsetWidth * (MAGNIFY - 1))}px`)}
+          disabled={frozen}
+          title="Schedule across days"
+        >
           {total > 0 ? (
             <span>edit days</span>
           ) : (
@@ -276,7 +317,7 @@ function TaskRow({
 }
 
 const rowId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
-const blankRow = () => ({ id: rowId(), title: '', completed: false, difficulty: DEFAULT_DIFFICULTY })
+const blankRow = () => ({ id: rowId(), title: '', completed: false })
 
 function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }) {
   const days = weekDayList(weekStartIso)
@@ -292,7 +333,6 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
         id: s.id || rowId(),
         title: s.title || '',
         completed: !!s.completed,
-        difficulty: difficultyOf(s),
       })
     }
     // A task scheduled before subtasks existed still opens on the day it had
@@ -303,11 +343,27 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
   const [deadline, setDeadline] = useState(task.deadline || '')
   const [time, setTime] = useState(task.deadline_time || '')
 
+  // A row picked up by its grip. `over` is where it would land: the day and
+  // the slot in that day's rows, or a day toggle (`atEnd`) for a day that has
+  // no rows on screen yet. Row heights are taken once, at pick-up, so the
+  // gap opened in another day matches the row exactly.
+  const [armed, setArmed] = useState(null)
+  const [drag, setDrag] = useState(null)
+  const rowRefs = useRef({})
+  const cardRef = useRef(null)
+
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  useEffect(() => {
+    if (armed === null) return
+    const disarm = () => setArmed(null)
+    window.addEventListener('mouseup', disarm)
+    return () => window.removeEventListener('mouseup', disarm)
+  }, [armed])
 
   const toggleDay = (date) => setByDay(prev => {
     const next = { ...prev }
@@ -322,7 +378,158 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
   const patchRow = (date, id, patch) =>
     editRows(date, rows => rows.map(r => (r.id === id ? { ...r, ...patch } : r)))
 
+  // Within a day the indices are slots among that day's rows, as for tasks.
+  // Across days the row leaves its list - a day emptied this way is unpicked,
+  // since a picked day is one with work on it - and goes in before `toIdx`
+  // of the other, or at the end when `toIdx` is null.
+  const moveRow = (id, fromDate, toDate, fromIdx, toIdx) => setByDay(prev => {
+    const src = prev[fromDate] || []
+    const row = src.find(r => r.id === id)
+    if (!row) return prev
+    const next = { ...prev }
+    if (fromDate === toDate) {
+      const rows = [...src]
+      rows.splice(fromIdx, 1)
+      rows.splice(toIdx, 0, row)
+      next[fromDate] = rows
+      return next
+    }
+    const rest = src.filter(r => r.id !== id)
+    if (rest.length) next[fromDate] = rest
+    else delete next[fromDate]
+    const dst = [...(prev[toDate] || [])]
+    dst.splice(toIdx == null ? dst.length : toIdx, 0, row)
+    next[toDate] = dst
+    return next
+  })
+
   const pickedDays = days.filter(d => byDay[d.date])
+
+  /* ---- Dragging a row between days ---- */
+
+  const rowsOf = (date) => (rowRefs.current[date] || []).slice(0, (byDay[date] || []).length)
+
+  // The overlay centres the card, so the row's worth of space a target day
+  // opens would move the whole card up by half of it - and every row with
+  // it, out from under the pointer. For the length of a drag the card is
+  // held where it stands and only ever grows downward.
+  const pinCard = () => {
+    const card = cardRef.current
+    if (!card) return
+    const overlay = card.parentElement
+    const pad = parseFloat(getComputedStyle(overlay).paddingTop) || 0
+    card.style.marginTop = `${card.getBoundingClientRect().top - overlay.getBoundingClientRect().top - pad}px`
+    card.style.alignSelf = 'start'
+  }
+  const unpinCard = () => {
+    const card = cardRef.current
+    if (!card) return
+    card.style.marginTop = ''
+    card.style.alignSelf = ''
+  }
+
+  const onRowDragStart = (e, date, index, id) => {
+    const el = rowRefs.current[date]?.[index]
+    // The list lays its rows out with a flex gap, so a row's footprint is its
+    // height plus that gap
+    const gap = el ? parseFloat(getComputedStyle(el.parentElement).rowGap) || 0 : 0
+    pinCard()
+    setDrag({ id, fromDate: date, fromIdx: index, overDate: null, overIdx: null, atEnd: false, height: el?.offsetHeight ?? 0, gap })
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData(DRAG_TYPE, 'subtask')
+  }
+
+  const endRowDrag = () => {
+    unpinCard()
+    setDrag(null)
+    setArmed(null)
+  }
+
+  const setOver = (overDate, overIdx, atEnd = false) => {
+    if (drag.overDate === overDate && drag.overIdx === overIdx && drag.atEnd === atEnd) return
+    setDrag({ ...drag, overDate, overIdx, atEnd })
+  }
+
+  // The ghost flies into another day's box but stays in its own day's DOM,
+  // so the pointer resting on it reports to the day it came from. Over the
+  // ghost is over the slot already chosen - it is drawn there - so that is
+  // left as it stands, and the drop below reads the slot on screen rather
+  // than the box whose handler happened to run.
+  const overGhost = (e) => !!e.target.closest?.('.sched-sub-row.dragging')
+
+  const onDayDragOver = (e, date) => {
+    if (!drag) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (overGhost(e)) return
+    const list = e.currentTarget.querySelector('.sched-sub-list')
+    if (!list) return
+    const origin = list.getBoundingClientRect().top - list.offsetTop
+    const idx = date === drag.fromDate
+      ? slotAtPointer(rowsOf(date), origin, e.clientY)
+      : insertSlot(rowsOf(date), origin, e.clientY)
+    if (idx !== null) setOver(date, idx)
+  }
+
+  // Leaving a day box returns its rows to their resting slots
+  const onDayDragLeave = (e, date) => {
+    if (!drag || drag.overDate !== date || drag.atEnd) return
+    if (pointerOutside(e)) setOver(null, null)
+  }
+
+  const onDayDrop = (e) => {
+    if (!drag) return
+    e.preventDefault()
+    const { overDate, overIdx } = drag
+    if (overDate !== null && overIdx !== null && !drag.atEnd) {
+      if (overDate !== drag.fromDate || overIdx !== drag.fromIdx) {
+        moveRow(drag.id, drag.fromDate, overDate, drag.fromIdx, overIdx)
+      }
+    }
+    endRowDrag()
+  }
+
+  // The toggles take a row too, which is the only way onto a day with no box
+  // yet. The day it came from is not a target - there is nowhere to go.
+  const onToggleDragOver = (e, date) => {
+    if (!drag || date === drag.fromDate) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setOver(date, null, true)
+  }
+  const onToggleDragLeave = (e, date) => {
+    if (!drag || !drag.atEnd || drag.overDate !== date) return
+    if (pointerOutside(e)) setOver(null, null)
+  }
+  const onToggleDrop = (e, date) => {
+    if (!drag || date === drag.fromDate) return
+    e.preventDefault()
+    moveRow(drag.id, drag.fromDate, date, drag.fromIdx, null)
+    endRowDrag()
+  }
+
+  // Within its own day a row slides to its slot and the others make room, as
+  // task rows do. Bound for another day, the ghost flies to the gap that
+  // opens there, and the rows from that slot down step aside by its footprint.
+  const rowTransform = (date, index) => {
+    if (!drag || drag.atEnd || drag.overDate === null) return 'none'
+    const footprint = drag.height + drag.gap
+    if (date === drag.fromDate) {
+      if (drag.overDate === date) return slideTransform(rowsOf(date), drag.fromIdx, drag.overIdx, index)
+      if (index !== drag.fromIdx) return 'none'
+      const target = rowsOf(drag.overDate)
+      const me = rowsOf(date)[index]
+      const last = target[target.length - 1]
+      if (!me || !last) return 'none'
+      const gapTop = drag.overIdx < target.length
+        ? target[drag.overIdx].offsetTop
+        : last.offsetTop + last.offsetHeight + drag.gap
+      return `translateY(${gapTop - me.offsetTop}px)`
+    }
+    if (date === drag.overDate && index >= drag.overIdx) return `translateY(${footprint}px)`
+    return 'none'
+  }
+  const isCrossTarget = (date) => !!drag && !drag.atEnd && drag.overDate === date && drag.fromDate !== date
 
   const submit = (e) => {
     e.preventDefault()
@@ -334,7 +541,6 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
           title: r.title.trim(),
           day_date: d.date,
           completed: r.completed,
-          difficulty: r.difficulty,
         })
       }
     }
@@ -343,7 +549,7 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
 
   return (
     <div className="modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
-      <form className="modal-card wide scroll" onSubmit={submit}>
+      <form className="modal-card wide scroll" ref={cardRef} onSubmit={submit}>
         <div className="modal-eyebrow">{projectName || 'Untitled project'}</div>
         <h2 className="modal-title">{task.title || 'Untitled task'}</h2>
         <div className="modal-divider" />
@@ -370,8 +576,12 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
             <button
               type="button"
               key={d.date}
-              className={`day-toggle ${byDay[d.date] ? 'selected' : ''}`}
+              className={`day-toggle ${byDay[d.date] ? 'selected' : ''} ${drag?.atEnd && drag.overDate === d.date ? 'drop-target' : ''}`}
               onClick={() => toggleDay(d.date)}
+              onDragEnter={e => onToggleDragOver(e, d.date)}
+              onDragOver={e => onToggleDragOver(e, d.date)}
+              onDragLeave={e => onToggleDragLeave(e, d.date)}
+              onDrop={e => onToggleDrop(e, d.date)}
               aria-pressed={!!byDay[d.date]}
               title={d.name}
             >
@@ -381,29 +591,49 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
         </div>
 
         {pickedDays.map(d => (
-          <div className="sched-day" key={d.date}>
+          <div
+            className={`sched-day ${isCrossTarget(d.date) ? 'drop-target' : ''}`}
+            key={d.date}
+            onDragEnter={e => onDayDragOver(e, d.date)}
+            onDragOver={e => onDayDragOver(e, d.date)}
+            onDragLeave={e => onDayDragLeave(e, d.date)}
+            onDrop={onDayDrop}
+          >
             <div className="sched-day-name">{d.name}</div>
-            {byDay[d.date].map(r => (
-              <div className="sched-sub-row" key={r.id}>
-                <input
-                  type="text"
-                  className="sched-sub-input"
-                  value={r.title}
-                  placeholder="add a note (optional)"
-                  onChange={e => patchRow(d.date, r.id, { title: e.target.value })}
-                  // Enter finishes the name, not the dialog - the form would
-                  // otherwise submit and close on the first subtask typed
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      e.currentTarget.blur()
-                    }
-                  }}
-                />
-                <div className="sched-sub-tools">
-                  <DifficultyPicker
-                    value={r.difficulty}
-                    onChange={level => patchRow(d.date, r.id, { difficulty: level })}
+            <div className="sched-sub-list">
+              {byDay[d.date].map((r, i) => (
+                <div
+                  className={`sched-sub-row ${drag?.id === r.id ? 'dragging' : ''}`}
+                  key={r.id}
+                  ref={el => { (rowRefs.current[d.date] ||= [])[i] = el }}
+                  draggable={armed === r.id}
+                  onDragStart={e => onRowDragStart(e, d.date, i, r.id)}
+                  onDragEnd={endRowDrag}
+                  style={{ transform: rowTransform(d.date, i) }}
+                >
+                  <span
+                    className="sched-sub-grip"
+                    role="button"
+                    aria-label="Drag to another day"
+                    title="Drag to another day"
+                    onMouseDown={() => setArmed(r.id)}
+                  >
+                    <GripIcon />
+                  </span>
+                  <input
+                    type="text"
+                    className="sched-sub-input"
+                    value={r.title}
+                    placeholder="add a note (optional)"
+                    onChange={e => patchRow(d.date, r.id, { title: e.target.value })}
+                    // Enter finishes the name, not the dialog - the form would
+                    // otherwise submit and close on the first subtask typed
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        e.currentTarget.blur()
+                      }
+                    }}
                   />
                   {byDay[d.date].length > 1 && (
                     <button
@@ -416,8 +646,12 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
                     </button>
                   )}
                 </div>
-              </div>
-            ))}
+              ))}
+              {/* Holds the list open by one row while a row from another day
+                  is over it; sits at the end so no row's offset moves under
+                  the pointer */}
+              {isCrossTarget(d.date) && <div className="sched-sub-gap" style={{ height: drag.height }} aria-hidden="true" />}
+            </div>
             <button type="button" className="sched-add" onClick={() => addRow(d.date)}>
               + add subtask on {d.short}
             </button>
@@ -505,7 +739,7 @@ export function ProjectsSidebar() {
   const onDragStart = (e, index) => {
     setDraggedIdx(index)
     e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', String(index))
+    e.dataTransfer.setData(DRAG_TYPE, 'project')
   }
 
   const onDragOver = (e) => {
@@ -538,7 +772,7 @@ export function ProjectsSidebar() {
     e.stopPropagation()
     setTaskDrag({ projectId, from: index, over: null })
     e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', `task:${index}`)
+    e.dataTransfer.setData(DRAG_TYPE, 'task')
   }
 
   const endTaskDrag = () => {
@@ -582,6 +816,7 @@ export function ProjectsSidebar() {
       <aside
       className="sidebar"
       ref={sidebarRef}
+      onDragEnter={onDragOver}
       onDragOver={onDragOver}
       onDrop={onDrop}
       onDragLeave={(e) => {
@@ -685,6 +920,7 @@ export function ProjectsSidebar() {
 
             <div
               className="proj-tasks"
+              onDragEnter={(e) => onTaskDragOver(e, p.id, tasks.length)}
               onDragOver={(e) => onTaskDragOver(e, p.id, tasks.length)}
               onDragLeave={(e) => onTaskDragLeave(e, p.id)}
               onDrop={(e) => onTaskDrop(e, p.id)}

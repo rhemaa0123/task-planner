@@ -772,7 +772,8 @@ input[type="text"].task-name-input.done {
 .task-del {
   opacity: 0;
   transition: opacity 0.15s ease, color 0.15s ease,
-    transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+    margin-left 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 /* Dated tasks no longer advertise the prompt - it returns on hover */
 .task-item:hover .assign-date,
@@ -782,12 +783,17 @@ input[type="text"].task-name-input.done {
   opacity: 1;
 }
 
-/* Magnifier: the assign-date chip and its calendar grow under the cursor */
+/* Magnifier: the assign-date chip and its calendar grow under the cursor.
+   The scale takes no room of its own, so the chip used to grow leftwards
+   over the end of the name; TaskRow measures the chip on hover and sets
+   --grow to the width it gains, which the row makes room for here. Off
+   hover both fall back together, so the name gets its space straight back. */
 .assign-date {
   transform-origin: right center;
 }
 .assign-date:hover {
   transform: scale(1.14);
+  margin-left: var(--grow, 0px);
 }
 
 /* Undated tasks keep the "assign days" wording on the row; its button only on hover */
@@ -1156,8 +1162,8 @@ input[type="text"].task-name-input.done {
 }
 
 /* In the grid the cards are a summary: a tight box, the project in small
-   caps with the difficulty dots on the same line, the task a point under the
-   row size so a narrow column still holds a name on one line. Overdue reads
+   caps, the task a point under the row size so a narrow column still holds
+   a name on one line. Overdue reads
    as a chip with the calendar in a matching box, in an orange-red turned down
    from the panel's warning red so seven blocks of it do not shout */
 .day-grid .day-card-line {
@@ -1229,7 +1235,7 @@ input[type="text"].task-name-input.done {
   flex: 1;
   min-width: 0;
 }
-/* First line of a card: the project on the left, difficulty dots on the right */
+/* First line of a card: the project name in small caps */
 .day-card-head {
   display: flex;
   align-items: center;
@@ -1677,12 +1683,50 @@ input[type="text"].task-name-input.done {
   margin-bottom: var(--sp-2);
 }
 
+/* The rows sit in a flex column so the gap between them is one number the
+   drag can read back (rowGap) when it opens a slot in another day */
+.sched-sub-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
 .sched-sub-row {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
-  margin-bottom: var(--sp-2);
-  padding-left: var(--sp-3);
+  gap: var(--sp-2);
+  border-radius: var(--r-chip);
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.15s ease;
+}
+/* Same grip as a task row: shown on hover, held to pick the row up */
+.sched-sub-grip {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: var(--check-size);
+  color: var(--ink-faint);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.sched-sub-grip:active { cursor: grabbing; }
+.sched-sub-row:hover .sched-sub-grip,
+.sched-sub-row.dragging .sched-sub-grip { opacity: 1; }
+/* Ghost of the row being dragged, drawn in the slot it would land in */
+.sched-sub-row.dragging {
+  opacity: 0.4;
+  background: var(--hover-accent);
+  outline: 1px dashed var(--accent-fill);
+  outline-offset: -1px;
+}
+/* A row from another day is over this one: its name takes the "Assign
+   days" orange while the rows below the slot step aside */
+.sched-day.drop-target .sched-day-name { color: var(--attention); }
+.day-toggle.drop-target {
+  border-color: var(--accent-fill);
+  color: var(--ink);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 input[type="text"].sched-sub-input {
@@ -1736,93 +1780,6 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
 }
 .schedule-note:focus { border-color: var(--accent-fill); }
 .schedule-note::placeholder { color: var(--ink-faint); }
-
-/* ---- Difficulty ----
-   Three dots, filled up to the level - easy, medium, hard - in the board's
-   attention orange so a hard day stands out from across the grid. The grid
-   shows them; the schedule dialog lets each subtask's row set them. Hovering
-   names the level in a small pill above the dots. */
-.diff-dots {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-  height: 13px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  cursor: default;
-}
-.diff-dot {
-  display: block;
-  width: 8px;
-  height: 8px;
-  padding: 0;
-  border: 1.5px solid var(--line-strong);
-  border-radius: 999px;
-  background: transparent;
-  box-sizing: border-box;
-  transition: background-color 0.12s, border-color 0.12s, transform 0.12s;
-}
-.diff-dot.on {
-  background: var(--attention);
-  border-color: var(--attention);
-}
-/* Display-only dots (the grid) fill their empties in dim ink rather than a
-   ring, so from a distance the row reads as one mark, not three */
-.diff-dots.static .diff-dot:not(.on) {
-  background: var(--line-strong);
-  border-color: var(--line-strong);
-  opacity: 0.55;
-}
-
-/* The picker's dots are buttons: the hovered one grows a touch, and every
-   dot up to it previews the level it would set */
-.diff-dots.pick { cursor: pointer; }
-.diff-dots.pick .diff-dot { cursor: pointer; }
-.diff-dots.pick .diff-dot:hover { transform: scale(1.3); }
-.diff-dots.pick .diff-dot:focus-visible {
-  outline: 2px solid var(--accent-fill);
-  outline-offset: 2px;
-}
-
-.diff-tip {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 6px);
-  padding: 2px 10px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--sans);
-  font-size: var(--fs-chrome);
-  font-weight: 500;
-  line-height: 1.5;
-  white-space: nowrap;
-  box-shadow: var(--shadow-card);
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(2px);
-  transition: opacity 0.12s ease, transform 0.12s ease;
-  z-index: 5;
-}
-/* The grid's dots name their level on hover; the picker names whichever dot
-   is under the cursor, so the tip is switched on by the component instead */
-.diff-dots.static:hover > .diff-tip,
-.diff-tip.show {
-  opacity: 1;
-  transform: none;
-}
-
-/* In the schedule dialog the dots sit between the name and its × */
-.sched-sub-tools {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  flex-shrink: 0;
-}
 
 /* ---- Move dialog ---- */
 .missed-check {
@@ -2531,7 +2488,6 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   .day-toggle-row { gap: 4px; }
   .day-toggle { font-size: var(--fs-body); }
   .day-toggle.wide-label { font-size: var(--fs-mini); }
-  .sched-sub-row { flex-wrap: wrap; padding-left: var(--sp-2); }
   .sched-day { padding: var(--sp-2) 0; }
 }
 
@@ -2573,6 +2529,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   .assign-date,
   .task-del,
   .task-grip,
+  .sched-sub-grip,
   .day-card-clear,
   .proj-hover-action,
   .sched-sub-del,
@@ -2582,7 +2539,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   }
 
   /* Cursor-follow flourishes have no meaning without a cursor */
-  .assign-date:hover { transform: none; }
+  .assign-date:hover { transform: none; margin-left: 0; }
 
   :root {
     --check-size: 22px;
