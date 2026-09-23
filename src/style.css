@@ -151,6 +151,12 @@
   --r-card: 12px;
   --r-focus: 3px;
 
+  /* How a row travels to a new slot: a dragged sibling sliding aside, and a
+     crossed-out task sinking to the bottom (useSinkFlip). Written once - a
+     rule that restates `transition` without it leaves the row to jump there
+     instead, which is what the flat cards in .day-panel-list did. */
+  --travel: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+
   --fs-micro: 9px;
   --fs-mini: 10px;
   --fs-label: 11px;
@@ -1050,11 +1056,13 @@ input[type="text"].task-name-input.done {
 .day-panel-list {
   padding-bottom: var(--sp-2);
 }
+/* Restating `transition` here drops what .day-card set, so the travel is
+   named again - without it a sinking card lands in its new slot in one frame */
 .day-panel-list .day-card {
   background: transparent;
   border: none;
   border-radius: 0;
-  transition: background-color 0.12s;
+  transition: background-color 0.12s, var(--travel);
 }
 .day-panel-list .day-card + .day-card { border-top: 1px solid var(--line); }
 .day-panel-list .day-card.overdue { background: transparent; }
@@ -1213,7 +1221,7 @@ input[type="text"].task-name-input.done {
   cursor: default;
   /* A ticked card sinks to the foot of its day; useSinkFlip offsets it back to
      where it was and this carries it down. Same curve as a dragged task row. */
-  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: var(--travel);
 }
 .day-card.overdue {
   background: var(--overdue-fill);
@@ -1398,7 +1406,7 @@ input[type="text"].task-name-input.done {
   gap: var(--sp-2);
   padding: 5px var(--sp-2) 5px 0;
   border-radius: var(--r);
-  transition: background-color 0.12s, transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.15s ease;
+  transition: background-color 0.12s, var(--travel), opacity 0.15s ease;
 }
 .task-item:hover {
   background: var(--hover-neutral);
