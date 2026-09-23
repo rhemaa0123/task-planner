@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useRef } from 'react'
-import { startOfWeek, toISODate, addDays, fromISODate, earliestDay, weeksBetween } from '../utils'
+import { startOfWeek, toISODate, addDays, fromISODate, earliestDay, weeksBetween, sinkCompleted } from '../utils'
 
 const AppContext = createContext(null)
 
@@ -372,11 +372,17 @@ export function AppProvider({ children }) {
     saveMeta({})
   }
 
-  // Indices are positions within one project's task list
+  // Indices are positions in the list as the sidebar draws it, which sinks
+  // finished tasks to the bottom - so the drag is applied to that order and
+  // that order is what is stored, and a row dropped among its own kind lands
+  // exactly where it was aimed. Crossing the line between the open work and
+  // the finished is the one thing a drag cannot do: an open row dragged in
+  // among the done settles at the foot of the open ones, since that is as far
+  // down as the list will draw it.
   const reorderTasks = (projectId, fromIndex, toIndex) => {
     save(current().map(p => {
       if (String(p.id) !== String(projectId)) return p
-      const tasks = [...(p.tasks || [])]
+      const tasks = sinkCompleted(p.tasks)
       const [moved] = tasks.splice(fromIndex, 1)
       tasks.splice(toIndex, 0, moved)
       return { ...p, tasks }

@@ -1211,6 +1211,9 @@ input[type="text"].task-name-input.done {
   border: 1px solid var(--line);
   border-radius: var(--r);
   cursor: default;
+  /* A ticked card sinks to the foot of its day; useSinkFlip offsets it back to
+     where it was and this carries it down. Same curve as a dragged task row. */
+  transition: transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .day-card.overdue {
   background: var(--overdue-fill);

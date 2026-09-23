@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
-import { toISODate, weekDayList, startOfWeek } from '../../utils'
+import { toISODate, weekDayList, startOfWeek, sinkCompleted, completionKey } from '../../utils'
+import { useSinkFlip } from '../../hooks/useSinkFlip'
 import { DashedOutline } from '../Dash'
 
 // One row per subtask landing on this day, each stating its own lineage:
@@ -187,7 +188,7 @@ const XIcon = () => (
 // box for every unit that day - subtask names wait for focus. Full (the list)
 // gives every unit its own line. Overdue work carries a calendar button that
 // opens the move dialog; a frozen week keeps the label and drops the button.
-function TaskGroup({ group, todayIso, frozen, compact, onToggle, onMove }) {
+function TaskGroup({ group, todayIso, frozen, compact, cardRef, onToggle, onMove }) {
   const isOverdue = (u) => !u.completed && u.day_date < todayIso
   const { units } = group
   const allDone = units.every(u => u.completed)
@@ -212,7 +213,7 @@ function TaskGroup({ group, todayIso, frozen, compact, onToggle, onMove }) {
 
   if (compact) {
     return (
-      <div className={`day-card ${allDone ? 'done' : ''} ${overdueUnits.length ? 'overdue' : ''}`}>
+      <div ref={cardRef} className={`day-card ${allDone ? 'done' : ''} ${overdueUnits.length ? 'overdue' : ''}`}>
         <div className={`day-card-line ${allDone ? 'done' : ''}`}>
           <input
             type="checkbox"
@@ -234,7 +235,7 @@ function TaskGroup({ group, todayIso, frozen, compact, onToggle, onMove }) {
   }
 
   return (
-    <div className={`day-card ${allDone ? 'done' : ''} ${overdueUnits.length ? 'overdue' : ''}`}>
+    <div ref={cardRef} className={`day-card ${allDone ? 'done' : ''} ${overdueUnits.length ? 'overdue' : ''}`}>
       {units.map((u, i) => (
         <div key={u.key} className={`day-card-line ${u.completed ? 'done' : ''}`}>
           <input
@@ -267,6 +268,11 @@ function TaskGroup({ group, todayIso, frozen, compact, onToggle, onMove }) {
 const perUnit = (items) => items.map(it => ({
   key: it.key, taskId: it.taskId, projectName: it.projectName, taskTitle: it.taskTitle, units: [it],
 }))
+
+// Finished work sits at the foot of the day, whichever shape the day is drawn
+// in: a card is done once every unit under it is. Missed cards are laid out
+// after these and keep the last word.
+const sinkDone = (groups) => sinkCompleted(groups, g => g.units.every(u => u.completed))
 
 // A day this work was moved off - kept visible so the week still shows the
 // slip. The corner × forgives it, after asking.
@@ -349,6 +355,10 @@ export function WeekGrid() {
   // missed day being cleared
   const [move, setMove] = useState(null)
   const [clearing, setClearing] = useState(null)
+
+  // Ticking a card sends it to the foot of its day - walked down rather than
+  // jumped, so what was just crossed out stays in sight
+  const trackCard = useSinkFlip(completionKey(projects))
 
   const [view, setViewState] = useState(readView)
   const showAll = view === 'all'
@@ -438,10 +448,11 @@ export function WeekGrid() {
 
                 {(dayItems.length > 0 || dayMissed.length > 0) && (
                   <div className="day-block-list">
-                    {groupByTask(dayItems).map(g => (
+                    {sinkDone(groupByTask(dayItems)).map(g => (
                       <TaskGroup
                         key={g.key}
                         group={g}
+                        cardRef={el => trackCard(`${d.date}:${g.key}`, el)}
                         todayIso={todayIso}
                         frozen={frozen}
                         compact
@@ -504,10 +515,11 @@ export function WeekGrid() {
               <div className="day-panel-empty">Nothing scheduled for {selected.name}.</div>
             ) : (
               <div className="day-panel-list">
-                {perUnit(items).map(g => (
+                {sinkDone(perUnit(items)).map(g => (
                   <TaskGroup
                     key={g.key}
                     group={g}
+                    cardRef={el => trackCard(`${selected.date}:${g.key}`, el)}
                     todayIso={todayIso}
                     frozen={frozen}
                     onToggle={toggleUnits}

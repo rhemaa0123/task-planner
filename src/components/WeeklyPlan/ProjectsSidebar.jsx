@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
-import { formatDeadline, toISODate, weekDayList, subtaskTally, rollUp } from '../../utils'
+import { formatDeadline, toISODate, weekDayList, subtaskTally, rollUp, sinkCompleted, completionKey } from '../../utils'
+import { useSinkFlip } from '../../hooks/useSinkFlip'
 import { CopyPlanDialog, PastePlanDialog } from './PlanTransfer'
 import { DashedOutline } from '../Dash'
 
@@ -701,6 +702,10 @@ export function ProjectsSidebar() {
   const [taskDrag, setTaskDrag] = useState(null)
   const taskRefs = useRef({})
 
+  // Crossing a task out drops it to the bottom of its project. The row is
+  // already there by the time React has rendered, so this walks it down.
+  const trackRow = useSinkFlip(completionKey(projects))
+
   // A grip pressed but never dragged disarms on release, wherever that lands
   useEffect(() => {
     if (armedTask === null) return
@@ -850,7 +855,10 @@ export function ProjectsSidebar() {
       </div>
 
       {projects.map((p, index) => {
-        const tasks = p.tasks || []
+        // Drawn with the finished tasks last; every index below - the refs, the
+        // drag, the drop - is a position in this order, which is the one
+        // `reorderTasks` writes back
+        const tasks = sinkCompleted(p.tasks)
         const { total, pct } = rollUp(tasks)
 
         const isDragging = draggedIdx === index
@@ -929,7 +937,7 @@ export function ProjectsSidebar() {
                 <TaskRow
                   key={t.id}
                   task={t}
-                  rowRef={el => { (taskRefs.current[p.id] ||= [])[i] = el }}
+                  rowRef={el => { (taskRefs.current[p.id] ||= [])[i] = el; trackRow(t.id, el) }}
                   autoFocus={focusTaskId === t.id}
                   frozen={frozen}
                   armed={armedTask === t.id}

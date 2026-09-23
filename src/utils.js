@@ -180,6 +180,34 @@ export function earliestDay(subtasks) {
   return days[0] ?? null
 }
 
+/* ---- Order ---- */
+
+// Finished work sinks. A stable partition: whatever is still open keeps its
+// place and its order, the done follow in the order they were already in - so
+// unticking a box puts a row back exactly where it came from rather than
+// leaving it stranded at the end.
+export function sinkCompleted(items, isDone = (it) => !!it?.completed) {
+  const open = []
+  const done = []
+  for (const it of items || []) (isDone(it) ? done : open).push(it)
+  return [...open, ...done]
+}
+
+// Everything currently ticked, as one string. It changes when a box is ticked
+// or unticked and at no other time - not when work is added, renamed,
+// rescheduled or dragged (the ids are sorted, so their order cannot move it) -
+// which is exactly when a row has a new slot to travel to.
+export function completionKey(projects) {
+  const done = []
+  for (const p of projects || []) {
+    for (const t of p.tasks || []) {
+      if (t.completed) done.push(`t${t.id}`)
+      for (const s of t.subtasks || []) if (s.completed) done.push(`s${s.id}`)
+    }
+  }
+  return done.sort().join(',')
+}
+
 /* ---- Plan codes (copy / paste a week's plan) ---- */
 
 const PLAN_FORMAT = 'taskplanner.week.v1'
