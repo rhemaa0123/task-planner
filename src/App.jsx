@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { AppProvider, useApp } from './context/AppContext'
 import { useHashRouter } from './hooks/useHashRouter'
 import { Sidebar, readCollapsed } from './components/Sidebar/Sidebar'
+import { HomePage } from './components/Home/HomePage'
 import { Board } from './components/WeeklyPlan/Board'
 import { WeeksPage } from './components/Weeks/WeeksPage'
 import { StatsPage } from './components/StatsPage'
@@ -54,14 +55,18 @@ function AppContent() {
     return () => window.removeEventListener('keydown', onKey)
   }, [drawerOpen])
 
-  const page = route.startsWith('#/monthly') ? <MonthlyPage route={route} />
+  // `#/weeks` has to be tested before `#/weekly` would ever be reached by a
+  // prefix match, so the two are spelled out rather than ordered by luck.
+  // `#/plan…` is the weekly board's old address and still answers.
+  const page = route.startsWith('#/weekly') || route.startsWith('#/plan') ? <Board />
+    : route.startsWith('#/monthly') ? <MonthlyPage route={route} />
     : route.startsWith('#/yearly') ? <YearlyPage />
     : route.startsWith('#/weeks') ? <WeeksPage />
     : route.startsWith('#/stats') ? <StatsPage />
     : route.startsWith('#/birthdays') ? <BirthdaysPage />
     : route.startsWith('#/contacts') ? <ContactsPage />
     : route.startsWith('#/about') ? <AboutPage />
-    : <Board />
+    : <HomePage />
 
   return (
     <div className={`shell ${collapsed ? 'rail' : ''}`}>

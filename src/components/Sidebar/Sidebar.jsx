@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useTheme } from '../../hooks/useTheme'
 import { InlineText } from '../InlineText'
-import { DateCard, TodayTasks, BirthdayRing, WeatherCard } from './Widgets'
 import {
-  WeeklyIcon, MonthlyIcon, YearlyIcon, WeeksIcon, StatsIcon, BirthdayIcon, ContactsIcon,
-  AboutIcon, CollapseIcon, CogIcon,
+  HomeIcon, WeeklyIcon, MonthlyIcon, YearlyIcon, WeeksIcon, StatsIcon, BirthdayIcon,
+  ContactsIcon, AboutIcon, CollapseIcon, CogIcon,
 } from '../icons'
 
 const COLLAPSE_KEY = 'task-planner-sidebar'
@@ -18,15 +17,25 @@ export const readCollapsed = () => {
   }
 }
 
+/* Home sits above the groups, on its own and without a heading: it is not one
+   of a set, it is the way back. `#/` is Home, so it is also what the app opens
+   on and what an empty hash falls to. */
+const HOME = {
+  href: '#/',
+  label: 'Home',
+  Icon: HomeIcon,
+  match: (r) => r === '#/' || r === '' || r === '#',
+}
+
 /* The two groups the sidebar is built around. Order is the order on screen;
    `match` is what decides which row is lit, so a route is named in exactly one
-   place. The weekly plan answers to the bare `#/` as well as `#/plan…`, which
-   is what every link written before the sidebar existed still points at. */
+   place. The weekly board answers to `#/plan…` as well as `#/weekly` - that
+   prefix is what every link written before the sidebar existed points at. */
 const SECTIONS = [
   {
     title: 'Planning',
     items: [
-      { href: '#/', label: 'Weekly', Icon: WeeklyIcon, match: (r) => r === '#/' || r === '' || r.startsWith('#/plan') },
+      { href: '#/weekly', label: 'Weekly', Icon: WeeklyIcon, match: (r) => r.startsWith('#/weekly') || r.startsWith('#/plan') },
       { href: '#/monthly', label: 'Monthly', Icon: MonthlyIcon, match: (r) => r.startsWith('#/monthly') },
       { href: '#/yearly', label: 'Yearly', Icon: YearlyIcon, match: (r) => r.startsWith('#/yearly') },
       { href: '#/weeks', label: 'All weeks', Icon: WeeksIcon, match: (r) => r.startsWith('#/weeks') },
@@ -170,18 +179,23 @@ export function Sidebar({ route, collapsed, onToggle, drawerOpen, onCloseDrawer 
         </button>
       </div>
 
-      {/* ---- The day, in four readings. The rail has no room for any of it ---- */}
-      {!collapsed && (
-        <div className="side-widgets">
-          <DateCard />
-          <WeatherCard />
-          <TodayTasks />
-          <BirthdayRing />
-        </div>
-      )}
-
-      {/* ---- Navigation ---- */}
+      {/* ---- Navigation ----
+          Nothing but navigation. The date, the forecast, today's work and the
+          birthday ring used to sit above this; they are the home page now. */}
       <nav className="side-nav">
+        <div className="side-group">
+          <a
+            href={HOME.href}
+            className={`nav-row ${HOME.match(route) ? 'active' : ''}`}
+            title={collapsed ? HOME.label : undefined}
+            aria-current={HOME.match(route) ? 'page' : undefined}
+            onClick={follow}
+          >
+            <span className="nav-icon"><HOME.Icon /></span>
+            <span className="nav-label">{HOME.label}</span>
+          </a>
+        </div>
+
         {SECTIONS.map(({ title, items }) => (
           <div className="side-group" key={title}>
             <div className="side-group-title">{title}</div>

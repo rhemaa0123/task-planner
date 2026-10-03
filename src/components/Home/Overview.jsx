@@ -5,65 +5,58 @@ import { useWeather, searchPlaces, describeCode } from '../../hooks/useWeather'
 import { WeatherIcon, SearchIcon } from '../icons'
 import {
   toISODate, collectDay, sinkCompleted, sortByNextBirthday, formatBirthdayDate,
-  DAY_NAMES, MONTH_NAMES, fromISODate,
+  DAY_NAMES, fromISODate,
 } from '../../utils'
 
 /* ============================================================
-   The head of the sidebar: four small readings of the day, above
-   the navigation. None of them is a page - each is the one line
-   of its page worth carrying everywhere, and each links through
-   to the page that owns it.
+   The three panels of the home page.
+
+   These began life in the sidebar, at 268px, where each one had to say its
+   piece in a column narrower than a phone. They moved out to [[HomePage]] in
+   Oct 2026 and were rebuilt for the room: today's work shows its project and
+   its day rather than a truncated line, the forecast gets three days side by
+   side instead of two chips, and the birthday ring shows five rather than
+   three.
+
+   The sidebar is now navigation and nothing else.
    ============================================================ */
 
-/* ---- Date ----
-   The widest thing on the page that is not the plan. `useToday()` is what
-   turns it over at local midnight, and it is the same clock the countdown,
-   the birthday ring and the day's task list all read. */
-export function DateCard() {
-  const now = useToday()
-  const day = DAY_NAMES[(now.getDay() + 6) % 7]
-  return (
-    <div className="wx-date">
-      <div className="wx-date-day">{day}</div>
-      <div className="wx-date-rest">
-        {String(now.getDate()).padStart(2, '0')} {MONTH_NAMES[now.getMonth()]} {now.getFullYear()}
-      </div>
-    </div>
-  )
-}
-
 /* ---- Today's work ----
-   Read straight off the weekly plan, by date: any unit anywhere in the store
-   whose day is today, whichever week it was filed under. That last part
-   matters - a unit moved past the end of its week still belongs on the day it
-   now sits on, and a list built from the *visible* week would lose it the
-   moment you browsed away. Ticking here is the same write the board makes, so
-   the two can never disagree. */
-export function TodayTasks() {
+   Read off the weekly plan by date: any unit anywhere in the store whose day
+   is today, whichever week it was filed under. That last part matters - a unit
+   moved past the end of its week still belongs on the day it now sits on, and
+   a list built from the *visible* week would lose it the moment the board
+   browsed away. Ticking here is the same write the board makes, so the two can
+   never disagree. */
+export function TodayPanel() {
   const { allProjects, toggleTask, toggleSubtask } = useApp()
   const now = useToday()
   const iso = toISODate(now)
-  const { items } = collectDay(allProjects, iso)
+  const { items, missed } = collectDay(allProjects, iso)
   const rows = sinkCompleted(items)
   const done = rows.filter((r) => r.completed).length
 
   return (
-    <section className="wx-today">
-      <div className="wx-head">
-        <span className="wx-head-label">Today</span>
+    <section className="panel home-today">
+      <div className="panel-head">
+        <span className="eyebrow">TODAY</span>
         {rows.length > 0 && (
-          <span className={`wx-head-count ${done === rows.length ? 'full' : ''}`}>
+          <span className={`panel-count ${done === rows.length ? 'full' : ''}`}>
             {done}/{rows.length}
           </span>
         )}
+        <a className="panel-link" href="#/weekly">Open the week ↗</a>
       </div>
 
       {rows.length === 0 ? (
-        <a className="wx-empty" href="#/">Nothing scheduled — open the week</a>
+        <p className="home-empty">
+          Nothing is scheduled for today. <a href="#/weekly">Plan the week</a> to put
+          something here.
+        </p>
       ) : (
-        <ul className="wx-today-list">
+        <ul className="home-today-list">
           {rows.map((r) => (
-            <li key={r.key} className={`wx-today-row ${r.completed ? 'done' : ''}`}>
+            <li key={r.key} className={`home-today-row ${r.completed ? 'done' : ''}`}>
               <input
                 type="checkbox"
                 className="task-check"
@@ -73,53 +66,62 @@ export function TodayTasks() {
                   : toggleTask(r.taskId, e.target.checked))}
                 aria-label={r.subtitle || r.taskTitle}
               />
-              <span className="wx-today-text">
-                <span className="wx-today-title">{r.subtitle || r.taskTitle}</span>
-                <span className="wx-today-from">{r.projectName}</span>
+              <span className="home-today-text">
+                <span className="home-today-title">{r.subtitle || r.taskTitle}</span>
+                <span className="home-today-from">
+                  {r.projectName}
+                  {r.subtitle && <> · {r.taskTitle}</>}
+                </span>
               </span>
             </li>
           ))}
         </ul>
       )}
+
+      {missed.length > 0 && (
+        <p className="home-missed">
+          {missed.length} {missed.length === 1 ? 'thing' : 'things'} marked missed today
+        </p>
+      )}
     </section>
   )
 }
 
-/* ---- Birthday countdown ----
-   The top of the ring the birthdays page draws in full: whoever is next, and
-   how far off. Today's reads "Today" and takes the highlight, which is the
-   same rule the page itself uses - both go through `sortByNextBirthday()`. */
-export function BirthdayRing() {
+/* ---- Birthdays ----
+   The same [[sortByNextBirthday]] the birthdays page uses, so the two can
+   never disagree about the order or about who is highlighted. */
+export function BirthdayPanel() {
   const { birthdays } = useApp()
   const now = useToday()
   const ring = sortByNextBirthday(birthdays, now)
-  if (!ring.length) return null
 
-  const soon = ring.slice(0, 3)
   return (
-    <section className="wx-bdays">
-      <div className="wx-head">
-        <span className="wx-head-label">Birthdays</span>
-        <a className="wx-head-link" href="#/birthdays">All</a>
+    <section className="panel">
+      <div className="panel-head">
+        <span className="eyebrow">BIRTHDAYS</span>
+        <a className="panel-link" href="#/birthdays">All ↗</a>
       </div>
-      <ul className="wx-bday-list">
-        {soon.map((b) => (
-          <li key={b.id} className={`wx-bday ${b.next.days === 0 ? 'today' : ''}`}>
-            <span className="wx-bday-name">{b.name || 'Unnamed'}</span>
-            <span className="wx-bday-when">
-              {b.next.days === 0
-                ? 'Today'
-                : b.next.days === 1
-                  ? 'Tomorrow'
-                  : `${b.next.days}d`}
-            </span>
-            <span className="wx-bday-date">
-              {formatBirthdayDate(b)}
-              {b.next.turning != null && ` · ${b.next.turning}`}
-            </span>
-          </li>
-        ))}
-      </ul>
+
+      {ring.length === 0 ? (
+        <p className="home-empty">
+          No birthdays yet. <a href="#/birthdays">Add one</a> and it joins the countdown.
+        </p>
+      ) : (
+        <ul className="home-bday-list">
+          {ring.slice(0, 5).map((b) => (
+            <li key={b.id} className={`home-bday ${b.next.days === 0 ? 'today' : ''}`}>
+              <span className="home-bday-date">{formatBirthdayDate(b)}</span>
+              <span className="home-bday-name">{b.name || 'Unnamed'}</span>
+              <span className="home-bday-turning">
+                {b.next.turning != null ? `turns ${b.next.turning}` : ''}
+              </span>
+              <span className="home-bday-when">
+                {b.next.days === 0 ? 'Today' : b.next.days === 1 ? 'Tomorrow' : `${b.next.days}d`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }
@@ -211,7 +213,7 @@ function PlaceDialog({ current, onPick, onClose }) {
   )
 }
 
-export function WeatherCard() {
+export function WeatherPanel() {
   const { place, setPlace, data, status } = useWeather()
   const [picking, setPicking] = useState(false)
 
@@ -219,49 +221,59 @@ export function WeatherCard() {
   const cond = data ? describeCode(data.code) : null
 
   return (
-    <section className="wx-weather">
+    <section className="panel">
+      <div className="panel-head">
+        <span className="eyebrow">WEATHER</span>
+        {place && (
+          <button type="button" className="panel-link as-btn" onClick={() => setPicking(true)}>
+            {place.name} ↗
+          </button>
+        )}
+      </div>
+
       {!place ? (
-        <button type="button" className="wx-setup" onClick={() => setPicking(true)}>
+        <button type="button" className="home-wx-setup" onClick={() => setPicking(true)}>
           <WeatherIcon name="part" />
-          <span>Set your location for the forecast</span>
+          <span>
+            <b>Set your location</b>
+            The only thing this planner ever sends anywhere, and only once you ask.
+          </span>
         </button>
       ) : (
-        <button
-          type="button"
-          className="wx-weather-body"
-          onClick={() => setPicking(true)}
-          title="Change location"
-        >
-          <span className="wx-weather-left">
-            <WeatherIcon name={cond?.icon || 'cloud'} />
-          </span>
-          <span className="wx-weather-mid">
-            <span className="wx-temp">
+        <>
+          <div className="home-wx-now">
+            <span className="home-wx-icon"><WeatherIcon name={cond?.icon || 'cloud'} /></span>
+            <span className="home-wx-temp">
               {data ? `${data.temp}°` : status === 'loading' ? '—' : '!'}
             </span>
-            <span className="wx-cond">
-              {status === 'error' && !data ? 'Unavailable' : cond?.label || 'Loading'}
-            </span>
-          </span>
-          <span className="wx-weather-right">
-            <span className="wx-place">{place.name}</span>
-            {today && <span className="wx-range">{today.high}° / {today.low}°</span>}
-          </span>
-        </button>
-      )}
-
-      {place && data?.days?.length > 1 && (
-        <ul className="wx-forecast">
-          {data.days.slice(1).map((d) => (
-            <li key={d.iso}>
-              <span className="wx-fc-day">
-                {DAY_NAMES[(fromISODate(d.iso).getDay() + 6) % 7].slice(0, 3)}
+            <span className="home-wx-words">
+              <span className="home-wx-cond">
+                {status === 'error' && !data ? 'Unavailable' : cond?.label || 'Loading'}
               </span>
-              <WeatherIcon name={describeCode(d.code).icon} />
-              <span className="wx-fc-temp">{d.high}°<i>{d.low}°</i></span>
-            </li>
-          ))}
-        </ul>
+              {data && <span className="home-wx-feels">feels like {data.feels}°</span>}
+            </span>
+            {today && (
+              <span className="home-wx-range">
+                <b>{today.high}°</b>
+                <i>{today.low}°</i>
+              </span>
+            )}
+          </div>
+
+          {data?.days?.length > 1 && (
+            <ul className="home-wx-forecast">
+              {data.days.slice(1).map((d) => (
+                <li key={d.iso}>
+                  <span className="home-wx-day">
+                    {DAY_NAMES[(fromISODate(d.iso).getDay() + 6) % 7].slice(0, 3)}
+                  </span>
+                  <WeatherIcon name={describeCode(d.code).icon} />
+                  <span className="home-wx-fc-temp">{d.high}°<i>{d.low}°</i></span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
 
       {picking && (

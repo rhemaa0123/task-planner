@@ -242,7 +242,11 @@ button {
 .shell.rail { --side-w: 64px; }
 
 /* ---- Sidebar ---- */
-.side {
+/* Tied to the element: these two rules carry `grid-column` and `width`, and a
+   page element that merely happens to be called "side" must not inherit the
+   shell geometry from them (the home page had one, and it landed in column 1 at
+   268px). Every other .side-* rule is a prefix and cannot collide. */
+aside.side {
   grid-column: 1;
   display: flex;
   flex-direction: column;
@@ -352,246 +356,9 @@ input[type="text"].side-name:focus {
   border-color: var(--line);
 }
 
-/* ---- The day, at the head of the sidebar ---- */
-.side-widgets {
-  padding: var(--sp-3) var(--sp-3) var(--sp-2);
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-  border-bottom: 1px solid var(--line);
-}
-
-.wx-date { padding: 0 var(--sp-1); }
-.wx-date-day {
-  font-family: var(--display);
-  font-size: 21px;
-  font-weight: 700;
-  color: var(--ink);
-  line-height: 1.15;
-}
-.wx-date-rest {
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-label);
-  color: var(--ink-faint);
-  letter-spacing: 0.02em;
-  margin-top: 2px;
-}
-
-/* The small caps head every widget shares */
-.wx-head {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-2);
-  padding: 0 var(--sp-1);
-}
-.wx-head-label {
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-micro);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-  flex: 1;
-}
-.wx-head-count {
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-micro);
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--hover-neutral);
-  color: var(--ink-faint);
-}
-.wx-head-count.full { background: var(--good-soft); color: var(--good-ink); }
-.wx-head-link {
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-micro);
-  color: var(--accent);
-  text-decoration: none;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.wx-head-link:hover { text-decoration: underline; }
-
-.wx-empty {
-  display: block;
-  padding: 0 var(--sp-1);
-  font-size: var(--fs-chrome);
-  color: var(--ink-faint);
-  text-decoration: none;
-}
-.wx-empty:hover { color: var(--accent); }
-
-/* ---- Today's work ---- */
-.wx-today-list { list-style: none; }
-.wx-today-row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--sp-2);
-  padding: 5px var(--sp-1);
-  border-radius: var(--r-chip);
-}
-.wx-today-row:hover { background: var(--hover-neutral); }
-.wx-today-row .task-check { margin-top: 1px; flex-shrink: 0; }
-.wx-today-text { min-width: 0; display: flex; flex-direction: column; }
-.wx-today-title {
-  font-size: var(--fs-chrome);
-  color: var(--ink);
-  line-height: 1.35;
-  /* Two lines and then an ellipsis - a long task name must not push the
-     navigation off the bottom of a short screen */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.wx-today-from {
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-micro);
-  color: var(--ink-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.wx-today-row.done .wx-today-title {
-  text-decoration: line-through;
-  color: var(--ink-faint);
-}
-
-/* ---- Birthday ring ---- */
-.wx-bday-list { list-style: none; display: flex; flex-direction: column; gap: 1px; }
-.wx-bday {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: "name when" "date when";
-  align-items: center;
-  gap: 0 var(--sp-2);
-  padding: 4px var(--sp-1);
-  border-radius: var(--r-chip);
-}
-.wx-bday-name {
-  grid-area: name;
-  font-size: var(--fs-chrome);
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.wx-bday-date {
-  grid-area: date;
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-micro);
-  color: var(--ink-faint);
-}
-.wx-bday-when {
-  grid-area: when;
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-mini);
-  color: var(--ink-soft);
-}
-/* The day itself, in the sidebar and on the page, is the one thing here that
-   gets a colour of its own */
-.wx-bday.today {
-  background: var(--attention-soft);
-  box-shadow: inset 0 0 0 1px var(--attention-line);
-}
-.wx-bday.today .wx-bday-when,
-.wx-bday.today .wx-bday-name { color: var(--attention); font-weight: 600; }
-
-/* ---- Weather ---- */
-.wx-setup,
-.wx-weather-body {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-2);
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  color: var(--ink-soft);
-  text-align: left;
-}
-.wx-setup { font-size: var(--fs-chrome); color: var(--ink-faint); }
-.wx-setup:hover,
-.wx-weather-body:hover { border-color: var(--line-strong); color: var(--ink); }
-.wx-setup svg, .wx-glyph { width: 20px; height: 20px; flex-shrink: 0; }
-
-.wx-weather-left { color: var(--accent); display: flex; }
-.wx-weather-left .wx-glyph { width: 26px; height: 26px; }
-.wx-weather-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.wx-temp {
-  font-family: var(--display);
-  font-size: var(--fs-figure);
-  font-weight: 700;
-  color: var(--ink);
-  line-height: 1.1;
-}
-.wx-cond {
-  font-size: var(--fs-micro);
-  color: var(--ink-faint);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.wx-weather-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  min-width: 0;
-}
-.wx-place {
-  font-size: var(--fs-micro);
-  color: var(--ink-soft);
-  max-width: 96px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.wx-range {
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-micro);
-  color: var(--ink-faint);
-}
-
-.wx-forecast {
-  list-style: none;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--sp-2);
-  margin-top: var(--sp-2);
-}
-.wx-forecast li {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px var(--sp-2);
-  border-radius: var(--r-chip);
-  background: var(--hover-neutral);
-}
-.wx-forecast .wx-glyph { width: 15px; height: 15px; color: var(--ink-faint); }
-.wx-fc-day {
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-micro);
-  color: var(--ink-faint);
-  text-transform: uppercase;
-}
-.wx-fc-temp {
-  margin-left: auto;
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-micro);
-  color: var(--ink);
-}
-.wx-fc-temp i { color: var(--ink-faint); font-style: normal; margin-left: 3px; }
+/* The glyph itself is shared with the home page's weather panel; everything
+   else that used to live here - the date, the forecast, today's work, the
+   birthday ring - moved out with the widgets (Oct 2026). */
 
 /* ---- Navigation ---- */
 .side-nav {
@@ -3809,8 +3576,8 @@ input[type="text"].place-input {
   .shell,
   .shell.rail { grid-template-columns: minmax(0, 1fr); --side-w: 280px; }
 
-  .side,
-  .side.collapsed {
+  aside.side,
+  aside.side.collapsed {
     position: fixed;
     top: 0;
     left: 0;
@@ -3826,7 +3593,6 @@ input[type="text"].place-input {
   .side.collapsed .nav-label,
   .side.collapsed .side-identity,
   .side.collapsed .side-blurb { display: block; }
-  .side.collapsed .side-widgets { display: flex; }
   .side.collapsed .side-initials { display: none; }
   .side.collapsed .side-top { flex-direction: row; padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4); }
   .side.collapsed .nav-row { justify-content: flex-start; padding: 7px var(--sp-2); }
@@ -3896,4 +3662,296 @@ input[type="text"].place-input {
 @media (hover: none) {
   .row-del,
   .year-month-open { opacity: 1; }
+}
+
+/* ============================================================
+   Home — the overview, and what the app opens on.
+
+   These were four widgets in a 268px sidebar until Oct 2026. On a page they
+   get the room they were always short of, so the rule here is the opposite of
+   the one that shaped them: say the whole thing rather than the shortest
+   thing that fits.
+   ============================================================ */
+
+/* Shared with the sidebar's old weather chip; now only the home panel draws it */
+.wx-glyph { width: 20px; height: 20px; flex-shrink: 0; }
+
+.home-day { font-size: 34px; line-height: 1.1; }
+.home-date {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-body);
+  color: var(--ink-faint);
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+}
+
+/* ---- The week, in one line ----
+   Not a panel. It is the strip the rest of the page sits under, and the only
+   thing on Home that is about more than today. */
+.home-week {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-4);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  text-decoration: none;
+  color: inherit;
+}
+.home-week:hover { border-color: var(--line-strong); }
+.home-week-label {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--fs-chrome);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.home-week-label b {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: var(--fs-body);
+  color: var(--ink);
+}
+.home-week-track {
+  flex: 1;
+  min-width: 60px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.home-week-fill { display: block; height: 100%; background: var(--good); border-radius: 999px; }
+.home-week-stat {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-body);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.home-week-say {
+  font-size: var(--fs-chrome);
+  color: var(--ink-faint);
+  white-space: nowrap;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- The three panels ---- */
+.home-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: var(--sp-4);
+  align-items: start;
+}
+.home-col { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+
+.panel-link {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-faint);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.panel-link:hover { color: var(--accent); }
+.panel-link.as-btn { background: transparent; border: none; padding: 0; }
+
+.home-empty {
+  padding: var(--sp-4) 0 var(--sp-2);
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--ink-faint);
+}
+.home-empty a { color: var(--accent); }
+
+/* ---- Today ---- */
+.home-today-list { list-style: none; }
+.home-today-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-2);
+  border-radius: var(--r-chip);
+}
+.home-today-row:hover { background: var(--hover-neutral); }
+.home-today-row + .home-today-row { margin-top: 1px; }
+.home-today-row .task-check { margin-top: 2px; flex-shrink: 0; }
+.home-today-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.home-today-title {
+  font-size: var(--fs-row);
+  color: var(--ink);
+  line-height: 1.4;
+}
+.home-today-from {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-faint);
+}
+.home-today-row.done .home-today-title {
+  text-decoration: line-through;
+  color: var(--ink-faint);
+}
+.home-missed {
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-chrome);
+  color: var(--ink-faint);
+}
+
+/* ---- Weather ---- */
+.home-wx-setup {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-3) 0 var(--sp-1);
+  background: transparent;
+  border: none;
+  text-align: left;
+  color: var(--ink-faint);
+}
+.home-wx-setup span { display: flex; flex-direction: column; gap: 2px; font-size: var(--fs-chrome); line-height: 1.55; }
+.home-wx-setup b { font-size: var(--fs-row); font-weight: 600; color: var(--ink-soft); }
+.home-wx-setup:hover b { color: var(--accent); }
+.home-wx-setup .wx-glyph { margin-top: 2px; }
+
+.home-wx-now {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0 var(--sp-3);
+}
+.home-wx-icon { color: var(--accent); display: flex; }
+.home-wx-icon .wx-glyph { width: 34px; height: 34px; }
+.home-wx-temp {
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1;
+}
+.home-wx-words { display: flex; flex-direction: column; min-width: 0; }
+.home-wx-cond { font-size: var(--fs-body); color: var(--ink-soft); }
+.home-wx-feels {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-faint);
+}
+.home-wx-range {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-body);
+}
+.home-wx-range b { font-weight: 600; color: var(--ink); }
+.home-wx-range i { font-style: normal; color: var(--ink-faint); }
+
+.home-wx-forecast {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line);
+}
+.home-wx-forecast li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-chip);
+  background: var(--bg);
+}
+.home-wx-forecast .wx-glyph { width: 17px; height: 17px; color: var(--ink-faint); }
+.home-wx-day {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-faint);
+  text-transform: uppercase;
+}
+.home-wx-fc-temp {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-chrome);
+  color: var(--ink);
+}
+.home-wx-fc-temp i { color: var(--ink-faint); font-style: normal; margin-left: 4px; }
+
+/* ---- Birthdays ---- */
+.home-bday-list { list-style: none; }
+.home-bday {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: var(--sp-2);
+  border-radius: var(--r-chip);
+}
+.home-bday + .home-bday { margin-top: 1px; }
+.home-bday-date {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-faint);
+  min-width: 46px;
+  white-space: nowrap;
+}
+.home-bday-name {
+  font-size: var(--fs-row);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home-bday-turning {
+  font-size: var(--fs-chrome);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.home-bday-when {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-chrome);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+/* The one colour that means "today", here and on the birthdays page */
+.home-bday.today {
+  background: var(--attention-soft);
+  box-shadow: inset 0 0 0 1px var(--attention-line);
+}
+.home-bday.today .home-bday-name,
+.home-bday.today .home-bday-date,
+.home-bday.today .home-bday-when { color: var(--attention); font-weight: 600; }
+
+@media (max-width: 1020px) {
+  .home-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 760px) {
+  /* The week strip stops being a line and becomes two */
+  .home-week {
+    flex-wrap: wrap;
+    gap: var(--sp-2) var(--sp-3);
+  }
+  .home-week-track { order: 3; flex-basis: 100%; }
+  .home-week-say { order: 4; max-width: none; }
+}
+
+@media (max-width: 600px) {
+  .home-day { font-size: 26px; }
+  .home-wx-forecast { grid-template-columns: 1fr; }
 }

@@ -143,7 +143,7 @@ export function MonthlyPage({ route = '#/monthly' }) {
   // The one link out of this page: take the weekly board to that week and go
   const openWeek = (iso) => {
     setWeekStart(fromISODate(iso))
-    window.location.hash = '#/'
+    window.location.hash = '#/weekly'
   }
 
   const goTo = ({ year, month }) => { window.location.hash = `#/monthly/${monthKey(year, month)}` }

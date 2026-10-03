@@ -193,7 +193,7 @@ export function WeeksPage() {
 
   const openWeek = (iso) => {
     setWeekStart(fromISODate(iso))
-    window.location.hash = '#/'
+    window.location.hash = '#/weekly'
   }
 
   const copyWeek = async (w) => {
