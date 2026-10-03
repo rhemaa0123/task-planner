@@ -39,6 +39,13 @@
   --good-ink: #4d9a33;
   --good-soft: rgba(118, 196, 87, 0.18);
   --good-dim: rgba(118, 196, 87, 0.38);
+  /* The activity heatmap's four steps. The same green the progress bars use,
+     thinned over the paper - a year of these has to read as one colour
+     getting darker, not as four colours */
+  --heat-1: rgba(118, 196, 87, 0.26);
+  --heat-2: rgba(118, 196, 87, 0.5);
+  --heat-3: rgba(118, 196, 87, 0.74);
+  --heat-4: #76c457;
   --warn: #c0392b;
   --warn-soft: rgba(192, 57, 43, 0.12);
   --overdue-fill: rgba(192, 57, 43, 0.1);
@@ -104,6 +111,12 @@
      the planned-but-not-done bars and the count pills grey */
   --good-soft: #253520;
   --good-dim: #4a7d3b;
+  /* Solid steps here too, for the same reason: alpha green over charcoal
+     greys out, and a heatmap that greys out is a heatmap of nothing */
+  --heat-1: #243520;
+  --heat-2: #36512c;
+  --heat-3: #4e8a3c;
+  --heat-4: #76c457;
   --warn: #f27474;
   --warn-soft: rgba(242, 116, 116, 0.16);
   /* Overdue cards sit in a darker wine, not a lighter pink, so they read as
@@ -2935,6 +2948,7 @@ input[type="text"].goal-text:focus {
 .row-del svg { width: 14px; height: 14px; }
 .goal-row:hover .row-del,
 .bday-row:hover .row-del,
+.home-cd:hover .row-del,
 .ct-table tr:hover .row-del,
 .row-del:focus-visible { opacity: 1; }
 .row-del:hover { color: var(--warn); background: var(--warn-soft); }
@@ -3531,18 +3545,22 @@ input[type="text"].place-input {
 }
 
 /* ============================================================
-   Stats — a placeholder, and the raw material under it
+   Stats — four figures and three charts
+
+   The page is deliberately monochrome apart from the data. Every figure is
+   set in --ink and the charts carry the only colour, so what you see first
+   is the shape of the bars rather than four big numbers shouting. The one
+   exception is a live streak, which earns the green.
    ============================================================ */
 
-.stats-sofar { margin-top: var(--sp-5); }
-.stats-tally {
+.stat-cards {
   list-style: none;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--sp-3);
-  margin-top: var(--sp-3);
+  margin-bottom: var(--sp-4);
 }
-.stats-tally li {
+.stat-card {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -3550,17 +3568,284 @@ input[type="text"].place-input {
   background: var(--paper);
   border: 1px solid var(--line);
   border-radius: var(--r-card);
+  min-width: 0;
 }
-.stats-num {
+.stat-fig {
   font-family: var(--mono);
   font-weight: 600;
-  font-size: 24px;
+  font-size: 26px;
   line-height: 1.1;
   color: var(--ink);
 }
-.stats-num.good { color: var(--good-ink); }
-.stats-label {
+.stat-fig.good { color: var(--good-ink); }
+.stat-name {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  margin-top: 3px;
+}
+.stat-sub {
   font-size: var(--fs-chrome);
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The best week is the one figure you can walk into */
+button.stat-sub.as-link {
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+  font-family: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+button.stat-sub.as-link:hover { color: var(--ink); }
+
+/* ---- A chart, as a block ---- */
+.chart {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+.chart-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.chart-head .eyebrow { flex: 1; }
+.chart-note {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.chart-say {
+  font-size: var(--fs-body);
+  line-height: 1.55;
+  color: var(--ink-soft);
+  margin-top: 3px;
+}
+.chart-foot {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-chrome);
+  line-height: 1.55;
+  color: var(--ink-faint);
+}
+
+/* ---- Week by week ----
+   Bar height is the week's workload against the heaviest week on screen;
+   the fill inside it is what got finished. Two quantities in one bar, which
+   is the only way "a big week half done" and "a small week all done" can be
+   told apart at a glance. */
+.sbar-scroll {
+  margin-top: var(--sp-4);
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.sbar-row {
+  display: grid;
+  grid-template-columns: repeat(14, minmax(0, 1fr));
+  gap: 6px;
+  /* Below this the row scrolls rather than squeezing the labels into stripes.
+     Fourteen "Sep 07"s at --fs-micro need this much before they start running
+     into each other; it is measured, not guessed. */
+  min-width: 544px;
+}
+.sbar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+.sbar-slot {
+  width: 100%;
+  height: 108px;
+  display: flex;
+  align-items: flex-end;
+}
+.sbar-stack {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  padding: 0;
+  background: var(--good-soft);
+  border: none;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.sbar-stack:hover { box-shadow: inset 0 0 0 1px var(--good-dim); }
+.sbar-fill {
+  display: block;
+  width: 100%;
+  background: var(--good);
+  border-radius: 4px 4px 0 0;
+}
+.sbar-ghost {
+  position: relative;
+  width: 100%;
+  height: 52%;
+  border-radius: 4px;
+}
+.sbar-pct {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-soft);
+  min-height: 13px;
+}
+.sbar-when {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.sbar.now .sbar-when { color: var(--accent); }
+
+/* ---- Activity ---- */
+.heat-scroll {
+  margin-top: var(--sp-4);
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+.heat-inner { display: inline-block; min-width: 100%; }
+/* Each label sits in a one-cell-wide box and is allowed to overhang it, so
+   the months line up with the week they start in without the columns being
+   stretched to fit a three-letter word */
+.heat-months {
+  display: flex;
+  gap: 3px;
+  height: 13px;
+  margin-left: 22px;
+  margin-bottom: 3px;
+}
+.heat-months > span { flex: 0 0 11px; position: relative; }
+.heat-months i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-style: normal;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.heat-body { display: flex; gap: 3px; }
+.heat-days {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 0 0 19px;
+}
+.heat-days span {
+  height: 11px;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  line-height: 11px;
+  color: var(--ink-faint);
+}
+.heat-grid { display: flex; gap: 3px; }
+.heat-col { display: flex; flex-direction: column; gap: 3px; }
+.heat-cell {
+  display: block;
+  flex: 0 0 11px;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--bg);
+}
+.heat-cell.lv1 { background: var(--heat-1); }
+.heat-cell.lv2 { background: var(--heat-2); }
+.heat-cell.lv3 { background: var(--heat-3); }
+.heat-cell.lv4 { background: var(--heat-4); }
+/* Planned, and nothing came of it. This is not the app's "missed day" - that
+   is a slip you marked yourself, and it is counted under the chart above -
+   it is simply a day with work on it that none of got done. It borrows the
+   dimmed red because it is the one thing a "more green is more done" ramp
+   cannot say: without it an empty day and a wasted one are the same shade. */
+.heat-cell.undone { box-shadow: inset 0 0 0 1px var(--warn-dim-line); }
+.heat-cell.today { box-shadow: inset 0 0 0 1px var(--accent-fill); }
+/* A day that has not happened yet is not a day you got nothing done on */
+.heat-cell.future { background: transparent; box-shadow: none; }
+
+.heat-key {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+}
+.heat-key .heat-cell:first-of-type { margin-left: 4px; }
+.heat-key .heat-cell:last-of-type { margin-right: 4px; }
+
+/* ---- Follow-through ---- */
+.wd-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+.wd {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.wd-slot {
+  width: 100%;
+  height: 92px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+/* Seven bars across a full-width panel are 140px each, which reads as seven
+   blocks of colour rather than as a chart. Capped and centred, the eye gets
+   the heights, which is the only thing being compared. */
+.wd-bar {
+  display: block;
+  width: 100%;
+  max-width: 72px;
+  background: var(--good);
+  border-radius: 4px;
+}
+/* A day you plan on and never clear gets a sliver, not a green one - at 0%
+   the colour would be the only thing read and it would read as progress */
+.wd-bar.zero { background: var(--line-strong); }
+.wd-ghost {
+  position: relative;
+  width: 100%;
+  max-width: 72px;
+  height: 48%;
+  border-radius: 4px;
+}
+.wd-day {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: var(--fs-mini);
+  color: var(--ink-soft);
+}
+.wd-pct {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
   color: var(--ink-faint);
 }
 
@@ -3663,7 +3948,8 @@ input[type="text"].place-input {
 
   .year-grid { grid-template-columns: minmax(0, 1fr); }
   .panel { padding: var(--sp-3); }
-  .stats-tally { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .chart { padding: var(--sp-3); }
 
   /* The five birthday columns restack: the date keeps its own column and
      everything else stacks beside it, with the countdown under the name */
@@ -3921,6 +4207,82 @@ input[type="text"].place-input {
   color: var(--ink);
 }
 .home-wx-fc-temp i { color: var(--ink-faint); font-style: normal; margin-left: 4px; }
+
+/* ---- Countdown ----
+   Deliberately the same row as the birthday list directly beneath it: date,
+   name, then the number on the right. Two countdowns stacked in one column
+   should read as one list with a rule through it, not as two widgets that
+   happen to be neighbours. */
+.home-cd-list { list-style: none; }
+.home-cd {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: var(--sp-2);
+  border-radius: var(--r-chip);
+}
+.home-cd + .home-cd { margin-top: 1px; }
+.home-cd-date {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-faint);
+  min-width: 46px;
+  white-space: nowrap;
+}
+.home-cd-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-row);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.home-cd-days {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-chrome);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.home-cd .row-del { align-self: center; margin-right: -4px; }
+/* The one colour that means "today", here as on the birthdays page */
+.home-cd.today {
+  background: var(--attention-soft);
+  box-shadow: inset 0 0 0 1px var(--attention-line);
+}
+.home-cd.today .home-cd-name,
+.home-cd.today .home-cd-date,
+.home-cd.today .home-cd-days { color: var(--attention); font-weight: 600; }
+/* Been and gone. It stays on the list until it is cleared - nothing here
+   deletes itself - but it stops competing with what is still ahead. */
+.home-cd.past .home-cd-name,
+.home-cd.past .home-cd-date,
+.home-cd.past .home-cd-days { color: var(--ink-faint); }
+
+/* Two fields on the spot rather than a dialog: a countdown is a name and a
+   day, and anything heavier to open than that would not get used */
+.cd-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+.cd-add .field-input { margin-bottom: 0; }
+.cd-add-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+}
+/* A native date field renders "mm/dd/yyyy" and a picker icon of its own, and
+   it clips them rather than scrolling - so it cannot be allowed below the
+   width that fits them. When the two buttons no longer fit beside it they
+   take the next line instead, which is the only part of this that may give. */
+.cd-add-row .field-input { flex: 1 1 132px; min-width: 132px; }
+.cd-add-btns { display: flex; gap: var(--sp-2); flex: 0 0 auto; }
 
 /* ---- Birthdays ---- */
 .home-bday-list { list-style: none; }

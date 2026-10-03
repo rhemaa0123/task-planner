@@ -14,6 +14,7 @@ const BIRTHDAYS_KEY = 'task-planner-birthdays'
 const CONTACTS_KEY = 'task-planner-contacts'
 const MONTHS_KEY = 'task-planner-months'
 const YEARS_KEY = 'task-planner-years'
+const COUNTDOWNS_KEY = 'task-planner-countdowns'
 
 // Reads one of those keys, falling back to `empty` on anything unexpected -
 // a missing key, a half-written value, a browser refusing to hand it over
@@ -67,6 +68,7 @@ export function AppProvider({ children }) {
   const [contacts, setContacts] = useState(() => readKey(CONTACTS_KEY, []))
   const [months, setMonths] = useState(() => readKey(MONTHS_KEY, {}))
   const [years, setYears] = useState(() => readKey(YEARS_KEY, {}))
+  const [countdowns, setCountdowns] = useState(() => readKey(COUNTDOWNS_KEY, []))
   // The same trick `latest` plays for the plan, once per store: a mutation
   // reads the value as last written rather than as last rendered, so Enter on
   // a goal (save it, then add the next one) sees its own first write.
@@ -76,6 +78,7 @@ export function AppProvider({ children }) {
     [CONTACTS_KEY]: contacts,
     [MONTHS_KEY]: months,
     [YEARS_KEY]: years,
+    [COUNTDOWNS_KEY]: countdowns,
   })
   const [toasts, setToasts] = useState([])
   // Set once if the browser refuses to persist, so the warning is not repeated
@@ -524,6 +527,28 @@ export function AppProvider({ children }) {
 
   const setMonthNote = (key, note) => patchMonth(key, (m) => ({ ...m, note }))
 
+  /* Countdowns. A name and a day you are waiting for, stored as an ISO date
+     because it happens once - the mirror image of a birthday, which is kept
+     as calendar parts precisely because it comes round again. Nothing here
+     expires on its own either: the day passes, the row says so, and removing
+     it stays a decision rather than a cleanup. */
+  const addCountdown = (entry = {}) => {
+    const id = generateId()
+    setStore(COUNTDOWNS_KEY, setCountdowns, (list) => [...list, {
+      id,
+      name: (entry.name || '').trim(),
+      date: entry.date || null,
+    }])
+    return id
+  }
+
+  const updateCountdown = (id, patch) =>
+    setStore(COUNTDOWNS_KEY, setCountdowns, (list) =>
+      list.map((c) => String(c.id) === String(id) ? { ...c, ...patch } : c))
+
+  const deleteCountdown = (id) =>
+    setStore(COUNTDOWNS_KEY, setCountdowns, (list) => list.filter((c) => String(c.id) !== String(id)))
+
   /* One year, keyed by the number. A theme for the whole year and a line of
      intent per month - the coarsest layer, read when a month is being set up. */
   const patchYear = (year, fn) =>
@@ -561,6 +586,7 @@ export function AppProvider({ children }) {
       contacts, addContact, updateContact, deleteContact,
       months, addMonthGoal, updateMonthGoal, deleteMonthGoal, setMonthNote,
       years, setYearTheme, setYearMonthNote,
+      countdowns, addCountdown, updateCountdown, deleteCountdown,
     }}>
       {children}
     </AppContext.Provider>

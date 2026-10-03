@@ -452,6 +452,36 @@ export function sortByNextBirthday(entries, now = new Date()) {
     .sort((a, b) => a.next.days - b.next.days || a.name.localeCompare(b.name))
 }
 
+/* ---- Countdowns ---- */
+
+// A countdown is a one-off, and it is stored as a plain ISO date — which is
+// exactly the opposite of a birthday. A birthday is kept as calendar parts
+// because it comes round every year and the year it started is optional; a
+// countdown happens once, on a date you know, and then it is behind you.
+// Whole days from today, so a date later today still reads 0 and not "gone".
+export function daysUntil(iso, now = new Date()) {
+  if (!iso) return null
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  return Math.round((fromISODate(iso) - today) / DAY_MS)
+}
+
+// Soonest first; anything already past drops to the bottom, most recent of
+// those first — the day just gone is the one you are most likely looking for
+// in order to clear it. Nothing is ever removed on its own: a date that has
+// been and gone is still yours to delete, or to leave there.
+export function sortCountdowns(list, now = new Date()) {
+  return (list || [])
+    .filter((c) => c && c.date)
+    .map((c) => ({ ...c, days: daysUntil(c.date, now) }))
+    .sort((a, b) => {
+      const aPast = a.days < 0
+      const bPast = b.days < 0
+      if (aPast !== bPast) return aPast ? 1 : -1
+      return aPast ? b.days - a.days : a.days - b.days
+    })
+}
+
 /* ---- One day's scheduled work ----
    One row per unit landing on `iso`, each stating its own lineage: project
    name, task name, then the subtask's own name. A task never broken into

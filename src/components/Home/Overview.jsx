@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useToday } from '../../hooks/useToday'
 import { useWeather, searchPlaces, describeCode } from '../../hooks/useWeather'
-import { WeatherIcon, SearchIcon } from '../icons'
+import { WeatherIcon, SearchIcon, PlusIcon, TrashIcon } from '../icons'
 import {
   toISODate, collectDay, sinkCompleted, sortByNextBirthday, formatBirthdayDate,
-  DAY_NAMES, fromISODate,
+  sortCountdowns, formatShortDate, DAY_NAMES, fromISODate,
 } from '../../utils'
 
 /* ============================================================
-   The three panels of the home page.
+   The panels of the home page.
 
    These began life in the sidebar, at 268px, where each one had to say its
    piece in a column narrower than a phone. They moved out to [[HomePage]] in
@@ -121,6 +121,121 @@ export function BirthdayPanel() {
             </li>
           ))}
         </ul>
+      )}
+    </section>
+  )
+}
+
+/* ---- Countdowns ----
+   A name and a day you are waiting for. The whole widget is one number per
+   row, which is the only thing it is for - there is no countdowns page, no
+   notes, no categories, and adding one is two fields on the spot rather than
+   a dialog, because anything heavier than that and you would not bother.
+
+   A date that has passed is not swept away. It drops below the upcoming ones
+   and says how long ago it was, and clearing it stays your decision - the
+   same rule the rest of the app follows about never quietly binning
+   something you typed. */
+const countWords = (days) => {
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Tomorrow'
+  if (days === -1) return 'Yesterday'
+  if (days < 0) return `${-days} days ago`
+  return `${days} days`
+}
+
+export function CountdownPanel() {
+  const { countdowns, addCountdown, deleteCountdown } = useApp()
+  const now = useToday()
+  const [adding, setAdding] = useState(false)
+  const [name, setName] = useState('')
+  const [date, setDate] = useState('')
+
+  const rows = sortCountdowns(countdowns, now)
+  const valid = name.trim() && date
+
+  useEffect(() => {
+    if (!adding) return
+    const onKey = (e) => { if (e.key === 'Escape') setAdding(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [adding])
+
+  // The form stays open after a save: these tend to be entered in twos and
+  // threes - a trip, the flight back, the thing it is all for
+  const submit = (e) => {
+    e.preventDefault()
+    if (!valid) return
+    addCountdown({ name, date })
+    setName('')
+    setDate('')
+  }
+
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <span className="eyebrow">COUNTDOWN</span>
+        {rows.length > 0 && <span className="panel-count">{rows.length}</span>}
+      </div>
+
+      {rows.length === 0 && !adding && (
+        <p className="home-empty">Nothing to count down to yet.</p>
+      )}
+
+      {rows.length > 0 && (
+        <ul className="home-cd-list">
+          {rows.map((c) => (
+            <li
+              key={c.id}
+              className={`home-cd ${c.days === 0 ? 'today' : ''} ${c.days < 0 ? 'past' : ''}`}
+            >
+              <span className="home-cd-date">{formatShortDate(c.date)}</span>
+              <span className="home-cd-name">{c.name || 'Untitled'}</span>
+              <span className="home-cd-days">{countWords(c.days)}</span>
+              <button
+                type="button"
+                className="row-del"
+                onClick={() => deleteCountdown(c.id)}
+                aria-label={`Remove ${c.name || 'countdown'}`}
+              >
+                <TrashIcon />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {adding ? (
+        <form className="cd-add" onSubmit={submit}>
+          <input
+            type="text"
+            className="field-input"
+            placeholder="What are you counting down to?"
+            value={name}
+            autoFocus
+            onChange={(e) => setName(e.target.value)}
+          />
+          <div className="cd-add-row">
+            <input
+              type="date"
+              className="field-input"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              aria-label="Date"
+            />
+            {/* The pair wraps together or not at all - split across two lines
+                by a narrow column, "Add" ends up stranded under "Done" */}
+            <span className="cd-add-btns">
+              <button type="button" className="btn-ghost" onClick={() => setAdding(false)}>Done</button>
+              <button type="submit" className="btn-primary" disabled={!valid}>Add</button>
+            </span>
+          </div>
+        </form>
+      ) : (
+        <button type="button" className="add-row" onClick={() => setAdding(true)}>
+          <span className="add-row-plus"><PlusIcon /></span>
+          Add a countdown
+        </button>
       )}
     </section>
   )
