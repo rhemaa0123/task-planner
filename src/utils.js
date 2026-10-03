@@ -354,3 +354,162 @@ export function materializePlan(plan, targetWeekIso) {
   }))
 }
 
+
+/* ---- Months and years ---- */
+
+export const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+export const MONTH_SHORT = MONTH_NAMES.map((m) => m.slice(0, 3))
+
+// "2026-10" - the key the monthly page stores a month's goals and note under.
+// Month is 1-12 here and everywhere else in this file; only the Date
+// constructor speaks 0-11, and it is fed `month - 1` at every call site.
+export function monthKey(year, month) {
+  return `${year}-${String(month).padStart(2, '0')}`
+}
+
+export function parseMonthKey(key) {
+  const [y, m] = String(key).split('-').map(Number)
+  return { year: y, month: m }
+}
+
+export function daysInMonth(year, month) {
+  return new Date(year, month, 0).getDate()
+}
+
+// Every Monday whose week touches this month, in order. The month's weeks as
+// the weekly planner counts them - so the first and last may reach into the
+// neighbouring month, which is exactly the overlap a week-by-week plan has.
+export function monthWeekStarts(year, month) {
+  const first = startOfWeek(new Date(year, month - 1, 1))
+  const last = new Date(year, month - 1, daysInMonth(year, month))
+  const out = []
+  for (let d = first; d <= last; d = addDays(d, 7)) out.push(toISODate(d))
+  return out
+}
+
+// Step a {year, month} pair by whole months, wrapping the year
+export function shiftMonth(year, month, by) {
+  const m0 = year * 12 + (month - 1) + by
+  return { year: Math.floor(m0 / 12), month: (m0 % 12) + 1 }
+}
+
+export function formatMonthLabel(year, month) {
+  return `${MONTH_NAMES[month - 1]} ${year}`
+}
+
+/* ---- Birthdays ---- */
+
+// A birthday is stored as its calendar parts, not an ISO date: the year is
+// optional (an age is a nice-to-have, a date in the ring is not), and a date
+// string with a placeholder year would be a lie the sort could trip over.
+//
+// The next time this day comes round, counting today as zero. That one choice
+// is the whole behaviour the page is asked for: on the morning of a birthday
+// it reads 0 and sorts to the very top; the day after, the next occurrence is
+// a year out, so the same row falls to the bottom on its own. Nothing is
+// written, nothing resets - the countdown is recomputed from the clock, and
+// `useToday()` re-renders it at local midnight.
+export function nextBirthday(entry, now = new Date()) {
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  const { month, day, year } = entry || {}
+  if (!month || !day) return null
+
+  const on = (y) => {
+    // Feb 29 in a common year is kept inside February rather than rolling
+    // into March, which is what the Date constructor would do with it
+    const d = Math.min(day, daysInMonth(y, month))
+    return new Date(y, month - 1, d)
+  }
+
+  let when = on(today.getFullYear())
+  if (when < today) when = on(today.getFullYear() + 1)
+
+  return {
+    date: when,
+    iso: toISODate(when),
+    days: Math.round((when - today) / DAY_MS),
+    // The age they reach on that date - null when the birth year is unknown
+    turning: year ? when.getFullYear() - year : null,
+  }
+}
+
+// "22 Mar" - day first, so a list of them reads as dates rather than numbers
+export function formatBirthdayDate(entry) {
+  if (!entry?.month || !entry?.day) return ''
+  return `${String(entry.day).padStart(2, '0')} ${MONTH_SHORT[entry.month - 1]}`
+}
+
+// Closest first, today's included. Each entry carries its own countdown so the
+// page sorts and renders off the same computation.
+export function sortByNextBirthday(entries, now = new Date()) {
+  return (entries || [])
+    .map((e) => ({ ...e, next: nextBirthday(e, now) }))
+    .filter((e) => e.next)
+    .sort((a, b) => a.next.days - b.next.days || a.name.localeCompare(b.name))
+}
+
+/* ---- One day's scheduled work ----
+   One row per unit landing on `iso`, each stating its own lineage: project
+   name, task name, then the subtask's own name. A task never broken into
+   subtasks becomes a row with the third line absent. The week grid draws this
+   seven times over; the sidebar's "Today" widget draws it once. */
+export function collectDay(projects, iso) {
+  const items = []
+  const missed = []
+
+  for (const p of projects) {
+    for (const t of p.tasks || []) {
+      const subs = t.subtasks || []
+      const base = {
+        taskId: t.id,
+        projectName: p.name || 'Untitled project',
+        taskTitle: t.title || 'Untitled task',
+      }
+
+      if (subs.length) {
+        for (const s of subs) {
+          if (s.day_date === iso) {
+            items.push({
+              ...base,
+              key: `s-${s.id}`,
+              subtaskId: s.id,
+              subtitle: s.title || '',
+              completed: !!s.completed,
+              day_date: s.day_date,
+            })
+          }
+          if ((s.missedDays || []).includes(iso)) {
+            missed.push({ ...base, key: `m-${s.id}`, subtaskId: s.id, subtitle: s.title || '', iso })
+          }
+        }
+        continue
+      }
+
+      if (t.day_date === iso) {
+        items.push({
+          ...base,
+          key: `t-${t.id}`,
+          subtaskId: null,
+          subtitle: '',
+          completed: !!t.completed,
+          day_date: t.day_date,
+        })
+      }
+      if ((t.missedDays || []).includes(iso)) {
+        missed.push({ ...base, key: `m-${t.id}`, subtaskId: null, subtitle: '', iso })
+      }
+    }
+  }
+  return { items, missed }
+}
+
+// "Saturday, 03 October" - the sidebar's own date line
+export function formatLongDate(date) {
+  const wd = date.toLocaleDateString('en-US', { weekday: 'long' })
+  const mo = date.toLocaleDateString('en-US', { month: 'long' })
+  return `${wd}, ${String(date.getDate()).padStart(2, '0')} ${mo}`
+}

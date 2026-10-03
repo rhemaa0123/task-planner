@@ -5,6 +5,28 @@ const AppContext = createContext(null)
 
 const STORE_KEY = 'task-planner-guest'
 const WEEKS_KEY = 'task-planner-weeks'
+// The pages that are not the weekly plan each own one key. They are separate
+// stores on purpose: a birthday list and a year's themes have nothing to say
+// to the week's projects, and keeping them apart means a plan written before
+// any of this existed still reads back whole.
+const PROFILE_KEY = 'task-planner-profile'
+const BIRTHDAYS_KEY = 'task-planner-birthdays'
+const CONTACTS_KEY = 'task-planner-contacts'
+const MONTHS_KEY = 'task-planner-months'
+const YEARS_KEY = 'task-planner-years'
+
+// Reads one of those keys, falling back to `empty` on anything unexpected -
+// a missing key, a half-written value, a browser refusing to hand it over
+const readKey = (key, empty) => {
+  try {
+    const stored = JSON.parse(localStorage.getItem(key))
+    if (stored == null) return empty
+    if (Array.isArray(empty)) return Array.isArray(stored) ? stored : empty
+    return typeof stored === 'object' && !Array.isArray(stored) ? stored : empty
+  } catch {
+    return empty
+  }
+}
 
 // Per-week state that is not a project: whether the week has been ended.
 // Keyed by the week's Monday, e.g. { "2026-09-07": { ended: true, endedAt } }.
@@ -40,6 +62,21 @@ export function AppProvider({ children }) {
   const latest = useRef(allProjects)
   const [weekMeta, setWeekMeta] = useState(readWeekMeta)
   const [weekStart, setWeekStart] = useState(() => startOfWeek())
+  const [profile, setProfile] = useState(() => readKey(PROFILE_KEY, { name: '' }))
+  const [birthdays, setBirthdays] = useState(() => readKey(BIRTHDAYS_KEY, []))
+  const [contacts, setContacts] = useState(() => readKey(CONTACTS_KEY, []))
+  const [months, setMonths] = useState(() => readKey(MONTHS_KEY, {}))
+  const [years, setYears] = useState(() => readKey(YEARS_KEY, {}))
+  // The same trick `latest` plays for the plan, once per store: a mutation
+  // reads the value as last written rather than as last rendered, so Enter on
+  // a goal (save it, then add the next one) sees its own first write.
+  const sideRefs = useRef({
+    [PROFILE_KEY]: profile,
+    [BIRTHDAYS_KEY]: birthdays,
+    [CONTACTS_KEY]: contacts,
+    [MONTHS_KEY]: months,
+    [YEARS_KEY]: years,
+  })
   const [toasts, setToasts] = useState([])
   // Set once if the browser refuses to persist, so the warning is not repeated
   // on every keystroke
@@ -389,6 +426,117 @@ export function AppProvider({ children }) {
     }))
   }
 
+  /* ---- The other pages ----
+     Birthdays, contacts and the month / year notes never touch the plan, so
+     they are written through their own small path: `setStore` mirrors the
+     value into `sideRefs` (read back in the same tick), pushes it to React,
+     and persists it, exactly as `save()` does for projects. */
+
+  const setStore = (key, setter, next) => {
+    const value = typeof next === 'function' ? next(sideRefs.current[key]) : next
+    sideRefs.current[key] = value
+    setter(value)
+    persist(key, value)
+  }
+
+  // The name in the sidebar's title box - the one thing the app knows about
+  // whoever is using it
+  const setProfileName = (name) =>
+    setStore(PROFILE_KEY, setProfile, (p) => ({ ...p, name }))
+
+  /* Birthdays. Stored as calendar parts, never an ISO date: the year is
+     optional, and a placeholder year inside a date string is a lie the
+     countdown would have to work around. Nothing about a row changes when the
+     day comes round - `nextBirthday()` recomputes the countdown from the
+     clock, so the ring "resets" by arithmetic rather than by a write. */
+  const addBirthday = (entry) => {
+    const id = generateId()
+    setStore(BIRTHDAYS_KEY, setBirthdays, (list) => [...list, {
+      id,
+      name: (entry.name || '').trim(),
+      month: Number(entry.month) || null,
+      day: Number(entry.day) || null,
+      year: entry.year ? Number(entry.year) : null,
+      note: entry.note || '',
+    }])
+    return id
+  }
+
+  const updateBirthday = (id, patch) =>
+    setStore(BIRTHDAYS_KEY, setBirthdays, (list) =>
+      list.map((b) => String(b.id) === String(id) ? { ...b, ...patch } : b))
+
+  const deleteBirthday = (id) =>
+    setStore(BIRTHDAYS_KEY, setBirthdays, (list) => list.filter((b) => String(b.id) !== String(id)))
+
+  /* Contacts. `from` is the general field that stands in for an employer:
+     where someone works, where they study, or simply where you met them. */
+  const addContact = (entry = {}) => {
+    const id = generateId()
+    setStore(CONTACTS_KEY, setContacts, (list) => [...list, {
+      id,
+      name: (entry.name || '').trim(),
+      email: (entry.email || '').trim(),
+      phone: (entry.phone || '').trim(),
+      from: (entry.from || '').trim(),
+      note: entry.note || '',
+      added: toISODate(new Date()),
+    }])
+    return id
+  }
+
+  const updateContact = (id, patch) =>
+    setStore(CONTACTS_KEY, setContacts, (list) =>
+      list.map((c) => String(c.id) === String(id) ? { ...c, ...patch } : c))
+
+  const deleteContact = (id) =>
+    setStore(CONTACTS_KEY, setContacts, (list) => list.filter((c) => String(c.id) !== String(id)))
+
+  /* One month's intentions, keyed "YYYY-MM". Goals here are not tasks: they
+     are never scheduled, never roll up into a week's progress, and nothing in
+     the weekly plan reads them. They are what you look at while planning a
+     week, which is the only link between the two pages. */
+  const patchMonth = (key, fn) =>
+    setStore(MONTHS_KEY, setMonths, (all) => {
+      const month = all[key] || { goals: [], note: '' }
+      return { ...all, [key]: fn(month) }
+    })
+
+  const addMonthGoal = (key, text = '', { after = null } = {}) => {
+    const id = generateId()
+    patchMonth(key, (m) => {
+      const goals = [...(m.goals || [])]
+      const at = after == null ? -1 : goals.findIndex((g) => String(g.id) === String(after))
+      goals.splice(at === -1 ? goals.length : at + 1, 0, { id, text, done: false })
+      return { ...m, goals }
+    })
+    return id
+  }
+
+  const updateMonthGoal = (key, id, patch) =>
+    patchMonth(key, (m) => ({
+      ...m,
+      goals: (m.goals || []).map((g) => String(g.id) === String(id) ? { ...g, ...patch } : g),
+    }))
+
+  const deleteMonthGoal = (key, id) =>
+    patchMonth(key, (m) => ({ ...m, goals: (m.goals || []).filter((g) => String(g.id) !== String(id)) }))
+
+  const setMonthNote = (key, note) => patchMonth(key, (m) => ({ ...m, note }))
+
+  /* One year, keyed by the number. A theme for the whole year and a line of
+     intent per month - the coarsest layer, read when a month is being set up. */
+  const patchYear = (year, fn) =>
+    setStore(YEARS_KEY, setYears, (all) => {
+      const key = String(year)
+      return { ...all, [key]: fn(all[key] || { theme: '', months: {} }) }
+    })
+
+  const setYearTheme = (year, theme) => patchYear(year, (y) => ({ ...y, theme }))
+
+  const setYearMonthNote = (year, month, text) =>
+    patchYear(year, (y) => ({ ...y, months: { ...(y.months || {}), [month]: text } }))
+
   const reorderProjects = (fromIndex, toIndex) => {
     // Indices come from the visible week, so reorder that slice and lay it back
     // into the week's slots, leaving other weeks untouched
@@ -408,6 +556,11 @@ export function AppProvider({ children }) {
       addProject, updateProjectName, deleteProject, setProjectDeadline, reorderProjects, importPlan,
       addTask, updateTaskTitle, setTaskDay, setTaskSchedule, toggleSubtask, moveScheduled, clearMissedDay,
       deleteTask, toggleTask, reorderTasks,
+      profile, setProfileName,
+      birthdays, addBirthday, updateBirthday, deleteBirthday,
+      contacts, addContact, updateContact, deleteContact,
+      months, addMonthGoal, updateMonthGoal, deleteMonthGoal, setMonthNote,
+      years, setYearTheme, setYearMonthNote,
     }}>
       {children}
     </AppContext.Provider>

@@ -1,61 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
-import { toISODate, weekDayList, startOfWeek, sinkCompleted, completionKey } from '../../utils'
+import { toISODate, weekDayList, startOfWeek, sinkCompleted, completionKey, collectDay } from '../../utils'
 import { useSinkFlip } from '../../hooks/useSinkFlip'
 import { DashedOutline } from '../Dash'
-
-// One row per subtask landing on this day, each stating its own lineage:
-// project name, task name, then the subtask's own name. A task never broken
-// into subtasks becomes a row with the third line absent.
-function collectDay(projects, iso) {
-  const items = []
-  const missed = []
-
-  for (const p of projects) {
-    for (const t of p.tasks || []) {
-      const subs = t.subtasks || []
-      const base = {
-        taskId: t.id,
-        projectName: p.name || 'Untitled project',
-        taskTitle: t.title || 'Untitled task',
-      }
-
-      if (subs.length) {
-        for (const s of subs) {
-          if (s.day_date === iso) {
-            items.push({
-              ...base,
-              key: `s-${s.id}`,
-              subtaskId: s.id,
-              subtitle: s.title || '',
-              completed: !!s.completed,
-              day_date: s.day_date,
-            })
-          }
-          if ((s.missedDays || []).includes(iso)) {
-            missed.push({ ...base, key: `m-${s.id}`, subtaskId: s.id, subtitle: s.title || '', iso })
-          }
-        }
-        continue
-      }
-
-      if (t.day_date === iso) {
-        items.push({
-          ...base,
-          key: `t-${t.id}`,
-          subtaskId: null,
-          subtitle: '',
-          completed: !!t.completed,
-          day_date: t.day_date,
-        })
-      }
-      if ((t.missedDays || []).includes(iso)) {
-        missed.push({ ...base, key: `m-${t.id}`, subtaskId: null, subtitle: '', iso })
-      }
-    }
-  }
-  return { items, missed }
-}
 
 // Project deadlines landing in this week, grouped by day. One source for both
 // the tab flag and the "Due ·" line, so the two can never disagree. Task

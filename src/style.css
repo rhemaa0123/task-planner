@@ -216,9 +216,12 @@ button {
   transition: all 0.15s ease;
 }
 
-/* ---- App Container ---- */
-/* Fixed-height shell so the two columns scroll on their own, never the page */
-/* The page scrolls as one; no column keeps a scrollbar of its own */
+/* ---- App Container ----
+   Two columns, not a bar and a page: everything the header used to hold is
+   down the left-hand side now. The shell owns the viewport, the sidebar keeps
+   its own scrollbar, and the page scrolls on its own - which is what lets the
+   sidebar's date, forecast and today-list stay put while a long month scrolls
+   past them. */
 #app {
   min-height: 100vh;
   /* dvh tracks the collapsing mobile URL bar; vh above is the fallback */
@@ -227,91 +230,490 @@ button {
   flex-direction: column;
 }
 
-/* ---- Header ---- */
-.header {
+.shell {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  /* One token carries the width, so the rail, the drawer and the page's own
+     margin all move together and only this line decides how wide it is */
+  --side-w: 268px;
+  grid-template-columns: var(--side-w) minmax(0, 1fr);
+}
+.shell.rail { --side-w: 64px; }
+
+/* ---- Sidebar ---- */
+.side {
+  grid-column: 1;
   display: flex;
-  align-items: center;
-  padding: 9px 24px;
-  border-bottom: 1px solid var(--line);
-  background: var(--bg);
+  flex-direction: column;
+  width: var(--side-w);
+  height: 100vh;
+  height: 100dvh;
   position: sticky;
   top: 0;
-  z-index: 100;
+  border-right: 1px solid var(--line);
+  background: var(--bg);
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 60;
+  /* The width animates; what is inside it does not, so a collapse reads as the
+     panel narrowing rather than six things moving at once */
+  transition: width 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+.side::-webkit-scrollbar { width: 7px; }
+.side::-webkit-scrollbar-track { background: transparent; }
+.side::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 999px; }
 
-.brand {
-  font-family: var(--display);
-  font-size: var(--fs-section);
-  font-weight: 700;
-  color: var(--ink);
-  margin-right: 20px;
-}
-.brand span { color: var(--accent); }
-
-.nav-tabs {
-  display: flex;
-  gap: 8px;
-}
-
-.nav-tab {
-  background: transparent;
-  border: none;
-  color: var(--ink-soft);
-  padding: 5px 10px;
-  font-size: var(--fs-chrome);
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  border-radius: var(--r-chip);
-  text-decoration: none;
-}
-
-.nav-tab:hover {
-  color: var(--ink);
-  background: var(--paper);
-}
-
-.nav-tab.active {
-  color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.header-spacer {
-  flex: 1;
-}
-
-.user-menu {
+/* ---- Who this is for ---- */
+.side-top {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 0.8rem;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  min-height: 56px;
+}
+.side.collapsed .side-top {
+  flex-direction: column;
+  padding: var(--sp-3) 0;
+  gap: var(--sp-2);
 }
 
-/* Cogwheel — spotlight hover: a soft pool of light under the cursor */
-.cog-btn {
+.side-identity {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The box that replaced the wordmark. It is an input at rest - no border, no
+   fill - so it reads as a title until the caret is in it. */
+input[type="text"].side-name {
+  width: 100%;
   background: transparent;
   border: 1px solid transparent;
+  padding: 2px 6px;
+  margin-left: -6px;
+  border-radius: var(--r-chip);
+  font-family: var(--display);
+  font-size: var(--fs-title);
+  font-weight: 700;
+  color: var(--ink);
+  text-overflow: ellipsis;
+}
+input[type="text"].side-name::placeholder {
   color: var(--ink-faint);
+  font-weight: 600;
+}
+input[type="text"].side-name:hover { background: var(--hover-neutral); }
+input[type="text"].side-name:focus {
+  background: var(--paper);
+  border-color: var(--accent-fill);
+}
+
+.side-sub {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding-left: 1px;
+  margin-top: 1px;
+}
+
+/* The rail's stand-in for the title box */
+.side-initials {
   width: 30px;
   height: 30px;
   display: grid;
   place-items: center;
   border-radius: 999px;
-  transition: color 0.18s ease, background 0.25s ease, border-color 0.18s ease;
-}
-.cog-btn:hover {
+  background: var(--accent-soft);
   color: var(--accent);
-  border-color: var(--line);
-  background:
-    radial-gradient(circle at 50% 45%, var(--accent-soft), transparent 72%),
-    var(--hover-neutral);
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: var(--fs-label);
 }
-.cog-btn svg { transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
-.cog-btn:hover svg { transform: rotate(60deg); }
 
-/* ---- Main Content ---- */
-.main-content {
+.side-collapse {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-chip);
+  color: var(--ink-faint);
+}
+.side-collapse svg { width: 17px; height: 17px; }
+.side-collapse:hover {
+  color: var(--accent);
+  background: var(--hover-neutral);
+  border-color: var(--line);
+}
+
+/* ---- The day, at the head of the sidebar ---- */
+.side-widgets {
+  padding: var(--sp-3) var(--sp-3) var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.wx-date { padding: 0 var(--sp-1); }
+.wx-date-day {
+  font-family: var(--display);
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.15;
+}
+.wx-date-rest {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-label);
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+  margin-top: 2px;
+}
+
+/* The small caps head every widget shares */
+.wx-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+  padding: 0 var(--sp-1);
+}
+.wx-head-label {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
   flex: 1;
+}
+.wx-head-count {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--hover-neutral);
+  color: var(--ink-faint);
+}
+.wx-head-count.full { background: var(--good-soft); color: var(--good-ink); }
+.wx-head-link {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  color: var(--accent);
+  text-decoration: none;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.wx-head-link:hover { text-decoration: underline; }
+
+.wx-empty {
+  display: block;
+  padding: 0 var(--sp-1);
+  font-size: var(--fs-chrome);
+  color: var(--ink-faint);
+  text-decoration: none;
+}
+.wx-empty:hover { color: var(--accent); }
+
+/* ---- Today's work ---- */
+.wx-today-list { list-style: none; }
+.wx-today-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: 5px var(--sp-1);
+  border-radius: var(--r-chip);
+}
+.wx-today-row:hover { background: var(--hover-neutral); }
+.wx-today-row .task-check { margin-top: 1px; flex-shrink: 0; }
+.wx-today-text { min-width: 0; display: flex; flex-direction: column; }
+.wx-today-title {
+  font-size: var(--fs-chrome);
+  color: var(--ink);
+  line-height: 1.35;
+  /* Two lines and then an ellipsis - a long task name must not push the
+     navigation off the bottom of a short screen */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.wx-today-from {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wx-today-row.done .wx-today-title {
+  text-decoration: line-through;
+  color: var(--ink-faint);
+}
+
+/* ---- Birthday ring ---- */
+.wx-bday-list { list-style: none; display: flex; flex-direction: column; gap: 1px; }
+.wx-bday {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "name when" "date when";
+  align-items: center;
+  gap: 0 var(--sp-2);
+  padding: 4px var(--sp-1);
+  border-radius: var(--r-chip);
+}
+.wx-bday-name {
+  grid-area: name;
+  font-size: var(--fs-chrome);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wx-bday-date {
+  grid-area: date;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  color: var(--ink-faint);
+}
+.wx-bday-when {
+  grid-area: when;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-soft);
+}
+/* The day itself, in the sidebar and on the page, is the one thing here that
+   gets a colour of its own */
+.wx-bday.today {
+  background: var(--attention-soft);
+  box-shadow: inset 0 0 0 1px var(--attention-line);
+}
+.wx-bday.today .wx-bday-when,
+.wx-bday.today .wx-bday-name { color: var(--attention); font-weight: 600; }
+
+/* ---- Weather ---- */
+.wx-setup,
+.wx-weather-body {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  color: var(--ink-soft);
+  text-align: left;
+}
+.wx-setup { font-size: var(--fs-chrome); color: var(--ink-faint); }
+.wx-setup:hover,
+.wx-weather-body:hover { border-color: var(--line-strong); color: var(--ink); }
+.wx-setup svg, .wx-glyph { width: 20px; height: 20px; flex-shrink: 0; }
+
+.wx-weather-left { color: var(--accent); display: flex; }
+.wx-weather-left .wx-glyph { width: 26px; height: 26px; }
+.wx-weather-mid { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.wx-temp {
+  font-family: var(--display);
+  font-size: var(--fs-figure);
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.1;
+}
+.wx-cond {
+  font-size: var(--fs-micro);
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wx-weather-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+}
+.wx-place {
+  font-size: var(--fs-micro);
+  color: var(--ink-soft);
+  max-width: 96px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wx-range {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  color: var(--ink-faint);
+}
+
+.wx-forecast {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+.wx-forecast li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px var(--sp-2);
+  border-radius: var(--r-chip);
+  background: var(--hover-neutral);
+}
+.wx-forecast .wx-glyph { width: 15px; height: 15px; color: var(--ink-faint); }
+.wx-fc-day {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  color: var(--ink-faint);
+  text-transform: uppercase;
+}
+.wx-fc-temp {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  color: var(--ink);
+}
+.wx-fc-temp i { color: var(--ink-faint); font-style: normal; margin-left: 3px; }
+
+/* ---- Navigation ---- */
+.side-nav {
+  flex: 1;
+  padding: var(--sp-3) var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.side.collapsed .side-nav { padding: var(--sp-3) var(--sp-2); gap: var(--sp-3); }
+
+.side-group-title {
+  font-size: var(--fs-label);
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+  padding: 0 var(--sp-2) var(--sp-2);
+}
+/* The rail keeps the grouping as a hairline, since the words will not fit */
+.side.collapsed .side-group-title {
+  height: 1px;
+  padding: 0;
+  margin: 0 var(--sp-2) var(--sp-2);
+  overflow: hidden;
+  background: var(--line);
+  color: transparent;
+}
+.side.collapsed .side-group:first-child .side-group-title { display: none; }
+
+.nav-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 7px var(--sp-2);
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: var(--fs-row);
+  font-weight: var(--w-row);
+  text-decoration: none;
+  text-align: left;
+}
+.nav-row + .nav-row { margin-top: 1px; }
+.nav-row:hover { background: var(--hover-neutral); color: var(--ink); }
+.nav-row.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.nav-icon {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-chip);
+  color: var(--ink-faint);
+}
+.nav-icon svg { width: 17px; height: 17px; }
+.nav-row:hover .nav-icon { color: var(--ink-soft); }
+.nav-row.active .nav-icon { color: var(--accent); }
+.nav-label {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.side.collapsed .nav-label { display: none; }
+.side.collapsed .nav-row { justify-content: center; padding: 7px 0; }
+
+.cog-spin svg { transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.nav-row:hover .cog-spin svg { transform: rotate(60deg); }
+
+/* ---- Foot ---- */
+.side-foot {
+  padding: var(--sp-2) var(--sp-2) var(--sp-4);
+  border-top: 1px solid var(--line);
+}
+.side-blurb {
+  padding: var(--sp-3) var(--sp-2) 0;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  line-height: 1.6;
+  color: var(--ink-faint);
+}
+
+/* ---- Phone: the sidebar slides over the page ---- */
+.side-open {
+  display: none;
+  position: fixed;
+  top: var(--sp-3);
+  left: var(--sp-3);
+  width: 38px;
+  height: 38px;
+  z-index: 70;
+  place-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  color: var(--ink-soft);
+  box-shadow: var(--shadow-card);
+}
+.side-open svg { width: 19px; height: 19px; }
+.side-scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: var(--scrim);
+}
+
+/* ---- Main Content ----
+   The second column of the shell. `min-width: 0` is what lets it shrink: a
+   grid track sizes to its content by default, so a wide table or a long row
+   inside would push the column past the viewport and take the sidebar with
+   it rather than scrolling on its own. */
+.main-content {
+  grid-column: 2;
+  min-width: 0;
   min-height: 0;
   padding: 24px;
   display: flex;
@@ -2577,4 +2979,921 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   .transfer-code {
     font-size: 16px;
   }
+}
+
+/* ============================================================
+   The pages that came in with the sidebar — monthly, yearly,
+   birthdays, contacts, about. They share one scaffold (.page,
+   .page-head, .panel) so a new one reads as part of the set.
+   ============================================================ */
+
+.page {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+}
+.page-head-left { min-width: 0; }
+.page-title {
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+  margin-top: 2px;
+}
+.page-head-link {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-chrome);
+  color: var(--ink-faint);
+  text-decoration: none;
+  padding: 5px 10px;
+  border-radius: var(--r-chip);
+}
+.page-head-link:hover { color: var(--accent); background: var(--hover-neutral); }
+
+/* The ‹ month › cluster, built on the week toolbar's own parts */
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-top: 2px;
+  margin-left: -8px;
+}
+.month-title {
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+  min-width: 190px;
+}
+.month-title.year { min-width: 110px; font-family: var(--mono); font-weight: 600; }
+
+/* ---- Panels ---- */
+.panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: var(--sp-4);
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+.panel-head .eyebrow { flex: 1; }
+.panel-count,
+.panel-sub {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-faint);
+}
+.panel-count {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--hover-neutral);
+}
+.panel-count.full { background: var(--good-soft); color: var(--good-ink); }
+.panel-hint {
+  font-size: var(--fs-chrome);
+  line-height: 1.55;
+  color: var(--ink-faint);
+  margin-bottom: var(--sp-3);
+}
+.panel-divider {
+  height: 1px;
+  background: var(--line);
+  margin: var(--sp-4) 0 var(--sp-3);
+}
+textarea.panel-note {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: var(--sp-3);
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--ink);
+  resize: vertical;
+  margin-top: var(--sp-2);
+}
+textarea.panel-note:focus { border-color: var(--accent-fill); }
+textarea.panel-note::placeholder { color: var(--ink-faint); }
+
+/* ---- A list of typed rows (a month's focuses) ---- */
+.goal-list { list-style: none; }
+.goal-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-1);
+  border-radius: var(--r-chip);
+}
+.goal-row:hover { background: var(--hover-neutral); }
+.goal-row .task-check { flex-shrink: 0; }
+input[type="text"].goal-text {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 3px 6px;
+  font-size: var(--fs-row);
+  color: var(--ink);
+}
+input[type="text"].goal-text::placeholder { color: var(--ink-faint); }
+input[type="text"].goal-text:focus {
+  background: var(--bg);
+  border-color: var(--accent-fill);
+}
+.goal-row.done .goal-text { text-decoration: line-through; color: var(--ink-faint); }
+
+/* The × that every row on these pages hides until it is wanted */
+.row-del {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-chip);
+  color: var(--ink-faint);
+  opacity: 0;
+}
+.row-del svg { width: 14px; height: 14px; }
+.goal-row:hover .row-del,
+.bday-row:hover .row-del,
+.ct-table tr:hover .row-del,
+.row-del:focus-visible { opacity: 1; }
+.row-del:hover { color: var(--warn); background: var(--warn-soft); }
+
+.add-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  margin-top: var(--sp-1);
+  padding: var(--sp-2) var(--sp-1);
+  background: transparent;
+  border: none;
+  border-radius: var(--r-chip);
+  color: var(--ink-faint);
+  font-size: var(--fs-body);
+  text-align: left;
+}
+.add-row:hover { color: var(--accent); background: var(--hover-neutral); }
+.add-row-plus {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+}
+.add-row-plus svg { width: 14px; height: 14px; }
+
+/* ============================================================
+   Monthly
+   ============================================================ */
+
+.month-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--sp-5);
+  align-items: start;
+}
+
+/* ---- The month as a calendar ---- */
+.mcal { margin-top: var(--sp-1); }
+.mcal-dow,
+.mcal-week {
+  display: grid;
+  /* The first, narrow column is the week's own grip - a whole-week target has
+     to live somewhere, and the margin is the one place it does not steal room
+     from a day */
+  grid-template-columns: 14px repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+.mcal-dow {
+  margin-bottom: var(--sp-2);
+  /* The grip column plus the gap that follows it, so M sits over Monday
+     rather than three pixels to its left */
+  padding-left: 17px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.mcal-dow span {
+  text-align: center;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  color: var(--ink-faint);
+}
+.mcal-week + .mcal-week { margin-top: 3px; }
+
+.mcal-week-grip {
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  padding: 0;
+}
+.mcal-week-grip::after {
+  content: "";
+  display: block;
+  width: 3px;
+  height: 100%;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: var(--line);
+}
+.mcal-week-grip:hover::after { background: var(--accent-fill); }
+
+.mcal-day {
+  position: relative;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-chip);
+  background: var(--bg);
+}
+.mcal-num {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-soft);
+  line-height: 1;
+}
+/* The days either side of the month are drawn, but drawn back */
+.mcal-day.outside { background: transparent; border-color: transparent; }
+.mcal-day.outside .mcal-num { color: var(--ink-faint); opacity: 0.55; }
+.mcal-day.today {
+  border-color: var(--accent-fill);
+  background: var(--accent-soft);
+}
+.mcal-day.today .mcal-num { color: var(--accent); font-weight: 600; }
+.mcal-load {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  line-height: 1;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: var(--good-soft);
+  color: var(--good-ink);
+}
+.mcal-load.full { background: var(--good); color: var(--on-accent); }
+
+/* ---- Its weeks ---- */
+.month-weeks { list-style: none; margin-top: var(--sp-2); }
+.mweek {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-2);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-chip);
+  text-align: left;
+}
+.mweek:hover { background: var(--hover-neutral); border-color: var(--line); }
+.mweek.current { border-color: var(--line-strong); }
+.mweek-title {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-chrome);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.mweek.current .mweek-title { color: var(--good-ink); }
+.mweek-track {
+  flex: 1;
+  height: 5px;
+  min-width: 40px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.mweek-fill { display: block; height: 100%; background: var(--good); border-radius: 999px; }
+.mweek-stat {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-faint);
+  min-width: 42px;
+  text-align: right;
+}
+
+/* ============================================================
+   Yearly
+   ============================================================ */
+
+.year-theme { margin-bottom: var(--sp-5); }
+input[type="text"].year-theme-input {
+  width: 100%;
+  margin-top: var(--sp-2);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: var(--sp-3) var(--sp-4);
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+input[type="text"].year-theme-input::placeholder { color: var(--ink-faint); font-weight: 400; }
+input[type="text"].year-theme-input:focus { border-color: var(--accent-fill); }
+
+.year-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-3);
+}
+.year-month {
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: var(--sp-3);
+}
+.year-month.current { border-color: var(--accent-fill); }
+/* A month gone by is not hidden, only quieter - last year is still worth reading */
+.year-month.past { opacity: 0.62; }
+.year-month.past:hover { opacity: 1; }
+
+.year-month-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+.year-month-name {
+  flex: 1;
+  font-size: var(--fs-section);
+  font-weight: 600;
+  color: var(--ink);
+}
+.year-month.current .year-month-name { color: var(--accent); }
+.year-month-marks { display: flex; gap: 4px; }
+.year-chip {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--good-soft);
+  color: var(--good-ink);
+}
+.year-chip.plain { background: var(--hover-neutral); color: var(--ink-faint); }
+
+textarea.year-month-note {
+  flex: 1;
+  width: 100%;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-chip);
+  padding: var(--sp-2);
+  margin-left: -8px;
+  font-size: var(--fs-chrome);
+  line-height: 1.55;
+  color: var(--ink);
+  resize: none;
+}
+textarea.year-month-note::placeholder { color: var(--ink-faint); }
+textarea.year-month-note:hover { background: var(--bg); }
+textarea.year-month-note:focus { background: var(--bg); border-color: var(--accent-fill); }
+
+.year-month-open {
+  margin-top: var(--sp-2);
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  color: var(--ink-faint);
+  text-decoration: none;
+  opacity: 0;
+}
+.year-month:hover .year-month-open,
+.year-month-open:focus-visible { opacity: 1; color: var(--accent); }
+
+/* ============================================================
+   People — shared list chrome
+   ============================================================ */
+
+.list-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+.search-box {
+  flex: 1;
+  max-width: 340px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  color: var(--ink-faint);
+}
+.search-box:focus-within { border-color: var(--accent-fill); }
+.search-box svg { width: 15px; height: 15px; flex-shrink: 0; }
+.search-box input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: var(--sp-2) 0;
+  font-size: var(--fs-body);
+  color: var(--ink);
+}
+.list-stat {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-faint);
+  margin-left: auto;
+}
+.list-stat b { color: var(--attention); font-weight: var(--w-mono); }
+.list-none {
+  padding: var(--sp-5);
+  text-align: center;
+  font-size: var(--fs-body);
+  color: var(--ink-faint);
+}
+.muted { color: var(--ink-faint); }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.btn-primary.with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.btn-primary.with-icon svg { width: 15px; height: 15px; }
+
+/* The dashed "nothing here yet" box, as the board draws it */
+.empty-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: var(--sp-6) var(--sp-4);
+  background: transparent;
+  border: none;
+  border-radius: var(--r-card);
+  color: var(--ink-faint);
+}
+.empty-box b { font-size: var(--fs-title); font-weight: 600; color: var(--ink-soft); }
+.empty-box span { font-size: var(--fs-body); }
+/* The same box standing still: a placeholder nothing happens to, rather than an
+   empty state that invites the first click */
+.empty-box.static { cursor: default; }
+.empty-box:hover b { color: var(--accent); }
+.empty-box:hover .dash-rect { stroke: var(--accent-fill); }
+
+/* ---- Birthdays ---- */
+.bday-list { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.bday-row {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto auto 26px;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+.bday-row:hover { border-color: var(--line-strong); }
+/* The day itself. One colour, used here and in the sidebar's ring and
+   nowhere else, so it means exactly one thing. */
+.bday-row.is-today {
+  background: var(--attention-soft);
+  border-color: var(--attention-line);
+}
+
+.bday-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.05;
+}
+.bday-day {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: var(--fs-figure);
+  color: var(--ink);
+}
+.bday-mon {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.bday-row.is-today .bday-day,
+.bday-row.is-today .bday-mon { color: var(--attention); }
+
+.bday-main { min-width: 0; display: flex; flex-direction: column; }
+.bday-name {
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+  font-size: var(--fs-row);
+  font-weight: var(--w-row);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bday-name:hover { color: var(--accent); text-decoration: underline; }
+.bday-note {
+  font-size: var(--fs-chrome);
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bday-turning {
+  font-size: var(--fs-chrome);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.bday-turning b { font-family: var(--mono); font-weight: 600; color: var(--ink); }
+.bday-when {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-chrome);
+  color: var(--ink-soft);
+  min-width: 90px;
+  text-align: right;
+  white-space: nowrap;
+}
+.bday-when.now {
+  color: var(--attention);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ---- Contacts ---- */
+.table-wrap {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  overflow-x: auto;
+}
+.ct-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-body);
+}
+.ct-table th {
+  text-align: left;
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.ct-table th button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+}
+.ct-table th button:hover { color: var(--ink); }
+.ct-table th.sorted button { color: var(--accent); }
+.sort-mark { opacity: 0.55; }
+.ct-table th.sorted .sort-mark { opacity: 1; }
+
+.ct-table td {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+.ct-table tbody tr:last-child td { border-bottom: none; }
+.ct-table tbody tr:hover { background: var(--hover-neutral); }
+
+.ct-name button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: var(--w-row);
+  color: var(--ink);
+  text-align: left;
+}
+.ct-name button:hover { color: var(--accent); text-decoration: underline; }
+.ct-note {
+  display: block;
+  font-size: var(--fs-chrome);
+  color: var(--ink-faint);
+  margin-top: 1px;
+}
+.ct-email a { color: var(--accent); text-decoration: none; }
+.ct-email a:hover { text-decoration: underline; }
+.ct-phone {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-chrome);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+/* "Where from" is the loose field that stands in for an employer, so it is set
+   as a tag rather than a column of prose */
+.ct-tag {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--hover-neutral);
+  border: 1px solid var(--line);
+  font-size: var(--fs-chrome);
+  color: var(--ink-soft);
+}
+.ct-end { width: 44px; text-align: right; }
+
+/* ============================================================
+   Dialog fields, shared by the two people dialogs
+   ============================================================ */
+
+.field-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-body);
+  color: var(--ink);
+  margin-bottom: var(--sp-3);
+}
+.field-input:focus { border-color: var(--accent-fill); }
+.field-input:disabled { opacity: 0.45; cursor: not-allowed; }
+.field-input::placeholder { color: var(--ink-faint); }
+.field-row { display: flex; gap: var(--sp-3); }
+.field-col { flex: 1; min-width: 0; }
+.field-col.narrow { flex: 0 0 86px; }
+.field-check {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-chrome);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+/* ---- The weather dialog's own search ---- */
+.place-search {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3);
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  color: var(--ink-faint);
+  margin-top: var(--sp-3);
+}
+.place-search:focus-within { border-color: var(--accent-fill); }
+.place-search svg { width: 15px; height: 15px; flex-shrink: 0; }
+input[type="text"].place-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  padding: var(--sp-2) 0;
+  font-size: var(--fs-body);
+}
+.place-results {
+  margin-top: var(--sp-2);
+  max-height: 220px;
+  overflow-y: auto;
+}
+.place-note {
+  padding: var(--sp-3);
+  font-size: var(--fs-chrome);
+  color: var(--ink-faint);
+}
+.place-row {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: transparent;
+  border: none;
+  border-radius: var(--r-chip);
+  text-align: left;
+}
+.place-row:hover { background: var(--hover-neutral); }
+.place-name { font-size: var(--fs-row); color: var(--ink); }
+.place-detail {
+  font-size: var(--fs-chrome);
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================================================
+   Stats — a placeholder, and the raw material under it
+   ============================================================ */
+
+.stats-sofar { margin-top: var(--sp-5); }
+.stats-tally {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+}
+.stats-tally li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+}
+.stats-num {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.stats-num.good { color: var(--good-ink); }
+.stats-label {
+  font-size: var(--fs-chrome);
+  color: var(--ink-faint);
+}
+
+/* ============================================================
+   About
+   ============================================================ */
+
+.page.about { max-width: 620px; }
+.about-line {
+  font-family: var(--display);
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1.22;
+  color: var(--ink);
+  margin: var(--sp-3) 0 var(--sp-5);
+}
+.about-line span { color: var(--accent); }
+.about-rest p {
+  font-size: var(--fs-row);
+  line-height: 1.7;
+  color: var(--ink-soft);
+  margin-bottom: var(--sp-3);
+}
+.about-fine { font-size: var(--fs-body) !important; color: var(--ink-faint) !important; }
+
+/* ============================================================
+   Narrow
+   ============================================================ */
+
+/* Between a phone and a desktop the two monthly columns and the four yearly
+   ones are simply too tight to read */
+@media (max-width: 1180px) {
+  .year-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 1020px) {
+  .month-body { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---- The sidebar goes off-canvas ----
+   There is no room for a rail and a page at once, so below this the sidebar
+   is a drawer: it slides in over the page, the scrim takes the next tap, and
+   the collapsed state the desktop remembers is ignored until the window is
+   wide again. */
+@media (max-width: 900px) {
+  .shell,
+  .shell.rail { grid-template-columns: minmax(0, 1fr); --side-w: 280px; }
+
+  .side,
+  .side.collapsed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: var(--side-w);
+    max-width: 86vw;
+    transform: translateX(-100%);
+    transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-shadow: var(--shadow-float);
+  }
+  .side.drawer-open { transform: translateX(0); }
+
+  /* The rail is a desktop idea; in a drawer everything is shown in full */
+  .side.collapsed .nav-label,
+  .side.collapsed .side-identity,
+  .side.collapsed .side-blurb { display: block; }
+  .side.collapsed .side-widgets { display: flex; }
+  .side.collapsed .side-initials { display: none; }
+  .side.collapsed .side-top { flex-direction: row; padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4); }
+  .side.collapsed .nav-row { justify-content: flex-start; padding: 7px var(--sp-2); }
+  .side.collapsed .side-group-title {
+    height: auto;
+    background: none;
+    color: var(--ink);
+    padding: 0 var(--sp-2) var(--sp-2);
+    margin: 0;
+  }
+  .side.collapsed .side-group:first-child .side-group-title { display: block; }
+
+  .side-open { display: grid; }
+  /* Once the drawer is out, the button that called it is sitting on top of
+     the name box - and there is nothing left for it to open */
+  .side.drawer-open ~ .side-open { display: none; }
+  .side-scrim { display: block; }
+
+  /* The shell is one column now, and the page is in it - leaving the content
+     in track 2 would conjure an implicit second column and push it off screen.
+     The menu button sits where the page's first line would start. */
+  .main-content { grid-column: 1; padding-top: 64px; }
+
+  .year-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  .page-head { flex-direction: column; align-items: stretch; gap: var(--sp-3); }
+  .page-head-link { align-self: flex-start; padding-left: 0; }
+  .month-title { font-size: 21px; min-width: 150px; }
+  .page-title { font-size: 22px; }
+  .about-line { font-size: 26px; }
+
+  .list-tools { flex-wrap: wrap; }
+  .search-box { max-width: none; }
+
+  .year-grid { grid-template-columns: minmax(0, 1fr); }
+  .panel { padding: var(--sp-3); }
+  .stats-tally { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  /* The five birthday columns restack: the date keeps its own column and
+     everything else stacks beside it, with the countdown under the name */
+  .bday-row {
+    grid-template-columns: 42px minmax(0, 1fr) 26px;
+    grid-template-areas:
+      "date main del"
+      "date when turning";
+    gap: var(--sp-1) var(--sp-3);
+  }
+  .bday-date { grid-area: date; }
+  .bday-main { grid-area: main; }
+  .bday-when { grid-area: when; min-width: 0; text-align: left; }
+  .bday-turning { grid-area: turning; text-align: right; }
+  .row-del { grid-area: del; opacity: 1; }
+
+  /* Phone and "where from" drop out of the table; the name cell carries them */
+  .ct-table th:nth-child(3),
+  .ct-table th:nth-child(4),
+  .ct-table td.ct-from,
+  .ct-table td.ct-phone { display: none; }
+  .ct-table th, .ct-table td { padding: var(--sp-3); }
+
+  .mcal-day { aspect-ratio: auto; min-height: 36px; }
+}
+
+/* Touch has no hover, so every row's × has to be there from the start */
+@media (hover: none) {
+  .row-del,
+  .year-month-open { opacity: 1; }
 }
