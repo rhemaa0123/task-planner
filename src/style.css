@@ -129,7 +129,13 @@
 }
 
 :root {
-  --sans: 'IBM Plex Sans JP', system-ui, -apple-system, sans-serif;
+  /* Encode Sans Expanded, set at Regular 400 (Oct 2026, replacing IBM Plex
+     Sans JP). It is a wide face - the same sentence takes noticeably more
+     room than Plex did, which is why the base weight drops to 400: at 500
+     an expanded face reads as heavy rather than as body text.
+     Latin and Latin-ext only, so text outside those scripts falls through to
+     system-ui - the face it replaced carried Japanese. */
+  --sans: 'Encode Sans Expanded', system-ui, -apple-system, sans-serif;
   --display: var(--sans);
   --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
   /* The mono face is loaded at regular and semibold only - every mono rule
@@ -137,7 +143,8 @@
   --w-mono: 400;
 
   --w-title: 600;
-  --w-row: 500;
+  /* The Regular cut: body text, task names, every ordinary row */
+  --w-row: 400;
 
   --sp-1: 4px;
   --sp-2: 8px;
@@ -2635,8 +2642,14 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
     padding: 5px 10px;
     font-size: var(--fs-chrome);
   }
-  .week-date-box { gap: var(--sp-3); padding: 4px 10px; }
-  .today-link { margin-left: 0; }
+  /* The chevrons, the date box and Today share one row that cannot wrap - both
+     labels are `nowrap`, since neither a week name nor a date range should
+     break. Encode Sans Expanded is a wide face and pushed that row ~20px past
+     a 390px screen, so the row gives up what it can: the title drops a step to
+     the body size, and the two gaps either side of it tighten. */
+  .week-date-box { gap: var(--sp-2); padding: 4px 10px; }
+  .week-title { font-size: var(--fs-body); }
+  .today-link { margin-left: 0; padding: 5px 6px; }
 
   .progress-section { margin-bottom: var(--sp-5); }
   .progress-stats { gap: var(--sp-2); }
@@ -2692,6 +2705,25 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
 }
 @media (max-width: 700px) {
   .weeks-head { margin-bottom: var(--sp-3); }
+}
+
+/* ---- The week toolbar on a small phone ----
+   `‹ [This week · Sep 28 - Oct 04] › Today` is one row that cannot wrap of its
+   own accord: both labels are `nowrap`, since neither a week name nor a date
+   range should ever break mid-way. Below about 380px the row simply does not
+   fit - it was ~35px over at 320px even in IBM Plex, and Encode Sans Expanded
+   is a wider face, which pushed 360px over too.
+
+   So at this width the row is allowed to wrap and Today takes a line of its
+   own, under the box rather than squeezed beside it - the same thing the two
+   week actions already do on a phone. The date range also gives up its extra
+   letter-spacing and a point of size, which is what buys the chevrons and the
+   box enough room to stay on one line together. */
+@media (max-width: 400px) {
+  .toolbar-left { flex-wrap: wrap; row-gap: var(--sp-2); }
+  .today-link { flex: 1 0 100%; padding-left: 0; }
+  .week-date-box { padding: 4px 8px; }
+  .week-dates { font-size: var(--fs-chrome); letter-spacing: 0.02em; }
 }
 
 /* Native date and time controls have a wide intrinsic minimum - side by side
