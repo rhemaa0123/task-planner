@@ -26,3 +26,9 @@ CLAUDE.md
 
 # Generated code-graph vault (rebuild: node scripts/graph-to-obsidian.mjs)
 obsidian-task-planner
+
+# Local env - the anon key is publishable, but this is not the place for secrets
+.env
+.env.*
+!.env.example
+scripts/shots/

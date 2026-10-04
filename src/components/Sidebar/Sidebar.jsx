@@ -4,8 +4,9 @@ import { useTheme } from '../../hooks/useTheme'
 import { InlineText } from '../InlineText'
 import {
   HomeIcon, WeeklyIcon, MonthlyIcon, YearlyIcon, WeeksIcon, StatsIcon, BirthdayIcon,
-  ContactsIcon, AboutIcon, CollapseIcon, CogIcon,
+  ContactsIcon, AboutIcon, CollapseIcon, CogIcon, AcademicsIcon,
 } from '../icons'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 const COLLAPSE_KEY = 'task-planner-sidebar'
 
@@ -40,6 +41,12 @@ const SECTIONS = [
       { href: '#/yearly', label: 'Yearly', Icon: YearlyIcon, match: (r) => r.startsWith('#/yearly') },
       { href: '#/weeks', label: 'All weeks', Icon: WeeksIcon, match: (r) => r.startsWith('#/weeks') },
       { href: '#/stats', label: 'Stats', Icon: StatsIcon, match: (r) => r.startsWith('#/stats') },
+    ],
+  },
+  {
+    title: 'Academics',
+    items: [
+      { href: '#/academics', label: 'Courses', Icon: AcademicsIcon, match: (r) => r.startsWith('#/academics') },
     ],
   },
   {
@@ -84,6 +91,9 @@ const THEME_CHOICES = [
 ]
 
 function SettingsDialog({ mode, resolved, onPick, onClose }) {
+  // Holds the page still underneath; on touch a drag on the backdrop
+  // would otherwise scroll the plan away behind the dialog
+  useScrollLock()
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)

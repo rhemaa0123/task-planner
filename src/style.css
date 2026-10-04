@@ -63,6 +63,27 @@
   --attention-line: rgba(194, 84, 47, 0.5);
   --attention-wash: rgba(194, 84, 47, 0.05);
 
+  /* ---- Course colours ----
+     Six, fixed, and each one a pair. A course chip is the first thing in this
+     app that carries a colour chosen by the person using it rather than by the
+     design, and a free-form hex would be the one colour in the stylesheet that
+     does not know which theme it is in - legible on cream, invisible on
+     charcoal, or the reverse. So the choice is an index, 1-6, and the theme
+     decides what that index looks like. Light takes deeper shades, which is
+     the same reason --good-ink exists. */
+  --course-1: #3f6ea8;
+  --course-1-soft: rgba(63, 110, 168, 0.14);
+  --course-2: #4d9a33;
+  --course-2-soft: rgba(77, 154, 51, 0.14);
+  --course-3: #a8533f;
+  --course-3-soft: rgba(168, 83, 63, 0.14);
+  --course-4: #7a4fa3;
+  --course-4-soft: rgba(122, 79, 163, 0.14);
+  --course-5: #1f7f84;
+  --course-5-soft: rgba(31, 127, 132, 0.14);
+  --course-6: #93702a;
+  --course-6-soft: rgba(147, 112, 42, 0.14);
+
   --scrim: rgba(48, 54, 79, 0.45);
   --shadow-float: 0 6px 20px rgba(48, 54, 79, 0.18);
   --shadow-card: 0 1px 2px rgba(48, 54, 79, 0.06);
@@ -131,6 +152,21 @@
   --attention-soft: rgba(232, 130, 94, 0.2);
   --attention-line: rgba(232, 130, 94, 0.55);
   --attention-wash: rgba(232, 130, 94, 0.045);
+
+  /* Paler tints of the same six hues - see the light block for why these are
+     an index rather than a colour the user picks outright */
+  --course-1: #87b0e0;
+  --course-1-soft: rgba(135, 176, 224, 0.18);
+  --course-2: #a5cf83;
+  --course-2-soft: rgba(165, 207, 131, 0.18);
+  --course-3: #e0a08c;
+  --course-3-soft: rgba(224, 160, 140, 0.18);
+  --course-4: #bda6e4;
+  --course-4-soft: rgba(189, 166, 228, 0.18);
+  --course-5: #7cc6ca;
+  --course-5-soft: rgba(124, 198, 202, 0.18);
+  --course-6: #d4b96e;
+  --course-6-soft: rgba(212, 185, 110, 0.18);
 
   --scrim: rgba(5, 5, 8, 0.72);
   --shadow-float: 0 8px 24px rgba(0, 0, 0, 0.55);
@@ -272,7 +308,11 @@ aside.side {
   flex-direction: column;
   width: var(--side-w);
   height: 100vh;
-  height: 100dvh;
+  /* dvh tracks the collapsing URL bar - but with viewport-fit=cover it also
+     includes the safe areas, so the column has to give them back or About,
+     Settings and the account row end up under the home indicator */
+  height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  margin-top: env(safe-area-inset-top);
   position: sticky;
   top: 0;
   border-right: 1px solid var(--line);
@@ -456,7 +496,7 @@ input[type="text"].side-name:focus {
 
 /* ---- Foot ---- */
 .side-foot {
-  padding: var(--sp-2) var(--sp-2) var(--sp-4);
+  padding: var(--sp-2) var(--sp-2) calc(var(--sp-4) + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line);
 }
 .side-blurb {
@@ -472,8 +512,8 @@ input[type="text"].side-name:focus {
 .side-open {
   display: none;
   position: fixed;
-  top: var(--sp-3);
-  left: var(--sp-3);
+  top: calc(var(--sp-3) + env(safe-area-inset-top));
+  left: calc(var(--sp-3) + env(safe-area-inset-left));
   width: 38px;
   height: 38px;
   z-index: 70;
@@ -491,6 +531,10 @@ input[type="text"].side-name:focus {
   inset: 0;
   z-index: 55;
   background: var(--scrim);
+  /* The body is held still by useScrollLock while the drawer is out; this
+     stops the gesture being handed on to anything else in the first place */
+  overscroll-behavior: contain;
+  touch-action: none;
 }
 
 /* ---- Main Content ----
@@ -505,6 +549,15 @@ input[type="text"].side-name:focus {
   padding: 24px;
   display: flex;
   flex-direction: column;
+  /* The room the page actually has, as something a rule can ask about. The
+     viewport cannot answer that: the sidebar is 268px or a 64px rail by a
+     flag in localStorage, so one window width is two different boards. The
+     board's layout is keyed to this instead - see "Two panes, or one".
+     `inline-size`, never `size`: block-axis containment would collapse the
+     column's height, which the board's flex: 1 depends on. And it does not
+     make this a containing block for fixed descendants (checked in Edge), so
+     every dialog inside the page still covers the viewport. */
+  container: board / inline-size;
 }
 
 /* ---- Toolbar (Sub-header) ---- */
@@ -606,6 +659,12 @@ input[type="text"].side-name:focus {
 /* Today hovers like the nav tabs above it: a flat chip of paper behind the
    word, nothing more */
 .today-link {
+  /* A button now rather than a span, so it clears its own chrome - there is
+     no global button reset here */
+  background: transparent;
+  border: none;
+  display: inline-flex;
+  align-items: center;
   color: var(--ink-faint);
   font-size: var(--fs-body);
   cursor: pointer;
@@ -794,6 +853,9 @@ input[type="text"].side-name:focus {
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
+  /* So a task row can ask how wide its own pane is - 400px on a desktop,
+     300-340px on a tablet beside the week, anything at all on a phone */
+  container: projects / inline-size;
 }
 
 /* Pulled in against the column's gap so the heading sits close over its
@@ -1376,7 +1438,11 @@ input[type="text"].task-name-input.done {
   line-height: 1.35;
   margin-top: 3px;
 }
-.day-grid .day-card-foot { margin-top: 6px; }
+/* The chip and the move button wrap rather than overflow. A day block at
+   1024px with the rail collapsed is ~114px wide - iPad landscape - and
+   "OVERDUE" plus the button did not fit, so the button sat 4px outside the
+   card, outside the grid, and outside the page, which then scrolled sideways. */
+.day-grid .day-card-foot { margin-top: 6px; flex-wrap: wrap; row-gap: 4px; min-width: 0; }
 .day-grid .day-card.missed .day-card-foot { margin-top: 5px; }
 .day-grid .day-card-overdue {
   display: inline-flex;
@@ -1659,7 +1725,15 @@ input[type="text"].task-name-input.done {
   display: grid;
   place-items: center;
   z-index: 1200;
-  padding: var(--sp-4);
+  padding:
+    calc(var(--sp-4) + env(safe-area-inset-top))
+    calc(var(--sp-4) + env(safe-area-inset-right))
+    calc(var(--sp-4) + env(safe-area-inset-bottom))
+    calc(var(--sp-4) + env(safe-area-inset-left));
+  /* A drag that starts on the backdrop must not scroll the page behind it.
+     useScrollLock holds the body still as well; this stops the gesture from
+     being handed on at all. */
+  overscroll-behavior: contain;
 }
 
 .modal-card {
@@ -1776,7 +1850,11 @@ input[type="text"].task-name-input.done {
 /* Enough days and subtasks and this outgrows the viewport, so the card scrolls */
 .modal-card.scroll {
   max-height: calc(100vh - var(--sp-6));
+  /* The overlay's padding already carries the insets, so this subtracts them
+     once more only through its own: dvh under viewport-fit=cover spans them */
+  max-height: calc(100dvh - var(--sp-6) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
 }
@@ -2229,7 +2307,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   color: var(--ink-soft);
 }
 
-.toast-container { position: fixed; bottom: 24px; right: 24px; display: flex; flex-direction: column; gap: 8px; z-index: 1000; }
+.toast-container { position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); right: calc(24px + env(safe-area-inset-right)); display: flex; flex-direction: column; gap: 8px; z-index: 1000; }
 .toast { background: var(--paper-hover); border: 1px solid var(--line-strong); color: var(--ink); padding: 12px 16px; border-radius: var(--r); font-size: 0.85rem; box-shadow: var(--shadow-card); }
 .toast.error { border-color: var(--warn); color: var(--warn); }
 
@@ -2573,15 +2651,47 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   background: transparent;
 }
 
-/* ---- One pane at a time ----
-   The desktop layout pins the shell to the viewport and scrolls the two columns
-   independently. Stacking them on a phone would mean scrolling the whole project
-   list to reach the day view, so the panes take turns and each gets the screen.
-   Both stay mounted - only their visibility changes - so switching keeps the
-   focused day, scroll position and any half-typed name. */
+/* ---- The shell's own step at 900px ----
+   This is the drawer breakpoint, and it stays a viewport query: whether the
+   sidebar is off-canvas genuinely depends on the window, and App.jsx asks the
+   same question in JS. Only the page's padding belongs with it. */
 @media (max-width: 900px) {
   .main-content { padding: var(--sp-4); min-width: 0; }
+}
 
+/* ---- Two panes, or one ----
+   Keyed to the room the board has (`.main-content`'s width), not the window's.
+   This block used to be `@media (max-width: 900px)`, which got both ends of
+   the tablet range wrong:
+
+   - 744-900px wide - every iPad in portrait - got the phone layout, one pane
+     at a time, with 700-870px of room to spare;
+   - 901-1200px got the full desktop layout with the projects pane fixed at
+     400px, which left the week 153px at 901 (sidebar open): four day blocks
+     ~30px wide, titles breaking a letter per line.
+
+   The numbers come from what has to fit. Two panes need a projects column a
+   task title can live in (300px), the gap, and seven day tabs a finger can hit
+   (7 x 44px + gaps) - about 680px. Below that the panes take turns. Between
+   680 and 900 both show and the projects column gives up width to the week.
+   From 900 up nothing here applies: the desktop board is exactly what it was.
+
+   The panes in one-at-a-time mode stay mounted - only their visibility
+   changes - so switching keeps the focused day, the scroll position and any
+   half-typed name. The document scrolls, not the columns: neither pane has an
+   overflow of its own, which is why stacking them would mean scrolling past
+   the whole project list to reach the week. */
+@container board (max-width: 899px) {
+  .day-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-header { flex-wrap: wrap; gap: var(--sp-1); }
+}
+
+@container board (min-width: 680px) and (max-width: 899px) {
+  .planning-board { gap: var(--sp-5); }
+  .sidebar { width: clamp(300px, 38%, 400px); }
+}
+
+@container board (max-width: 679px) {
   .pane-switch {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -2631,18 +2741,37 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   }
 
   .sidebar { width: 100%; }
-  .day-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
-  .grid-header { flex-wrap: wrap; gap: var(--sp-1); }
+/* ---- A narrow projects pane, on touch ----
+   A task row is one line: grip, box, name, badge, then the "edit days" chip
+   and the delete. On a mouse the last two stay hidden until the row is
+   hovered; on touch they are always shown, because there is no hover to
+   reveal them. In a pane narrower than ~360px - beside the week on a tablet,
+   or the whole width of a small phone - that left a name like "Draft the
+   introduction" showing as "Draft the int".
+
+   So on touch, in a narrow pane, the name gets the whole first line and the
+   badge and the actions drop to a second, lined up under the name. Not on a
+   mouse: there the actions are invisible until hover, and the second line
+   would be a blank strip under every dated task. */
+@media (hover: none) {
+  @container projects (max-width: 359px) {
+    .task-item { flex-wrap: wrap; row-gap: 2px; }
+    input[type="text"].task-name-input {
+      flex: 1 1 calc(100% - 14px - var(--check-size) - 2 * var(--sp-2));
+    }
+    /* The grip is 14px and invisible on touch but still holds its place, so
+       the name starts after it, the box, and the two gaps */
+    .task-item .subtask-badge {
+      margin-left: calc(14px + var(--check-size) + 2 * var(--sp-2));
+    }
+    .task-item .task-actions { margin-left: auto; }
+  }
 }
 
 /* ---- Phone ---- */
 @media (max-width: 600px) {
-  .header { padding: 8px 12px; }
-  .brand { margin-right: var(--sp-2); }
-  .nav-tab { padding: 5px 7px; font-size: var(--fs-mini); }
-  .user-menu { gap: var(--sp-2); }
-
   .main-content { padding: var(--sp-3); }
 
   /* Week arrows and the two week-level actions stack rather than squeeze. The
@@ -2753,8 +2882,6 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
 @media (hover: none) {
   .assign-date,
   .task-del,
-  .task-grip,
-  .sched-sub-grip,
   .day-card-clear,
   .proj-hover-action,
   .sched-sub-del,
@@ -2765,6 +2892,27 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
 
   /* Cursor-follow flourishes have no meaning without a cursor */
   .assign-date:hover { transform: none; margin-left: 0; }
+
+  /* ---- The grips, which cannot be worked by touch ----
+     Dragging here is HTML5 drag-and-drop, and a row is only `draggable` while
+     its grip is held - armed on `mousedown`. A touch browser synthesises
+     `mousedown` when the tap *finishes*, so the row becomes draggable at the
+     moment there is nothing left to drag, and `dragstart` never fires from a
+     touch gesture anyway. These handles were being forced visible here, which
+     meant a phone showed two controls labelled "Drag to reorder" that cannot
+     be actuated at all.
+
+     `visibility: hidden`, not `display: none`: a grip is 14px wide and
+     flex-shrink: 0 inside a row with an 8px gap, so removing it from layout
+     would pull 22px out of every task row and un-indent it from the project
+     title above. This is the same trick an ended week already uses on the
+     same element, for the same reason. */
+  .task-grip,
+  .sched-sub-grip,
+  .proj-grip {
+    visibility: hidden;
+    pointer-events: none;
+  }
 
   :root {
     --check-size: 22px;
@@ -2778,6 +2926,63 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   .day-tab { min-height: 52px; }
   .day-toggle { height: 46px; }
   .sched-add { padding: var(--sp-2) 0 var(--sp-2) var(--sp-3); }
+
+  /* ---- The rest of the targets ----
+     44px is the smallest thing a finger hits reliably. These were all left
+     under it: the menu button is the primary navigation on every phone
+     screen, and the row deletes are 17-26px squares. Where a box cannot grow
+     without moving the layout around it, the box stays and an ::after pad
+     extends the touch area past it - the hit box grows, nothing shifts. */
+  .side-open { width: 44px; height: 44px; }
+  .side-open svg { width: 21px; height: 21px; }
+  .side-collapse { width: 40px; height: 40px; }
+  .side-collapse svg { width: 20px; height: 20px; }
+  .nav-row { padding: 10px var(--sp-2); }
+
+  .row-del,
+  .day-card-clear,
+  .sched-sub-del,
+  .asg-disclose,
+  .colour-dot,
+  .assign-date .cal-box {
+    position: relative;
+  }
+  .row-del::after,
+  .day-card-clear::after,
+  .sched-sub-del::after,
+  .asg-disclose::after,
+  .assign-date .cal-box::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+  /* The checkbox is 22px by the token above; this pads its reach to 44
+     without changing the box that is drawn */
+  .task-check { position: relative; }
+  .task-check::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    transform: translate(-50%, -50%);
+  }
+
+  /* An inline <span> whose padding extends its hit box but not its line box,
+     so it overlapped its neighbours and was under 24px tall either way */
+  .today-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: var(--sp-2) var(--sp-3);
+  }
+  .term-select { min-height: 44px; }
+  .pane-tab { min-height: 48px; }
 
   /* iOS zooms the page when a focused field is under 16px. Selectors mirror the
      base rules' specificity so they actually win. */
@@ -4348,4 +4553,558 @@ button.stat-sub.as-link:hover { color: var(--ink); }
 @media (max-width: 600px) {
   .home-day { font-size: 26px; }
   .home-wx-forecast { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   Academics
+   Built from the same three parts as every other page here -
+   `.page-head`, `.panel`, and rows inside them - so it reads as one of the
+   set rather than as something bolted on. The only genuinely new idea is the
+   course colour, and that is an index into six token pairs rather than a
+   colour of its own: see --course-1 in the palette for why.
+   ============================================================ */
+
+.page-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.btn-ghost.with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-ghost.with-icon svg { width: 15px; height: 15px; }
+
+/* ---- The term, which is a filter and not a record ---- */
+.term-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.term-select {
+  font-family: var(--mono);
+  font-size: var(--fs-chrome);
+  font-weight: var(--w-mono);
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-chip);
+  padding: 5px 8px;
+  min-height: 34px;
+}
+.term-select:focus-visible { border-color: var(--accent-fill); }
+.term-stat {
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: var(--w-mono);
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.term-stat b { color: var(--attention); font-weight: var(--w-mono); }
+
+/* ---- Course cards ----
+   Auto-fill rather than a fixed column count, so this grid reflows on the
+   room it is given instead of on the viewport - which matters because the
+   page is 268px narrower when the sidebar is not a rail, and a viewport
+   query cannot see which state it is in. */
+.course-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+  gap: var(--sp-3);
+}
+.course-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) calc(var(--sp-3) + 5px);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  min-width: 0;
+  overflow: hidden;
+}
+.course-card:hover { border-color: var(--line-strong); }
+/* The one place a course's colour is stated at full strength */
+.course-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--course-c);
+}
+.course-open {
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  min-width: 0;
+  width: 100%;
+}
+.course-code {
+  font-family: var(--mono);
+  font-size: var(--fs-row);
+  font-weight: var(--w-mono);
+  color: var(--course-c);
+  letter-spacing: 0.02em;
+}
+.course-open:hover .course-code { text-decoration: underline; }
+.course-name {
+  font-size: var(--fs-body);
+  font-weight: var(--w-row);
+  color: var(--ink);
+  line-height: 1.3;
+}
+.course-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--sp-2);
+  font-size: var(--fs-mini);
+  color: var(--ink-faint);
+}
+.course-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.course-tally {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  font-weight: var(--w-mono);
+  color: var(--ink-faint);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ---- The chip that carries a course onto another page ---- */
+.course-chip {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  font-weight: var(--w-mono);
+  letter-spacing: 0.04em;
+  padding: 3px 7px;
+  border-radius: var(--r-chip);
+  color: var(--course-c);
+  background: var(--course-soft);
+  white-space: nowrap;
+  max-width: 15ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The six pairs, resolved once per element. Every rule above reads
+   --course-c / --course-soft, so a seventh colour is one line here. */
+.c1 { --course-c: var(--course-1); --course-soft: var(--course-1-soft); }
+.c2 { --course-c: var(--course-2); --course-soft: var(--course-2-soft); }
+.c3 { --course-c: var(--course-3); --course-soft: var(--course-3-soft); }
+.c4 { --course-c: var(--course-4); --course-soft: var(--course-4-soft); }
+.c5 { --course-c: var(--course-5); --course-soft: var(--course-5-soft); }
+.c6 { --course-c: var(--course-6); --course-soft: var(--course-6-soft); }
+
+.colour-picker {
+  display: flex;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.colour-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--course-c);
+  border: 2px solid transparent;
+  outline-offset: 2px;
+  opacity: 0.55;
+  transition: 0.15s;
+}
+.colour-dot:hover { opacity: 0.85; }
+.colour-dot.selected {
+  opacity: 1;
+  border-color: var(--paper);
+  box-shadow: 0 0 0 2px var(--course-c);
+}
+
+/* ---- Assignments ---- */
+.asg-list-outer {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  container: asg / inline-size;
+}
+.asg {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--bg);
+  overflow: hidden;
+}
+.asg:hover { border-color: var(--line-strong); }
+.asg.overdue { background: var(--overdue-fill); border-color: var(--overdue-line); }
+/* Handed in and faded, but it comes back on hover - last term's work is
+   still worth reading, the same rule a past month follows on the yearly page */
+.asg.submitted { opacity: 0.6; }
+.asg.submitted:hover { opacity: 1; }
+
+.asg-main {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) 6px;
+  min-width: 0;
+}
+.asg-disclose {
+  background: transparent;
+  border: none;
+  padding: 0;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-chip);
+  color: var(--ink-faint);
+}
+.asg-disclose:hover { background: var(--hover-neutral); color: var(--ink); }
+/* A caret drawn rather than imported - one glyph is not worth an icon */
+.asg-caret {
+  width: 6px;
+  height: 6px;
+  border-right: 1.6px solid currentColor;
+  border-bottom: 1.6px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+.asg-caret.open { transform: rotate(45deg); }
+
+.asg-text { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.asg-title {
+  background: transparent;
+  border: none;
+  padding: 0;
+  text-align: left;
+  font-size: var(--fs-row);
+  font-weight: var(--w-row);
+  color: var(--ink);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asg-title:hover { color: var(--accent); text-decoration: underline; }
+.asg.submitted .asg-title { text-decoration: line-through; color: var(--ink-faint); }
+.asg-meta {
+  font-size: var(--fs-mini);
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.asg-due {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: var(--w-mono);
+  color: var(--ink-soft);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.asg-time { font-size: var(--fs-micro); color: var(--ink-faint); }
+.asg-when {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: var(--w-mono);
+  color: var(--ink-faint);
+  min-width: 9ch;
+  text-align: right;
+}
+.asg-when.soon { color: var(--attention); }
+.asg-when.late { color: var(--warn); }
+.asg-when.done { color: var(--good-ink); }
+.asg-count {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  font-weight: var(--w-mono);
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--hover-neutral);
+  color: var(--ink-faint);
+}
+.asg-count.full { background: var(--good-soft); color: var(--good-ink); }
+.asg.submitted .asg-count { display: none; }
+
+.asg-body {
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) 40px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.asg-list { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.asg-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 3px 0;
+  min-width: 0;
+}
+.asg-item-text {
+  flex: 1;
+  font-size: var(--fs-body);
+  color: var(--ink);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.asg-item.done .asg-item-text { text-decoration: line-through; color: var(--ink-faint); }
+.asg-add { display: flex; gap: var(--sp-2); }
+.asg-add .field-input { flex: 1; margin-bottom: 0; min-width: 0; }
+.asg-submit {
+  background: transparent;
+  align-self: flex-start;
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: var(--w-mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--good-ink);
+  padding: 6px 10px;
+  border-radius: var(--r-chip);
+  border: 1px solid var(--good-dim);
+}
+.asg-submit:hover { background: var(--good-soft); }
+.asg-submit.undo { color: var(--ink-faint); border-color: var(--line-strong); }
+.asg-submit.undo:hover { background: var(--hover-neutral); color: var(--ink); }
+
+/* The code field wants more than the 86px `.narrow` gives it - "COMP 2401"
+   is nine characters and is the whole point of the field */
+.field-col.narrow.wide-code { flex: 0 0 116px; }
+
+/* ---- Deadlines on the home page ----
+   One row per thing owed, whatever store it came from. The row is a link to
+   the page that owns it, which is why it takes a hover - the rest of this
+   panel's rows elsewhere do not. */
+.home-dl-list { list-style: none; display: flex; flex-direction: column; gap: 1px; container: deadlines / inline-size; }
+.home-dl {
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 7px var(--sp-2);
+  margin: 0 calc(var(--sp-2) * -1);
+  border-radius: var(--r-chip);
+  min-width: 0;
+}
+.home-dl:hover { background: var(--hover-neutral); }
+.home-dl:hover .home-dl-title { color: var(--accent); text-decoration: underline; }
+.home-dl.late .home-dl-title { color: var(--warn); }
+.home-dl-text { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.home-dl-title {
+  font-size: var(--fs-body);
+  font-weight: var(--w-row);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.home-dl-from {
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  font-weight: var(--w-mono);
+  color: var(--ink-faint);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Prose inside a label line: the date either side of it stays a mono
+   uppercase label, this does not */
+.home-dl-ctx {
+  font-family: var(--sans);
+  font-style: normal;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.home-dl-ctx::before { content: ' · '; }
+
+.home-dl-when {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: var(--w-mono);
+  color: var(--ink-soft);
+  text-align: right;
+  min-width: 8ch;
+}
+.home-dl-when.soon { color: var(--attention); }
+.home-dl-when.late { color: var(--warn); }
+.home-dl-count {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  font-weight: var(--w-mono);
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--hover-neutral);
+  color: var(--ink-faint);
+}
+.home-dl:hover .home-dl-count { background: var(--paper); }
+.home-dl-count.full { background: var(--good-soft); color: var(--good-ink); }
+.home-dl-more {
+  margin-top: var(--sp-2);
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  font-weight: var(--w-mono);
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Everything off the weekly board wears this instead of a course colour, so
+   one glance down the column separates coursework from your own work */
+.course-chip.plan {
+  color: var(--ink-faint);
+  background: var(--hover-neutral);
+  border: 1px solid var(--line);
+}
+
+/* "3 this week", beside the count in a panel head */
+.panel-say {
+  font-family: var(--mono);
+  font-size: var(--fs-micro);
+  font-weight: var(--w-mono);
+  color: var(--attention);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   Touch, and motion
+   ============================================================ */
+
+/* ---- Everywhere, not only on a phone ---- */
+
+/* The grey flash a tap leaves is the browser guessing at feedback. Every
+   control here already says what it does on :active or :hover, and the flash
+   lands on the element's box rather than its visible shape - so a round
+   colour dot flashes a square. */
+a, button, input, select, textarea, [role="button"], [role="tab"], label {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Removes the ~300ms wait older WebKit spends deciding whether a tap is the
+   first half of a double-tap-to-zoom. Pinch zoom is untouched. */
+a, button, [role="button"], [role="tab"], .task-check, .day-toggle, .nav-row {
+  touch-action: manipulation;
+}
+
+/* A grip is held, not read. Without this a long press on one raises the text
+   selection callout, which is the wrong gesture and hard to dismiss. */
+.task-grip, .sched-sub-grip, .mcal-week-grip, .asg-caret {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ---- Motion ----
+   Nothing in the CSS honoured this before: the drawer slid, the day bars
+   grew, rows travelled to new slots and the "assign days" chip scaled, all
+   unconditionally. `useSinkFlip` already checked in JS and skipped the row
+   travel, so this is the stylesheet catching up with the hook.
+
+   Transitions are reduced to a hair rather than to zero. At 0s a browser does
+   not fire `transitionend`, and anything waiting on one would wait for ever;
+   0.01ms is instant to the eye and still fires. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* The two that are a movement rather than a fade, and read as motion even
+     at speed */
+  .side,
+  .side.collapsed { transition: none !important; }
+  .assign-date:hover { transform: none; }
+}
+
+/* ---- Academics on a phone ----
+   One line per assignment needs ~520px: caret, chip, title, the date, the
+   count of days and the checklist tally, each of which will not shrink. On a
+   phone the title - the one part that can shrink - was squeezed to nothing,
+   so the row read "MATH 1052  MON OCT 05  Tomorrow" with no idea what was
+   due. Below that width the row becomes two: what it is, then when. */
+@container asg (max-width: 519px) {
+  .asg-main {
+    display: grid;
+    grid-template-columns: 28px auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "disc text text text del"
+      ".    chip due  when count";
+    column-gap: var(--sp-2);
+    row-gap: 6px;
+    align-items: center;
+  }
+  .asg-disclose { grid-area: disc; }
+  .asg-main > .course-chip { grid-area: chip; }
+  .asg-text { grid-area: text; }
+  /* Date over time, as on a wide screen, but left-aligned and never broken:
+     "MON OCT 05" split over two lines reads as two different things */
+  .asg-due {
+    grid-area: due;
+    align-items: flex-start;
+    justify-self: start;
+    white-space: nowrap;
+  }
+  .asg-when { grid-area: when; min-width: 0; }
+  .asg-count { grid-area: count; }
+  .asg-main > .row-del { grid-area: del; }
+  .asg-body { padding-left: var(--sp-3); }
+}
+
+/* Narrower still, the second line keeps course, date and countdown and lets
+   the checklist tally go - it is one tap away, in the expanded row */
+@container asg (max-width: 399px) {
+  .asg-main {
+    grid-template-columns: 28px auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "disc text text del"
+      ".    chip due  when";
+  }
+  .asg-count { display: none; }
+}
+
+/* A deadline row keeps its two readings that matter - what, and how long -
+   and gives up the checklist tally first, which the page it links to has */
+@container deadlines (max-width: 339px) {
+  .home-dl-count { display: none; }
+}
+
+/* Stacked under the title on a phone, the two add buttons read better as one
+   bar across the width than as two buttons hugging the right edge */
+@media (max-width: 600px) {
+  .page-head-actions { width: 100%; justify-content: stretch; }
+  .page-head-actions > * { flex: 1; justify-content: center; }
 }

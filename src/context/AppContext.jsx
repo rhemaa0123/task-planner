@@ -15,6 +15,18 @@ const CONTACTS_KEY = 'task-planner-contacts'
 const MONTHS_KEY = 'task-planner-months'
 const YEARS_KEY = 'task-planner-years'
 const COUNTDOWNS_KEY = 'task-planner-countdowns'
+/* Academics is one key holding three things, where every store above it is
+   one key holding one. That is deliberate and it is the only place in this
+   app where a record points at another record: an assignment names a course.
+   Across two keys a cascading delete would be two writes, and `persist`
+   swallows a failed one - so a course could vanish and leave its assignments
+   behind, pointing at nothing. One key makes that impossible: the cascade is
+   a single write that either lands or does not.
+   Terms are not records. They are the distinct `term` strings on the courses,
+   derived where they are needed; `activeTerm` is only which one the pages
+   open on. */
+const ACADEMICS_KEY = 'task-planner-academics'
+const EMPTY_ACADEMICS = { activeTerm: '', courses: [], assignments: [] }
 
 // Reads one of those keys, falling back to `empty` on anything unexpected -
 // a missing key, a half-written value, a browser refusing to hand it over
@@ -69,6 +81,10 @@ export function AppProvider({ children }) {
   const [months, setMonths] = useState(() => readKey(MONTHS_KEY, {}))
   const [years, setYears] = useState(() => readKey(YEARS_KEY, {}))
   const [countdowns, setCountdowns] = useState(() => readKey(COUNTDOWNS_KEY, []))
+  const [academics, setAcademics] = useState(() => ({
+    ...EMPTY_ACADEMICS,
+    ...readKey(ACADEMICS_KEY, EMPTY_ACADEMICS),
+  }))
   // The same trick `latest` plays for the plan, once per store: a mutation
   // reads the value as last written rather than as last rendered, so Enter on
   // a goal (save it, then add the next one) sees its own first write.
@@ -79,6 +95,7 @@ export function AppProvider({ children }) {
     [MONTHS_KEY]: months,
     [YEARS_KEY]: years,
     [COUNTDOWNS_KEY]: countdowns,
+    [ACADEMICS_KEY]: academics,
   })
   const [toasts, setToasts] = useState([])
   // Set once if the browser refuses to persist, so the warning is not repeated
@@ -549,6 +566,123 @@ export function AppProvider({ children }) {
   const deleteCountdown = (id) =>
     setStore(COUNTDOWNS_KEY, setCountdowns, (list) => list.filter((c) => String(c.id) !== String(id)))
 
+  /* ---- Academics ----
+     One store, three lists, and the app's only foreign key: an assignment
+     names a course. Everything here goes through `patchAcademics`, so a
+     cascade is one write.
+
+     Status is `todo | doing | submitted` and it is kept, not derived. Ticking
+     the last box on a checklist means the work is done, which is not the same
+     as having handed it in - so the last tick advances `todo` to `doing` and
+     stops there. Submitting stays something you say. */
+  const patchAcademics = (fn) =>
+    setStore(ACADEMICS_KEY, setAcademics, (all) => {
+      const base = { ...EMPTY_ACADEMICS, ...all }
+      return { ...base, ...fn(base) }
+    })
+
+  const setActiveTerm = (term) => patchAcademics(() => ({ activeTerm: term || '' }))
+
+  /* Adding a course moves the page to that course's term, which is the only
+     behaviour that cannot lose it. The term selector is a filter, the terms
+     are derived from the courses themselves, and their order is a guess off
+     the string - so a course added to a term you are not looking at would
+     otherwise be written, filtered out, and gone from the screen. */
+  const addCourse = (entry = {}) => {
+    const id = generateId()
+    patchAcademics((a) => {
+      const term = (entry.term || a.activeTerm || '').trim()
+      return {
+        activeTerm: term,
+        courses: [...a.courses, {
+          id,
+          term,
+          code: (entry.code || '').trim(),
+          name: (entry.name || '').trim(),
+          instructor: (entry.instructor || '').trim(),
+          credits: entry.credits === '' || entry.credits == null ? null : Number(entry.credits),
+          colour: entry.colour || 1,
+          room: (entry.room || '').trim(),
+          note: (entry.note || '').trim(),
+        }],
+      }
+    })
+    return id
+  }
+
+  const updateCourse = (id, patch) =>
+    patchAcademics((a) => ({
+      courses: a.courses.map((c) => String(c.id) === String(id) ? { ...c, ...patch } : c),
+    }))
+
+  // The cascade. Both lists change in the one write, so there is no window in
+  // which the course is gone and its assignments are not
+  const deleteCourse = (id) =>
+    patchAcademics((a) => ({
+      courses: a.courses.filter((c) => String(c.id) !== String(id)),
+      assignments: a.assignments.filter((x) => String(x.courseId) !== String(id)),
+    }))
+
+  const addAssignment = (entry = {}) => {
+    const id = generateId()
+    patchAcademics((a) => ({
+      assignments: [...a.assignments, {
+        id,
+        courseId: entry.courseId == null ? null : String(entry.courseId),
+        title: (entry.title || '').trim(),
+        type: entry.type || 'assignment',
+        due: entry.due || null,
+        dueTime: entry.dueTime || '',
+        weight: entry.weight === '' || entry.weight == null ? null : Number(entry.weight),
+        status: entry.status || 'todo',
+        note: (entry.note || '').trim(),
+        checklist: Array.isArray(entry.checklist) ? entry.checklist : [],
+      }],
+    }))
+    return id
+  }
+
+  const updateAssignment = (id, patch) =>
+    patchAcademics((a) => ({
+      assignments: a.assignments.map((x) => String(x.id) === String(id) ? { ...x, ...patch } : x),
+    }))
+
+  const deleteAssignment = (id) =>
+    patchAcademics((a) => ({
+      assignments: a.assignments.filter((x) => String(x.id) !== String(id)),
+    }))
+
+  const addChecklistItem = (assignmentId, text) => {
+    const id = generateId()
+    patchAcademics((a) => ({
+      assignments: a.assignments.map((x) => String(x.id) === String(assignmentId)
+        ? { ...x, checklist: [...(x.checklist || []), { id, text: (text || '').trim(), done: false }] }
+        : x),
+    }))
+    return id
+  }
+
+  // Ticking the last one moves a `todo` on to `doing` - see the note above on
+  // why it stops there and never reaches `submitted`
+  const toggleChecklistItem = (assignmentId, itemId, done) =>
+    patchAcademics((a) => ({
+      assignments: a.assignments.map((x) => {
+        if (String(x.id) !== String(assignmentId)) return x
+        const checklist = (x.checklist || []).map((i) =>
+          String(i.id) === String(itemId) ? { ...i, done: !!done } : i)
+        const anyDone = checklist.some((i) => i.done)
+        const status = x.status === 'todo' && anyDone ? 'doing' : x.status
+        return { ...x, checklist, status }
+      }),
+    }))
+
+  const deleteChecklistItem = (assignmentId, itemId) =>
+    patchAcademics((a) => ({
+      assignments: a.assignments.map((x) => String(x.id) === String(assignmentId)
+        ? { ...x, checklist: (x.checklist || []).filter((i) => String(i.id) !== String(itemId)) }
+        : x),
+    }))
+
   /* One year, keyed by the number. A theme for the whole year and a line of
      intent per month - the coarsest layer, read when a month is being set up. */
   const patchYear = (year, fn) =>
@@ -587,6 +721,10 @@ export function AppProvider({ children }) {
       months, addMonthGoal, updateMonthGoal, deleteMonthGoal, setMonthNote,
       years, setYearTheme, setYearMonthNote,
       countdowns, addCountdown, updateCountdown, deleteCountdown,
+      academics, setActiveTerm,
+      addCourse, updateCourse, deleteCourse,
+      addAssignment, updateAssignment, deleteAssignment,
+      addChecklistItem, toggleChecklistItem, deleteChecklistItem,
     }}>
       {children}
     </AppContext.Provider>

@@ -482,6 +482,181 @@ export function sortCountdowns(list, now = new Date()) {
     })
 }
 
+/* ---- Academics ----
+   An assignment sorts like a countdown and then does one more thing: anything
+   submitted sinks, however near its due date, because a thing handed in is no
+   longer work. So the list reads open-and-soonest first, then what is overdue
+   and still open, then the submitted - which is the order of what you can
+   still do something about.
+
+   `done`/`total` come off the checklist. A bare assignment with no checklist
+   is one unit, the same reading `taskProgress` gives a task with no subtasks,
+   so the two cannot disagree about what "finished" means. */
+export function assignmentProgress(assignment) {
+  const list = assignment?.checklist || []
+  if (!list.length) return { done: assignment?.status === 'submitted' ? 1 : 0, total: 1 }
+  return { done: list.filter((i) => i.done).length, total: list.length }
+}
+
+export function sortAssignments(list, now = new Date()) {
+  return (list || [])
+    .filter(Boolean)
+    .map((a) => ({
+      ...a,
+      days: daysUntil(a.due, now),
+      progress: assignmentProgress(a),
+    }))
+    .sort((a, b) => {
+      // Handed in is handed in - it goes below everything still open
+      const aDone = a.status === 'submitted'
+      const bDone = b.status === 'submitted'
+      if (aDone !== bDone) return aDone ? 1 : -1
+
+      // No due date is not "due today" - it sits after everything dated,
+      // rather than claiming the top of the list
+      const aNo = a.days == null
+      const bNo = b.days == null
+      if (aNo !== bNo) return aNo ? 1 : -1
+      if (aNo) return 0
+
+      const aPast = a.days < 0
+      const bPast = b.days < 0
+      if (aPast !== bPast) return aPast ? 1 : -1
+      return aPast ? b.days - a.days : a.days - b.days
+    })
+}
+
+// The terms in use, newest-looking first. Terms are strings a person typed, so
+// there is no date to sort on - but academic terms are nearly always written
+// with their year in them, so a plain reverse sort puts the current one on top
+// far more often than not, and the selector remembers the choice anyway.
+export function termsOf(courses) {
+  const seen = []
+  for (const c of courses || []) {
+    const t = (c?.term || '').trim()
+    if (t && !seen.includes(t)) seen.push(t)
+  }
+  return seen.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }))
+}
+
+// "in 3 days" / "Today" / "4 days ago" - the same words the countdown panel
+// uses, so a due date and a countdown never read differently for one gap
+export function dueWords(days) {
+  if (days == null) return 'no date'
+  if (days === 0) return 'Today'
+  if (days === 1) return 'Tomorrow'
+  if (days === -1) return 'Yesterday'
+  if (days < 0) return `${-days} days ago`
+  return `in ${days} days`
+}
+
+/* ---- Every deadline, from wherever it came ----
+   Three things in this app carry a date someone else set: an academic
+   assignment, a project on the weekly board, and a task inside one. They are
+   written in three different places and they are the same kind of fact - "this
+   is due then" - so the home page reads them as one list.
+
+   This is a read and only a read. Nothing here writes, nothing is copied
+   between stores, and no row is a task: the weekly board still owns its
+   deadlines and the academics page still owns its own, exactly as the monthly
+   and yearly layers refer to the plan without flowing into it. Delete this
+   function and nothing breaks but one panel.
+
+   What is left out is as deliberate as what is in:
+
+   - **Anything already answered.** A submitted assignment, a ticked task, a
+     project whose every task is done. The deadline was the question and it has
+     been dealt with; the pages keep them, this list is what is still owed.
+   - **A project with no tasks and no deadline**, which is just a name.
+   - **Subtask deadlines**, because there are none. A subtask has a `day_date`,
+     which is when you decided to do it - a plan, not a deadline, and the Today
+     panel above already draws exactly that.
+
+   Each row says where it came from and links back there, so the panel is a way
+   in rather than a fourth place to keep things. */
+export function collectDeadlines({ allProjects = [], academics = {} } = {}, now = new Date()) {
+  const rows = []
+
+  // ---- Academics ----
+  const courses = academics.courses || []
+  const byCourse = new Map(courses.map((c) => [String(c.id), c]))
+  for (const a of academics.assignments || []) {
+    if (!a || !a.due) continue
+    if (a.status === 'submitted') continue
+    // Orphan-tolerant, as everywhere else that reads this store
+    const course = byCourse.get(String(a.courseId))
+    if (!course) continue
+    rows.push({
+      key: `a-${a.id}`,
+      kind: 'assignment',
+      chip: course.code || course.name || '—',
+      colour: course.colour || 1,
+      title: a.title || 'Untitled',
+      from: '',
+      date: a.due,
+      time: a.dueTime || '',
+      days: daysUntil(a.due, now),
+      progress: assignmentProgress(a),
+      href: '#/academics',
+    })
+  }
+
+  // ---- The weekly plan ----
+  for (const p of allProjects) {
+    const tasks = p.tasks || []
+
+    if (p.deadline) {
+      const roll = rollUp(tasks)
+      const answered = roll.total > 0 && roll.done === roll.total
+      if (!answered) {
+        rows.push({
+          key: `p-${p.id}`,
+          kind: 'project',
+          chip: 'PLAN',
+          colour: null,
+          title: p.name || 'Untitled project',
+          from: '',
+          date: p.deadline,
+          time: '',
+          days: daysUntil(p.deadline, now),
+          progress: roll.total ? { done: roll.done, total: roll.total } : null,
+          href: '#/weekly',
+        })
+      }
+    }
+
+    for (const t of tasks) {
+      if (!t || !t.deadline || t.completed) continue
+      rows.push({
+        key: `t-${t.id}`,
+        kind: 'task',
+        chip: 'PLAN',
+        colour: null,
+        title: t.title || 'Untitled task',
+        // A task's deadline means little without the project it is under
+        from: p.name || '',
+        date: t.deadline,
+        time: t.deadline_time || '',
+        days: daysUntil(t.deadline, now),
+        progress: taskProgress(t),
+        href: '#/weekly',
+      })
+    }
+  }
+
+  // Soonest first, with what is already past sunk below it, most recent of
+  // those first - the same order `sortCountdowns` and `sortAssignments` use, so
+  // three lists of dated things in this app can never read differently
+  return rows.sort((x, y) => {
+    const xPast = x.days < 0
+    const yPast = y.days < 0
+    if (xPast !== yPast) return xPast ? 1 : -1
+    if (x.days !== y.days) return xPast ? y.days - x.days : x.days - y.days
+    // A stable tiebreak so two things due the same day do not swap about
+    return String(x.title).localeCompare(String(y.title))
+  })
+}
+
 /* ---- One day's scheduled work ----
    One row per unit landing on `iso`, each stating its own lineage: project
    name, task name, then the subtask's own name. A task never broken into

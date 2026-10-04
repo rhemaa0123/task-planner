@@ -90,6 +90,16 @@ export const ContactsIcon = () => (
   </Svg>
 )
 
+// Academics: a book held open. Not a mortarboard - that says "graduation",
+// which is one day, and this is about the term you are in
+export const AcademicsIcon = () => (
+  <Svg>
+    <path d="M12 6.8v13" />
+    <path d="M12 6.8C10.3 5.4 7.8 4.8 4 4.8v12.6c3.8 0 6.3.6 8 2" />
+    <path d="M12 6.8c1.7-1.4 4.2-2 8-2v12.6c-3.8 0-6.3.6-8 2" />
+  </Svg>
+)
+
 // Stats: bars rising off a baseline
 export const StatsIcon = () => (
   <Svg>

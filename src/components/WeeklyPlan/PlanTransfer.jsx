@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { encodePlan, decodePlan, materializePlan, formatWeekRange, weekLabel, fromISODate, toISODate } from '../../utils'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 function useEscape(onClose) {
   useEffect(() => {
@@ -25,6 +26,9 @@ function WeekHeading({ eyebrow, weekStart }) {
 const countLabel = (n) => (n === 0 ? 'No tasks' : n === 1 ? '1 task' : `${n} tasks`)
 
 export function CopyPlanDialog({ weekStart, projects, onClose }) {
+  // Holds the page still underneath; on touch a drag on the backdrop
+  // would otherwise scroll the plan away behind the dialog
+  useScrollLock()
   // Everything starts selected - the common case is copying the whole week
   const [selected, setSelected] = useState(() => new Set(projects.map(p => String(p.id))))
   const [fallbackCode, setFallbackCode] = useState('')
@@ -134,6 +138,9 @@ export function CopyPlanDialog({ weekStart, projects, onClose }) {
 }
 
 export function PastePlanDialog({ weekStart, onPaste, onClose }) {
+  // Holds the page still underneath; on touch a drag on the backdrop
+  // would otherwise scroll the plan away behind the dialog
+  useScrollLock()
   const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
   useEscape(onClose)

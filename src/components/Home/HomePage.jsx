@@ -1,7 +1,9 @@
 import React from 'react'
 import { useApp } from '../../context/AppContext'
 import { useToday } from '../../hooks/useToday'
-import { TodayPanel, WeatherPanel, CountdownPanel, BirthdayPanel } from './Overview'
+import {
+  TodayPanel, WeatherPanel, CountdownPanel, BirthdayPanel, DeadlinePanel,
+} from './Overview'
 import {
   toISODate, startOfWeek, rollUp, weekCountdown, formatWeekRange,
   DAY_NAMES, MONTH_NAMES,
@@ -65,6 +67,7 @@ export function HomePage() {
       <div className="home-grid">
         <div className="home-col wide">
           <TodayPanel />
+          <DeadlinePanel />
         </div>
         <div className="home-col narrow">
           <WeatherPanel />

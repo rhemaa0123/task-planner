@@ -6,7 +6,9 @@ import { WeatherIcon, SearchIcon, PlusIcon, TrashIcon } from '../icons'
 import {
   toISODate, collectDay, sinkCompleted, sortByNextBirthday, formatBirthdayDate,
   sortCountdowns, formatShortDate, DAY_NAMES, fromISODate,
+  collectDeadlines, dueWords, formatDeadline,
 } from '../../utils'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 /* ============================================================
    The panels of the home page.
@@ -246,6 +248,9 @@ export function CountdownPanel() {
    no geolocation prompt, no IP lookup - a town name goes out to Open-Meteo's
    search and coordinates come back. */
 function PlaceDialog({ current, onPick, onClose }) {
+  // Holds the page still underneath; on touch a drag on the backdrop
+  // would otherwise scroll the plan away behind the dialog
+  useScrollLock()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
@@ -393,6 +398,104 @@ export function WeatherPanel() {
 
       {picking && (
         <PlaceDialog current={place} onPick={setPlace} onClose={() => setPicking(false)} />
+      )}
+    </section>
+  )
+}
+
+/* ---- Deadlines ----
+   Everything with a date somebody else set, in one list: assignments from the
+   academics page, and the projects and tasks on the weekly board that carry a
+   deadline. Three stores, one question - what is owed, and when.
+
+   The panel owns none of it. `collectDeadlines` reads the three stores and
+   sorts them together; every row links back to the page that writes it. So
+   this is a way in, the same as the rest of the home page, and the one thing
+   it adds is the comparison - a course assignment and a project deadline
+   landing in the same week is a fact neither page can show you on its own.
+
+   Two readings per row and no more: how long you have, and how far through you
+   are. A thing already answered - submitted, ticked, a project all done - is
+   not here at all. Those are not deadlines any more, and the pages keep them.
+
+   `PLAN` marks everything off the weekly board, so at a glance a column of
+   course codes is coursework and a column of PLAN is your own work. */
+export function DeadlinePanel() {
+  const { allProjects, academics } = useApp()
+  const now = useToday()
+
+  const rows = collectDeadlines({ allProjects, academics }, now)
+  const late = rows.filter((r) => r.days != null && r.days < 0).length
+  const week = rows.filter((r) => r.days != null && r.days >= 0 && r.days <= 7).length
+  const hasCourses = (academics.courses || []).length > 0
+
+  return (
+    <section className="panel">
+      <div className="panel-head">
+        <span className="eyebrow">DEADLINES</span>
+        {rows.length > 0 && <span className="panel-count">{rows.length}</span>}
+        {week > 0 && <span className="panel-say">{week} this week</span>}
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="home-empty">
+          Nothing is due. Give a project a deadline on <a href="#/weekly">the week</a>
+          {hasCourses
+            ? <> or add an assignment under <a href="#/academics">a course</a>.</>
+            : <>, or add <a href="#/academics">a course</a> and its assignments appear here.</>}
+        </p>
+      ) : (
+        <ul className="home-dl-list">
+          {rows.slice(0, 7).map((r) => {
+            const overdue = r.days != null && r.days < 0
+            const soon = r.days != null && r.days >= 0 && r.days <= 2
+            return (
+              <li key={r.key}>
+                <a className={`home-dl ${overdue ? 'late' : ''}`} href={r.href}>
+                  <span
+                    className={r.colour ? `course-chip c${r.colour}` : 'course-chip plan'}
+                    title={r.kind}
+                  >
+                    {r.chip}
+                  </span>
+
+                  <span className="home-dl-text">
+                    <span className="home-dl-title">{r.title}</span>
+                    <span className="home-dl-from">
+                      {formatDeadline(r.date)}
+                      {r.time && <> · {r.time}</>}
+                      {/* The date is a label and is set in caps like every
+                          other date here; a project's name is prose the user
+                          typed, so it keeps the case they typed it in. */}
+                      {r.from && <i className="home-dl-ctx">{r.from}</i>}
+                    </span>
+                  </span>
+
+                  {r.progress && (
+                    <span className={`home-dl-count ${r.progress.done === r.progress.total ? 'full' : ''}`}>
+                      {r.progress.done}/{r.progress.total}
+                    </span>
+                  )}
+
+                  <span className={`home-dl-when ${overdue ? 'late' : ''} ${soon ? 'soon' : ''}`}>
+                    {dueWords(r.days)}
+                  </span>
+                </a>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      {late > 0 && (
+        <p className="home-missed">
+          {late} {late === 1 ? 'thing is' : 'things are'} past due
+        </p>
+      )}
+      {rows.length > 7 && (
+        <p className="home-dl-more">
+          {rows.length - 7} more, further out
+        </p>
       )}
     </section>
   )

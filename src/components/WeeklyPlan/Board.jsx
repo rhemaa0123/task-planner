@@ -8,8 +8,12 @@ import {
   addDays, weekLabel, formatWeekRange, formatWeekTitle, startOfWeek, rollUp, toISODate, fromISODate,
   formatShortDate, weekCountdown,
 } from '../../utils'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 function EndWeekDialog({ unfinished, onEnd, onCarry, onClose }) {
+  // Holds the page still underneath; on touch a drag on the backdrop
+  // would otherwise scroll the plan away behind the dialog
+  useScrollLock()
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -45,6 +49,9 @@ function EndWeekDialog({ unfinished, onEnd, onCarry, onClose }) {
 }
 
 function ReopenDialog({ range, onReopen, onClose }) {
+  // Holds the page still underneath; on touch a drag on the backdrop
+  // would otherwise scroll the plan away behind the dialog
+  useScrollLock()
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -160,10 +167,20 @@ export function Board() {
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </button>
 
+            {/* Buttons, not spans with an onClick: these were unreachable by
+                keyboard, and an inline element's padding grows its hit box
+                without growing its line box, so the touch target overlapped
+                the chevron beside it. */}
             {moving ? (
-              <span className="today-link" onClick={cancelMove}>Cancel</span>
+              <button type="button" className="today-link" onClick={cancelMove}>Cancel</button>
             ) : (
-              <span className="today-link" onClick={() => setWeekStart(startOfWeek())}>Today</span>
+              <button
+                type="button"
+                className="today-link"
+                onClick={() => setWeekStart(startOfWeek())}
+              >
+                Today
+              </button>
             )}
           </div>
           <div className="toolbar-right">

@@ -2,7 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover lets the page use the full screen on a notched
+         phone; every fixed element then subtracts env(safe-area-inset-*)
+         so nothing sits under the notch or the home indicator. The two go
+         together: without cover the insets are all 0px, and without the
+         insets cover puts the menu button under the camera.
+         No maximum-scale and no user-scalable=no - pinch zoom stays. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- So the browser chrome follows the theme rather than staying white -->
+    <meta name="theme-color" content="#F0F0DB" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#131317" media="(prefers-color-scheme: dark)" />
     <title>Hardlife on Software</title>
     <link rel="icon" type="image/svg+xml" href="/icon.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

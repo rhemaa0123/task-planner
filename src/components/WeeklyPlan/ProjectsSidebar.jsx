@@ -4,6 +4,7 @@ import { formatDeadline, toISODate, weekDayList, subtaskTally, rollUp, sinkCompl
 import { useSinkFlip } from '../../hooks/useSinkFlip'
 import { CopyPlanDialog, PastePlanDialog } from './PlanTransfer'
 import { DashedOutline } from '../Dash'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 function EditableText({ value, onSave, onEnter, placeholder, className, autoFocus, readOnly }) {
   const [text, setText] = useState(value || '')
@@ -167,6 +168,9 @@ const displayToIso = (text) => {
 }
 
 function DeadlineDialog({ project, onSave, onClose }) {
+  // Holds the page still underneath; on touch a drag on the backdrop
+  // would otherwise scroll the plan away behind the dialog
+  useScrollLock()
   const [text, setText] = useState(isoToDisplay(project.deadline))
   const pickerRef = useRef(null)
 
@@ -321,6 +325,9 @@ const rowId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toS
 const blankRow = () => ({ id: rowId(), title: '', completed: false })
 
 function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }) {
+  // Holds the page still underneath; on touch a drag on the backdrop
+  // would otherwise scroll the plan away behind the dialog
+  useScrollLock()
   const days = weekDayList(weekStartIso)
 
   // Subtasks are grouped by their day so a day box owns its own rows; the flat
@@ -876,7 +883,7 @@ export function ProjectsSidebar() {
             <div className="project-card-head" style={{display: 'flex', alignItems: 'center', gap: 12}}>
 
               <div style={{display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden', flex: 1}}>
-                <div className="proj-hover-action" style={{cursor: 'grab', color: 'var(--ink-faint)', display: 'flex'}}>
+                <div className="proj-hover-action proj-grip" style={{cursor: 'grab', color: 'var(--ink-faint)', display: 'flex'}}>
                   <GripIcon />
                 </div>
                 <div className="proj-title-wrap">

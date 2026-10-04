@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext'
 import { toISODate, weekDayList, startOfWeek, sinkCompleted, completionKey, collectDay } from '../../utils'
 import { useSinkFlip } from '../../hooks/useSinkFlip'
 import { DashedOutline } from '../Dash'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 // Project deadlines landing in this week, grouped by day. One source for both
 // the tab flag and the "Due ·" line, so the two can never disagree. Task
@@ -47,6 +48,9 @@ const CalendarIcon = () => (
 )
 
 function MoveDialog({ item, days, todayIso, onMove, onClose }) {
+  // Holds the page still underneath; on touch a drag on the backdrop
+  // would otherwise scroll the plan away behind the dialog
+  useScrollLock()
   const fromDay = days.find(d => d.date === item.day_date)
   const [target, setTarget] = useState(null)
   const [markMissed, setMarkMissed] = useState(true)
@@ -258,6 +262,9 @@ function MissedCard({ item, compact, frozen, onClear }) {
 }
 
 function ClearMissedDialog({ item, dayShort, onClear, onClose }) {
+  // Holds the page still underneath; on touch a drag on the backdrop
+  // would otherwise scroll the plan away behind the dialog
+  useScrollLock()
   useEffect(() => {
     const onKey = e => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)

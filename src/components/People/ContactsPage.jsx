@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { PlusIcon, TrashIcon, SearchIcon } from '../icons'
 import { DashedOutline } from '../Dash'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 /* ============================================================
    Contacts
@@ -19,6 +20,9 @@ import { DashedOutline } from '../Dash'
 const BLANK = { name: '', email: '', phone: '', from: '', note: '' }
 
 function ContactDialog({ entry, onSave, onClose }) {
+  // Holds the page still underneath; on touch a drag on the backdrop
+  // would otherwise scroll the plan away behind the dialog
+  useScrollLock()
   const [form, setForm] = useState({ ...BLANK, ...(entry || {}) })
 
   useEffect(() => {

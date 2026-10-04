@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { AppProvider, useApp } from './context/AppContext'
 import { useHashRouter } from './hooks/useHashRouter'
+import { useScrollLock } from './hooks/useScrollLock'
 import { Sidebar, readCollapsed } from './components/Sidebar/Sidebar'
 import { HomePage } from './components/Home/HomePage'
 import { Board } from './components/WeeklyPlan/Board'
 import { WeeksPage } from './components/Weeks/WeeksPage'
 import { StatsPage } from './components/Stats/StatsPage'
+import { AcademicsPage } from './components/Academics/AcademicsPage'
 import { MonthlyPage } from './components/Monthly/MonthlyPage'
 import { YearlyPage } from './components/Yearly/YearlyPage'
 import { BirthdaysPage } from './components/People/BirthdaysPage'
@@ -28,6 +30,11 @@ function AppContent() {
   const { toasts } = useApp()
   const [collapsed, setCollapsed] = useState(readCollapsed)
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  // The scrim covers the page but does not stop it scrolling: on a phone a
+  // drag anywhere on it would scroll the plan away behind the drawer, and
+  // closing it would leave you somewhere else entirely
+  useScrollLock(drawerOpen)
 
   const toggle = () => {
     // On a phone the same control opens and closes the drawer; the rail state
@@ -63,6 +70,7 @@ function AppContent() {
     : route.startsWith('#/yearly') ? <YearlyPage />
     : route.startsWith('#/weeks') ? <WeeksPage />
     : route.startsWith('#/stats') ? <StatsPage />
+    : route.startsWith('#/academics') ? <AcademicsPage />
     : route.startsWith('#/birthdays') ? <BirthdaysPage />
     : route.startsWith('#/contacts') ? <ContactsPage />
     : route.startsWith('#/about') ? <AboutPage />

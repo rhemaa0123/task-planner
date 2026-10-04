@@ -5,8 +5,12 @@ import {
   formatWeekTitle, formatShortDate,
 } from '../../utils'
 import { DashedOutline } from '../Dash'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 function ConfirmDialog({ eyebrow, title, copy, action, onConfirm, onClose }) {
+  // Holds the page still underneath; on touch a drag on the backdrop
+  // would otherwise scroll the plan away behind the dialog
+  useScrollLock()
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)

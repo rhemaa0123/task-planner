@@ -6,6 +6,7 @@ import { DashedOutline } from '../Dash'
 import {
   sortByNextBirthday, MONTH_NAMES, MONTH_SHORT, daysInMonth,
 } from '../../utils'
+import { useScrollLock } from '../../hooks/useScrollLock'
 
 /* ============================================================
    Birthdays
@@ -25,6 +26,9 @@ import {
 // into parts on save. The year is dropped when "I don't know the year" is
 // ticked, rather than stored as a guess that an age would then be computed off.
 function AddDialog({ entry, onSave, onClose }) {
+  // Holds the page still underneath; on touch a drag on the backdrop
+  // would otherwise scroll the plan away behind the dialog
+  useScrollLock()
   const [name, setName] = useState(entry?.name || '')
   const [month, setMonth] = useState(entry?.month || '')
   const [day, setDay] = useState(entry?.day || '')
