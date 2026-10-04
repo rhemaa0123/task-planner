@@ -3055,7 +3055,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   line-height: 1.2;
   min-width: 190px;
 }
-.month-title.year { min-width: 110px; font-family: var(--mono); font-weight: 600; }
+.month-title.year { min-width: 110px; font-family: var(--mono); font-weight: 600; text-align: center; }
 
 /* ---- Panels ---- */
 .panel {
@@ -3131,9 +3131,11 @@ input[type="text"].goal-text {
   color: var(--ink);
 }
 input[type="text"].goal-text::placeholder { color: var(--ink-faint); }
+/* Typed in place like a task name in the projects pane: no box on focus.
+   Outranks the global input focus border. */
 input[type="text"].goal-text:focus {
-  background: var(--bg);
-  border-color: var(--accent-fill);
+  background: transparent;
+  border-color: transparent;
 }
 .goal-row.done .goal-text { text-decoration: line-through; color: var(--ink-faint); }
 
@@ -3155,6 +3157,9 @@ input[type="text"].goal-text:focus {
 .bday-row:hover .row-del,
 .home-cd:hover .row-del,
 .ct-table tr:hover .row-del,
+.asg-main:hover .row-del,
+.asg-item:hover .row-del,
+.course-card:hover .row-del,
 .row-del:focus-visible { opacity: 1; }
 .row-del:hover { color: var(--warn); background: var(--warn-soft); }
 
