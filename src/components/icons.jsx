@@ -138,6 +138,21 @@ export const SearchIcon = () => (
   <Svg><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></Svg>
 )
 
+// A pop-up that comes round every day: two arrows chasing each other
+export const RepeatIcon = () => (
+  <Svg>
+    <path d="M17 2.5l3 3-3 3" />
+    <path d="M4 11.5v-1a5 5 0 0 1 5-5h11" />
+    <path d="M7 21.5l-3-3 3-3" />
+    <path d="M20 12.5v1a5 5 0 0 1-5 5H4" />
+  </Svg>
+)
+
+// On to the next day
+export const ArrowRightIcon = () => (
+  <Svg><path d="M4.5 12h15M13.5 6l6 6-6 6" /></Svg>
+)
+
 export const TrashIcon = () => (
   <Svg>
     <path d="M4.5 7h15M9.5 7V5.2A1.2 1.2 0 0 1 10.7 4h2.6a1.2 1.2 0 0 1 1.2 1.2V7" />

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
 import {
   toISODate, fromISODate, addDays, startOfWeek, rollUp, dayLoad, encodePlan,
-  formatWeekTitle, formatShortDate,
+  formatWeekTitle, formatShortDate, addTally, popupTally, popupHorizon, weekDates,
 } from '../../utils'
 import { DashedOutline } from '../Dash'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -157,9 +157,10 @@ const XIcon = ({ size = 12 }) => (
 )
 
 export function WeeksPage() {
-  const { allProjects, weekMeta, setWeekStart, deleteWeek, clearAll, showToast } = useApp()
+  const { allProjects, weekMeta, setWeekStart, deleteWeek, clearAll, showToast, popups } = useApp()
   const thisWeekIso = toISODate(startOfWeek())
   const todayIso = toISODate(new Date())
+  const horizon = popupHorizon(new Date())
   const [futureOpen, setFutureOpen] = useState(false)
   const [confirm, setConfirm] = useState(null)
   const pageRef = useRef(null)
@@ -167,19 +168,25 @@ export function WeeksPage() {
 
   // Every week that holds a plan - the current one included only when it
   // does, so an empty week never sits in the list and removing this week's
-  // plan takes its row with it
+  // plan takes its row with it. Pop-ups alone do not make a week a row (one
+  // daily would put every week in the list), but a listed week's figures
+  // count them, as the board does.
   const isos = new Set(allProjects.map(p => p.week_start).filter(Boolean))
 
   const weeks = [...isos].sort().reverse().map(iso => {
     const projects = allProjects.filter(p => p.week_start === iso)
-    const { done, total, pct } = rollUp(projects.flatMap(p => p.tasks || []))
+    const plan = rollUp(projects.flatMap(p => p.tasks || []))
+    const { done, total, pct } = addTally(plan, popupTally(popups, weekDates(iso), horizon))
     return {
       iso,
       projects,
       done,
       total,
       pct,
-      days: dayLoad(iso, projects),
+      // What deleting the week takes with it - its projects' work, not the
+      // pop-ups, which stay on their days
+      planTotal: plan.total,
+      days: dayLoad(iso, projects, popups, horizon),
       ended: !!weekMeta[iso]?.ended,
       kind: iso > thisWeekIso ? 'future' : iso === thisWeekIso ? 'current' : 'past',
     }
@@ -318,7 +325,7 @@ export function WeeksPage() {
         <ConfirmDialog
           eyebrow="REMOVE WEEK"
           title={formatWeekTitle(confirm.week.iso)}
-          copy={`This removes every project and task planned for this week.${confirm.week.total > 0 ? ` ${confirm.week.total} ${confirm.week.total === 1 ? 'item' : 'items'} will be gone.` : ''}`}
+          copy={`This removes every project and task planned for this week.${confirm.week.planTotal > 0 ? ` ${confirm.week.planTotal} ${confirm.week.planTotal === 1 ? 'item' : 'items'} will be gone.` : ''}`}
           action="Remove week"
           onClose={() => setConfirm(null)}
           onConfirm={() => {
@@ -332,7 +339,7 @@ export function WeeksPage() {
         <ConfirmDialog
           eyebrow="CLEAR ALL"
           title="Start over?"
-          copy="This removes every week you have planned and resets your stats. There is no undo."
+          copy="This removes every week you have planned, and their stats with them. Pop-ups stay on their days. There is no undo."
           action="Clear all"
           onClose={() => setConfirm(null)}
           onConfirm={() => {

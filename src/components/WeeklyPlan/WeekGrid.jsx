@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
-import { toISODate, weekDayList, startOfWeek, sinkCompleted, completionKey, collectDay } from '../../utils'
+import {
+  toISODate, weekDayList, startOfWeek, sinkCompleted, completionKey, collectDay,
+  popupsOn, popupHorizon, popupCompletionKey, isCounted,
+} from '../../utils'
 import { useSinkFlip } from '../../hooks/useSinkFlip'
 import { DashedOutline } from '../Dash'
 import { useScrollLock } from '../../hooks/useScrollLock'
+import { PopupList } from '../Popups'
+import { RepeatIcon } from '../icons'
 
 // Project deadlines landing in this week, grouped by day. One source for both
 // the tab flag and the "Due ·" line, so the two can never disagree. Task
@@ -293,14 +298,48 @@ function ClearMissedDialog({ item, dayShort, onClear, onClose }) {
   )
 }
 
+// The pop-ups in a day block: one line each, tickable, nothing to edit - like
+// the cards above them, the grid is the summary and focus is where you write
+function BlockPopups({ rows, frozen, onTick }) {
+  return (
+    <ul className="day-block-pops">
+      {sinkCompleted(rows).map(r => (
+        <li key={r.key} className={`day-pop ${r.completed ? 'done' : ''}`}>
+          <input
+            type="checkbox"
+            className="task-check"
+            checked={r.completed}
+            disabled={frozen}
+            onChange={e => onTick(r, e.target.checked)}
+            aria-label={r.text}
+          />
+          <span className="day-pop-text">{r.text}</span>
+          {r.daily && (
+            <span className="day-pop-daily" title="Repeats every day" aria-label="Repeats every day">
+              <RepeatIcon />
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function WeekGrid() {
-  const { projects, weekStart, setWeekStart, weekEnded, toggleTask, toggleSubtask, moveScheduled, clearMissedDay } = useApp()
+  const {
+    projects, weekStart, setWeekStart, weekEnded, toggleTask, toggleSubtask, moveScheduled, clearMissedDay,
+    popups, tickPopup,
+  } = useApp()
   const frozen = weekEnded
 
   const weekStartIso = toISODate(weekStart)
   const days = weekDayList(weekStartIso)
   const todayIso = toISODate(new Date())
   const todayIdx = days.findIndex(d => d.date === todayIso)
+  // Each day's pop-ups - dailies only as far as the horizon, so a week far
+  // ahead holds only what was written into it
+  const horizon = popupHorizon(new Date())
+  const perDayPop = days.map(d => popupsOn(popups, d.date, horizon))
 
   // A week you are not living in opens on its Monday
   const [dayIdx, setDayIdx] = useState(() => (todayIdx === -1 ? 0 : todayIdx))
@@ -311,8 +350,10 @@ export function WeekGrid() {
   const [clearing, setClearing] = useState(null)
 
   // Ticking a card sends it to the foot of its day - walked down rather than
-  // jumped, so what was just crossed out stays in sight
-  const trackCard = useSinkFlip(completionKey(projects))
+  // jumped, so what was just crossed out stays in sight. Pop-ups sink the same way.
+  const trackCard = useSinkFlip(
+    `${completionKey(projects)}|${popupCompletionKey(popups, days.map(d => d.date), horizon)}`,
+  )
 
   const [view, setViewState] = useState(readView)
   const showAll = view === 'all'
@@ -337,12 +378,19 @@ export function WeekGrid() {
   const due = dueByDay(projects)
 
   const perDay = days.map(d => collectDay(projects, d.date))
-  const selected = days[dayIdx] || days[0]
-  const { items, missed } = perDay[dayIdx] || perDay[0]
-  const counts = tally(items)
+  const selIdx = days[dayIdx] ? dayIdx : 0
+  const selected = days[selIdx]
+  const { items, missed } = perDay[selIdx]
+  const pops = perDayPop[selIdx]
+  // A day's units are its scheduled work and its pop-ups, counted alike; a
+  // pop-up still being typed (no words yet) is not counted
+  const unitsOn = (i) => [...perDay[i].items, ...perDayPop[i].filter(isCounted)]
+  const counts = tally(unitsOn(selIdx))
   const dueNames = due.get(selected.date) || []
-  // Until something is scheduled there is nothing to focus or to lay out
+  // Until something is scheduled there is nothing to lay out in the grid; the
+  // focused day is always there, since that is where a pop-up is written
   const hasWork = perDay.some(d => d.items.length > 0 || d.missed.length > 0)
+    || perDayPop.some(p => p.some(isCounted))
 
   // From another week this jumps back first; the effect above then lands on today
   const focusToday = (e) => {
@@ -355,9 +403,15 @@ export function WeekGrid() {
     <main className="week-grid-container">
       <div className="grid-header">
         <span className="eyebrow">THIS WEEK</span>
-        {hasWork && <div className="header-links" style={{color: 'var(--ink-faint)'}}>
+        <div className="header-links" style={{color: 'var(--ink-faint)'}}>
           {showAll ? (
-            <span>click any day to focus it</span>
+            hasWork ? (
+              <span>click any day to focus it</span>
+            ) : (
+              // The grid has nothing to click, and the focused day is where
+              // the first pop-up of an empty week gets written
+              <a href="#" onClick={(e) => { e.preventDefault(); setView('focus') }}>focus one day</a>
+            )
           ) : (
             <>
               Focusing <b className="focus-day">{selected.short}</b>
@@ -367,10 +421,10 @@ export function WeekGrid() {
               <a href="#" onClick={(e) => { e.preventDefault(); setView('all') }}>show all days</a>
             </>
           )}
-        </div>}
+        </div>
       </div>
 
-      {!hasWork ? (
+      {showAll && !hasWork ? (
         <div className="week-empty dash-box">
           <DashedOutline r={12} />
           <b>Nothing scheduled yet</b>
@@ -380,7 +434,8 @@ export function WeekGrid() {
         <div className="day-grid">
           {days.map((d, i) => {
             const { items: dayItems, missed: dayMissed } = perDay[i]
-            const c = tally(dayItems)
+            const dayPops = perDayPop[i].filter(isCounted)
+            const c = tally(unitsOn(i))
             const flagged = due.get(d.date)
             return (
               <section
@@ -419,6 +474,8 @@ export function WeekGrid() {
                     ))}
                   </div>
                 )}
+
+                {dayPops.length > 0 && <BlockPopups rows={dayPops} frozen={frozen} onTick={tickPopup} />}
               </section>
             )
           })}
@@ -427,7 +484,7 @@ export function WeekGrid() {
         <>
           <div className="day-tabs">
             {days.map((d, i) => {
-              const c = tally(perDay[i].items)
+              const c = tally(unitsOn(i))
               const flagged = due.get(d.date)
               return (
                 <button
@@ -466,7 +523,7 @@ export function WeekGrid() {
             </div>
 
             {items.length === 0 && missed.length === 0 ? (
-              <div className="day-panel-empty">Nothing scheduled for {selected.name}.</div>
+              pops.length === 0 && <div className="day-panel-empty">Nothing scheduled for {selected.name}.</div>
             ) : (
               <div className="day-panel-list">
                 {sinkDone(perUnit(items)).map(g => (
@@ -485,6 +542,10 @@ export function WeekGrid() {
                 ))}
               </div>
             )}
+
+            {/* Keyed by the day, so a row half-typed on Monday is not still
+                asking for the caret when Tuesday is picked */}
+            <PopupList key={selected.date} iso={selected.date} rows={pops} frozen={frozen} track={trackCard} />
           </div>
         </>
       )}

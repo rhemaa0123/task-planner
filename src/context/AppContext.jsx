@@ -27,6 +27,17 @@ const COUNTDOWNS_KEY = 'task-planner-countdowns'
    open on. */
 const ACADEMICS_KEY = 'task-planner-academics'
 const EMPTY_ACADEMICS = { activeTerm: '', courses: [], assignments: [] }
+/* Pop-ups: the day's small things, outside any project. One key holding the
+   two kinds - written for one day, and daily - so turning one into the other
+   is a single write rather than a delete in one store and an add in another.
+   See the note above `popupHorizon()` in utils.js for the shape. */
+const POPUPS_KEY = 'task-planner-popups'
+const EMPTY_POPUPS = { days: {}, daily: [] }
+const readPopups = () => {
+  const stored = readKey(POPUPS_KEY, EMPTY_POPUPS)
+  const days = stored.days && typeof stored.days === 'object' && !Array.isArray(stored.days) ? stored.days : {}
+  return { days, daily: Array.isArray(stored.daily) ? stored.daily : [] }
+}
 
 // Reads one of those keys, falling back to `empty` on anything unexpected -
 // a missing key, a half-written value, a browser refusing to hand it over
@@ -85,6 +96,7 @@ export function AppProvider({ children }) {
     ...EMPTY_ACADEMICS,
     ...readKey(ACADEMICS_KEY, EMPTY_ACADEMICS),
   }))
+  const [popups, setPopups] = useState(readPopups)
   // The same trick `latest` plays for the plan, once per store: a mutation
   // reads the value as last written rather than as last rendered, so Enter on
   // a goal (save it, then add the next one) sees its own first write.
@@ -96,6 +108,7 @@ export function AppProvider({ children }) {
     [YEARS_KEY]: years,
     [COUNTDOWNS_KEY]: countdowns,
     [ACADEMICS_KEY]: academics,
+    [POPUPS_KEY]: popups,
   })
   const [toasts, setToasts] = useState([])
   // Set once if the browser refuses to persist, so the warning is not repeated
@@ -272,6 +285,80 @@ export function AppProvider({ children }) {
       if (subtaskId == null) return strip(t)
       return { ...t, subtasks: (t.subtasks || []).map(s => String(s.id) === String(subtaskId) ? strip(s) : s) }
     })
+  }
+
+  /* Moves one unit onto a day in another week than the one its project is
+     filed under - in practice Sunday's work sent on to Monday. Each week keeps
+     its own projects, so changing the unit's day alone would put it on a
+     Monday that next week's board never draws. It is filed the way Carry
+     forward files a week's leftovers instead, one unit rather than a week's
+     worth: into the same-named project in that week, made if it is not there
+     yet. A subtask joins a copy of its task there - `carriedFrom` names the
+     original, so a second subtask of the same task joins the same copy - and
+     the task left behind keeps its other subtasks, or goes once it has none.
+     The day it slipped from is kept in missedDays, as the move dialog keeps
+     it. One write. */
+  const refileUnit = (taskId, subtaskId, toIso) => {
+    const all = current()
+    const toWeek = toISODate(startOfWeek(fromISODate(toIso)))
+    const src = all.find(p => (p.tasks || []).some(t => String(t.id) === String(taskId)))
+    if (!src) return false
+    if (src.week_start === toWeek) {
+      moveScheduled(taskId, subtaskId == null ? null : [subtaskId], toIso, true)
+      return true
+    }
+    const task = src.tasks.find(t => String(t.id) === String(taskId))
+    const slipped = (item) => (item.day_date && item.day_date !== toIso
+      ? [...new Set([...(item.missedDays || []), item.day_date])]
+      : (item.missedDays || []))
+
+    // The project's namesake in the destination week, or a new one carrying
+    // the deadline on by the same number of weeks, as Carry forward does
+    const weeks = weeksBetween(src.week_start, toWeek)
+    const shift = (d) => (d ? toISODate(addDays(fromISODate(d), weeks * 7)) : null)
+    const existing = all.find(p => p.week_start === toWeek && p.name === src.name)
+    const target = existing
+      ? { ...existing, tasks: [...(existing.tasks || [])] }
+      : { id: generateId(), name: src.name, deadline: shift(src.deadline), week_start: toWeek, tasks: [] }
+
+    let srcTasks
+    if (subtaskId == null) {
+      // A task that is its own unit travels whole
+      srcTasks = src.tasks.filter(t => String(t.id) !== String(taskId))
+      target.tasks.push({ ...task, project_id: target.id, day_date: toIso, missedDays: slipped(task) })
+    } else {
+      const sub = (task.subtasks || []).find(s => String(s.id) === String(subtaskId))
+      if (!sub) return false
+      const moved = { ...sub, day_date: toIso, missedDays: slipped(sub) }
+      const left = task.subtasks.filter(s => String(s.id) !== String(subtaskId))
+      srcTasks = left.length
+        ? src.tasks.map(t => String(t.id) === String(taskId)
+          ? { ...t, subtasks: left, day_date: earliestDay(left), completed: left.every(s => s.completed) }
+          : t)
+        : src.tasks.filter(t => String(t.id) !== String(taskId))
+
+      const at = target.tasks.findIndex(t => t.carriedFrom != null && String(t.carriedFrom) === String(taskId))
+      if (at === -1) {
+        target.tasks.push({
+          ...task,
+          id: generateId(),
+          project_id: target.id,
+          carriedFrom: task.id,
+          subtasks: [moved],
+          day_date: toIso,
+          completed: false,
+          missedDays: [],
+        })
+      } else {
+        const copy = target.tasks[at]
+        const subs = [...(copy.subtasks || []), moved]
+        target.tasks[at] = { ...copy, subtasks: subs, day_date: earliestDay(subs), completed: false }
+      }
+    }
+
+    const next = all.map(p => (p === src ? { ...src, tasks: srcTasks } : p === existing ? target : p))
+    save(existing ? next : [...next, target])
+    return true
   }
 
   const importPlan = (incoming) => {
@@ -683,6 +770,123 @@ export function AppProvider({ children }) {
         : x),
     }))
 
+  /* ---- Pop-ups ----
+     The day's small things, outside any project. Everything goes through
+     `patchPopups`, so turning a written pop-up into a daily - out of `days`,
+     into `daily` - is one write. */
+  const patchPopups = (fn) =>
+    setStore(POPUPS_KEY, setPopups, (all) => {
+      const base = { ...EMPTY_POPUPS, ...all }
+      return { ...base, ...fn(base) }
+    })
+
+  const sameId = (a, b) => String(a) === String(b)
+
+  // Takes a pop-up out of one day's list; a day left with none drops its key,
+  // so the store does not fill up with empty dates
+  const withoutPopup = (days, iso, id) => {
+    const next = { ...days }
+    const left = (days[iso] || []).filter((p) => !sameId(p.id, id))
+    if (left.length) next[iso] = left
+    else delete next[iso]
+    return next
+  }
+
+  // Lands at the end of the day's list, straight after `after` when given, or
+  // first with `first` - the dailies are drawn above the written ones, so
+  // Enter on a daily puts the new row directly under them
+  const addPopup = (iso, text = '', { after = null, first = false } = {}) => {
+    const id = generateId()
+    patchPopups((s) => {
+      const list = [...(s.days[iso] || [])]
+      const at = after == null ? -1 : list.findIndex((p) => sameId(p.id, after))
+      list.splice(first ? 0 : at === -1 ? list.length : at + 1, 0, { id, text, done: false })
+      return { days: { ...s.days, [iso]: list } }
+    })
+    return id
+  }
+
+  const updatePopup = (iso, id, patch) =>
+    patchPopups((s) => (s.days[iso]
+      ? { days: { ...s.days, [iso]: s.days[iso].map((p) => sameId(p.id, id) ? { ...p, ...patch } : p) } }
+      : {}))
+
+  const deletePopup = (iso, id) => patchPopups((s) => ({ days: withoutPopup(s.days, iso, id) }))
+
+  // Onto another day, at the end of that day's list
+  const movePopup = (fromIso, id, toIso) =>
+    patchPopups((s) => {
+      const item = (s.days[fromIso] || []).find((p) => sameId(p.id, id))
+      if (!item || fromIso === toIso) return {}
+      const days = withoutPopup(s.days, fromIso, id)
+      days[toIso] = [...(days[toIso] || []), item]
+      return { days }
+    })
+
+  // A written pop-up becomes a daily from its own day on, keeping its tick
+  const makeDaily = (iso, id) =>
+    patchPopups((s) => {
+      const item = (s.days[iso] || []).find((p) => sameId(p.id, id))
+      if (!item) return {}
+      return {
+        days: withoutPopup(s.days, iso, id),
+        daily: [...s.daily, {
+          id: item.id,
+          text: item.text || '',
+          from: iso,
+          until: null,
+          done: item.done ? [iso] : [],
+          skip: [],
+        }],
+      }
+    })
+
+  // `fn` returns the daily's replacement - an empty list removes it
+  const patchDaily = (id, fn) =>
+    patchPopups((s) => ({ daily: s.daily.flatMap((d) => (sameId(d.id, id) ? fn(d) : [d])) }))
+
+  const toggleDaily = (id, iso, done) =>
+    patchDaily(id, (d) => {
+      const ticked = new Set(d.done || [])
+      if (done) ticked.add(iso)
+      else ticked.delete(iso)
+      return [{ ...d, done: [...ticked].sort() }]
+    })
+
+  const renameDaily = (id, text) => patchDaily(id, (d) => [{ ...d, text }])
+
+  // Just this day - the daily still stands on every other
+  const skipDaily = (id, iso) =>
+    patchDaily(id, (d) => [{
+      ...d,
+      skip: [...new Set([...(d.skip || []), iso])].sort(),
+      done: (d.done || []).filter((x) => x !== iso),
+    }])
+
+  // This day and every one after it. The days before keep their ticks; a
+  // daily stopped on its very first day is gone altogether
+  const stopDaily = (id, iso) =>
+    patchDaily(id, (d) => {
+      const until = toISODate(addDays(fromISODate(iso), -1))
+      if (until < d.from) return []
+      const end = d.until && d.until < until ? d.until : until
+      return [{
+        ...d,
+        until: end,
+        done: (d.done || []).filter((x) => x <= end),
+        skip: (d.skip || []).filter((x) => x <= end),
+      }]
+    })
+
+  // A row as `popupsOn()` draws it, whichever kind it is
+  const tickPopup = (row, done) => (row.daily
+    ? toggleDaily(row.id, row.iso, done)
+    : updatePopup(row.iso, row.id, { done }))
+
+  const renamePopup = (row, text) => (row.daily
+    ? renameDaily(row.id, text)
+    : updatePopup(row.iso, row.id, { text }))
+
   /* One year, keyed by the number. A theme for the whole year and a line of
      intent per month - the coarsest layer, read when a month is being set up. */
   const patchYear = (year, fn) =>
@@ -714,7 +918,9 @@ export function AppProvider({ children }) {
       weekMeta, weekEnded, endWeek, reopenWeek, carryForward, moveWeek, deleteWeek, clearAll,
       addProject, updateProjectName, deleteProject, setProjectDeadline, reorderProjects, importPlan,
       addTask, updateTaskTitle, setTaskDay, setTaskSchedule, toggleSubtask, moveScheduled, clearMissedDay,
-      deleteTask, toggleTask, reorderTasks,
+      deleteTask, toggleTask, reorderTasks, refileUnit,
+      popups, addPopup, updatePopup, deletePopup, movePopup, makeDaily,
+      toggleDaily, renameDaily, skipDaily, stopDaily, tickPopup, renamePopup,
       profile, setProfileName,
       birthdays, addBirthday, updateBirthday, deleteBirthday,
       contacts, addContact, updateContact, deleteContact,

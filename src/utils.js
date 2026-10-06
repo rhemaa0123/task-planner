@@ -153,9 +153,18 @@ export function rollUp(tasks) {
   return { done, total, pct: total === 0 ? 0 : Math.round((done / total) * 100) }
 }
 
+// Two tallies as one - the plan's units and the pop-ups beside them, which
+// count the same as any other unit of work
+export function addTally(a, b) {
+  const done = (a?.done || 0) + (b?.done || 0)
+  const total = (a?.total || 0) + (b?.total || 0)
+  return { done, total, pct: total === 0 ? 0 : Math.round((done / total) * 100) }
+}
+
 // Units of work per weekday for one week's projects - a subtask lands on its own
-// day, a task with no subtasks on its day_date, and unscheduled work on none
-export function dayLoad(weekStartIso, projects) {
+// day, a task with no subtasks on its day_date, and unscheduled work on none.
+// Pop-ups, when given, land on their own day like any other unit.
+export function dayLoad(weekStartIso, projects, popups = null, horizon = null) {
   const days = weekDayList(weekStartIso).map((d) => ({ ...d, total: 0, done: 0 }))
   const byDate = new Map(days.map((d) => [d.date, d]))
   const bump = (iso, completed) => {
@@ -169,6 +178,13 @@ export function dayLoad(weekStartIso, projects) {
       const subs = t.subtasks || []
       if (subs.length) subs.forEach((s) => bump(s.day_date, s.completed))
       else bump(t.day_date, t.completed)
+    }
+  }
+  if (popups) {
+    for (const d of days) {
+      for (const r of popupsOn(popups, d.date, horizon)) {
+        if (isCounted(r)) bump(d.date, r.completed)
+      }
     }
   }
   return days
@@ -673,6 +689,9 @@ export function collectDay(projects, iso) {
         taskId: t.id,
         projectName: p.name || 'Untitled project',
         taskTitle: t.title || 'Untitled task',
+        // The week the unit is filed under, which is not always the week its
+        // day falls in - moving it on has to know which
+        weekStart: p.week_start,
       }
 
       if (subs.length) {
@@ -710,6 +729,124 @@ export function collectDay(projects, iso) {
     }
   }
   return { items, missed }
+}
+
+/* ---- Dragging ----
+   Firefox will not start a drag that carries no data, but the payload must
+   not be text: a drop that misses every target here - the browser's own tab
+   strip, the desktop - is handed to whatever it lands on, and a tab strip
+   opens a page for any text it is given ("task:0" became a blank tab). A
+   private type is data only this app knows to read, so a drop anywhere else
+   is a no-op. Every drag in the app carries this and nothing else. */
+export const DRAG_TYPE = 'application/x-task-planner'
+
+/* ---- Pop-ups ----
+   The small things a day holds that are not a project's work: brush your
+   teeth, fill the water bottle, bring the coffee. A line and a box, filed
+   under a date and nothing else - no project, no subtasks, no deadline. They
+   are written down so they can leave your head, which is why adding one is a
+   line you type into rather than a dialog.
+
+   Two kinds, in one store (`task-planner-popups`):
+     days:  { "YYYY-MM-DD": [ { id, text, done } ] }   once, on that day
+     daily: [ { id, text, from, until|null, done: [iso], skip: [iso] } ]
+   A daily is one record that stands on every day from `from` - through
+   `until` when it has been stopped, and never on a day it was skipped. Its
+   ticks are kept per day in `done`, so Tuesday's tick is not Wednesday's.
+
+   They count as units of work: a day's tally and a week's progress include
+   them. A daily is drawn - and counted - only as far as `popupHorizon()`, or
+   one with no end would fill every week from here to forever. */
+
+// How far ahead a daily is drawn: the end of the week you are in, or
+// tomorrow when that is further - on a Sunday, tomorrow is next week's Monday
+// and planning it still needs its dailies
+export function popupHorizon(now = new Date()) {
+  const endOfWeek = toISODate(addDays(startOfWeek(now), 6))
+  const tomorrow = toISODate(addDays(now, 1))
+  return tomorrow > endOfWeek ? tomorrow : endOfWeek
+}
+
+export function dailyOn(daily, iso) {
+  if (!daily || !daily.from || iso < daily.from) return false
+  if (daily.until && iso > daily.until) return false
+  return !(daily.skip || []).includes(iso)
+}
+
+// One day's pop-ups as rows: the dailies first - the routine the day is built
+// on - then the ones written for this day, in the order they were written
+export function popupsOn(store, iso, horizon = null) {
+  const rows = []
+  if (!horizon || iso <= horizon) {
+    for (const d of store?.daily || []) {
+      if (!dailyOn(d, iso)) continue
+      rows.push({
+        key: `d-${d.id}`,
+        id: d.id,
+        iso,
+        text: d.text || '',
+        completed: (d.done || []).includes(iso),
+        daily: true,
+      })
+    }
+  }
+  for (const p of store?.days?.[iso] || []) {
+    rows.push({ key: `p-${p.id}`, id: p.id, iso, text: p.text || '', completed: !!p.done, daily: false })
+  }
+  return rows
+}
+
+// A pop-up with no words is a row still being typed, not a thing to do: it is
+// drawn, so it can be typed into, but it is never counted
+export const isCounted = (row) => !!String(row?.text || '').trim()
+
+export function popupTally(store, isos, horizon = null) {
+  let done = 0
+  let total = 0
+  for (const iso of isos || []) {
+    for (const r of popupsOn(store, iso, horizon)) {
+      if (!isCounted(r)) continue
+      total++
+      if (r.completed) done++
+    }
+  }
+  return { done, total, pct: total === 0 ? 0 : Math.round((done / total) * 100) }
+}
+
+// The seven days of the week starting `weekStartIso`, as dates
+export const weekDates = (weekStartIso) => weekDayList(weekStartIso).map((d) => d.date)
+
+// Every counted pop-up in the store, one per day it stands on, each saying
+// its week and day - the shape `units()` in the stats module walks. Written
+// ones are taken as they are; a daily is walked from its first day to the
+// horizon (or its last day, if sooner).
+export function* popupUnits(store, horizon) {
+  const weekOf = (iso) => toISODate(startOfWeek(fromISODate(iso)))
+  for (const [iso, list] of Object.entries(store?.days || {})) {
+    for (const p of list || []) {
+      if (!isCounted(p)) continue
+      yield { week: weekOf(iso), day: iso, done: !!p.done, missed: [] }
+    }
+  }
+  for (const d of store?.daily || []) {
+    if (!isCounted(d) || !d.from) continue
+    const end = d.until && d.until < horizon ? d.until : horizon
+    const done = new Set(d.done || [])
+    for (let iso = d.from; iso <= end; iso = toISODate(addDays(fromISODate(iso), 1))) {
+      if (!dailyOn(d, iso)) continue
+      yield { week: weekOf(iso), day: iso, done: done.has(iso), missed: [] }
+    }
+  }
+}
+
+// Every ticked pop-up across some days, as one string - the pop-up half of
+// `completionKey`, so a ticked pop-up sinks the way a ticked task does
+export function popupCompletionKey(store, isos, horizon = null) {
+  const done = []
+  for (const iso of isos || []) {
+    for (const r of popupsOn(store, iso, horizon)) if (r.completed) done.push(`${iso}:${r.key}`)
+  }
+  return done.sort().join(',')
 }
 
 // "Saturday, 03 October" - the sidebar's own date line

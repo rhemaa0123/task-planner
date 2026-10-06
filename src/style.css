@@ -1420,6 +1420,34 @@ input[type="text"].task-name-input.done {
   gap: 6px;
 }
 
+/* A day's pop-ups in the grid: a line each under the cards, unboxed, so the
+   plan's work and the small things never read as the same kind of row */
+.day-block-pops {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.day-block-list + .day-block-pops {
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.day-pop {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 3px 2px;
+  min-width: 0;
+  font-size: var(--fs-body);
+  line-height: 1.35;
+  color: var(--ink-typed);
+}
+.day-pop .task-check { margin-top: 0; }
+.day-pop-text { flex: 1; min-width: 0; overflow-wrap: anywhere; padding-top: 1px; }
+.day-pop.done .day-pop-text { text-decoration: line-through; color: var(--ink-faint); }
+.day-pop-daily { flex-shrink: 0; display: grid; padding-top: 3px; color: var(--ink-faint); }
+.day-pop-daily svg { width: 12px; height: 12px; }
+
 /* In the grid the cards are a summary: a tight box, the project in small
    caps, the task a point under the row size so a narrow column still holds
    a name on one line. Overdue reads
@@ -2940,6 +2968,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   .nav-row { padding: 10px var(--sp-2); }
 
   .row-del,
+  .row-send,
   .day-card-clear,
   .sched-sub-del,
   .asg-disclose,
@@ -2948,6 +2977,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
     position: relative;
   }
   .row-del::after,
+  .row-send::after,
   .day-card-clear::after,
   .sched-sub-del::after,
   .asg-disclose::after,
@@ -3160,6 +3190,7 @@ input[type="text"].goal-text:focus {
 .asg-main:hover .row-del,
 .asg-item:hover .row-del,
 .course-card:hover .row-del,
+.home-today-row:hover .row-del,
 .row-del:focus-visible { opacity: 1; }
 .row-del:hover { color: var(--warn); background: var(--warn-soft); }
 
@@ -3185,6 +3216,81 @@ input[type="text"].goal-text:focus {
   place-items: center;
 }
 .add-row-plus svg { width: 14px; height: 14px; }
+
+/* ---- Pop-ups ----
+   The day's small things, outside any project. Typed in place like a month's
+   focuses - the rows are `.goal-row`s - and set apart from the plan's work
+   above them by a hairline and a quiet label. */
+.popups {
+  padding: var(--sp-1) var(--sp-3) var(--sp-3);
+  border-top: 1px solid var(--line);
+}
+/* On a phone the day's work comes in to 12px, and the pop-ups with it (8
+   here + the row's own 4). Here rather than in the phone block, which comes
+   earlier in the file and would lose to the rule above. */
+@media (max-width: 600px) {
+  .popups { padding: var(--sp-1) var(--sp-2) var(--sp-2); }
+}
+.popups-label {
+  padding: var(--sp-3) var(--sp-1) var(--sp-1);
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: var(--w-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+/* Ticked rows sink, and walk down rather than jump - the travel is named here
+   because a rule restating `transition` would otherwise drop it. The box and
+   the words line up with the day's work above: the same 8px gap as a day
+   card's line, and no inset on the field, which never draws a box anyway */
+.popup-row { gap: var(--sp-2); transition: background-color 0.12s, var(--travel); }
+.popups input[type="text"].goal-text { padding-left: 0; }
+/* "Repeat every day", hidden with the × until the row is hovered; it asks
+   nothing of you, so it lights up in the accent rather than the warning red */
+.row-repeat:hover { color: var(--accent); background: var(--accent-soft); }
+/* A daily's mark: always shown, since it says what the row is. Set on a soft
+   accent ground, so on touch - where every written row also shows its plain
+   "repeat" button - a row that already repeats is never mistaken for one
+   that only offers to */
+.popup-daily {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-chip);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.popup-daily svg { width: 14px; height: 14px; }
+
+/* One line to jot a pop-up down: always open, no box until it is typed in */
+.popup-add {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-1);
+  padding: 2px var(--sp-2);
+  border-radius: var(--r-chip);
+  color: var(--ink-faint);
+}
+.popup-add:hover { background: var(--hover-neutral); }
+.popup-add:focus-within { color: var(--accent); }
+input[type="text"].popup-add-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 5px 0;
+  font-size: var(--fs-body);
+  color: var(--ink);
+}
+input[type="text"].popup-add-input::placeholder { color: var(--ink-faint); }
+input[type="text"].popup-add-input:focus {
+  background: transparent;
+  border-color: transparent;
+}
 
 /* ============================================================
    Monthly
@@ -4332,6 +4438,81 @@ button.stat-sub.as-link:hover { color: var(--ink); }
   font-size: var(--fs-chrome);
   color: var(--ink-faint);
 }
+
+/* The head carries a count, the plan-tomorrow switch and a link; on a phone
+   the link wraps under rather than squeezing the switch */
+.home-today .panel-head { flex-wrap: wrap; row-gap: var(--sp-1); }
+.home-today-text { flex: 1; }
+.home-today .popups-label { padding-left: var(--sp-2); }
+.home-today-row .popup-daily { width: 22px; height: 22px; }
+.home-today-row .row-del,
+.home-today-row .row-send { width: 24px; height: 24px; }
+
+.plan-toggle {
+  padding: 3px 10px;
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.plan-toggle:hover { color: var(--accent); border-color: var(--accent); }
+.plan-toggle.on {
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--on-accent);
+}
+
+/* ---- Planning tomorrow ----
+   Today and Tomorrow side by side across the whole width, so a row only has
+   to travel sideways; they stack, Today first, once two will not fit. */
+.home-plan {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  align-items: flex-start;
+}
+.home-plan > .panel { flex: 1 1 340px; min-width: 0; }
+
+/* What can go on to tomorrow: held to drag, or sent with its arrow - the
+   arrow shows on hover, and always on touch, where nothing can be dragged */
+.home-today-row.movable { cursor: grab; }
+.home-today-row.dragging { opacity: 0.45; }
+.row-send {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-chip);
+  color: var(--ink-faint);
+  opacity: 0;
+}
+.row-send svg { width: 14px; height: 14px; }
+.home-today-row:hover .row-send,
+.row-send:focus-visible { opacity: 1; }
+.row-send:hover:not(:disabled) { color: var(--accent); background: var(--accent-soft); }
+.row-send:disabled { cursor: not-allowed; }
+.home-today-row:hover .row-send:disabled { opacity: 0.4; }
+/* On touch the arrow is the only way to move a row, so it is always there.
+   Kept here, after the rules above, rather than in the touch block with the
+   ×: at equal weight the later rule wins, and that block comes first. */
+@media (hover: none) {
+  .row-send { opacity: 1; }
+  .row-send:disabled { opacity: 0.4; }
+}
+
+.home-tomorrow-date { color: var(--ink-faint); }
+.home-tomorrow { transition: border-color 0.15s, background-color 0.15s; }
+/* Lit the moment a drag starts in Today, filled once it is over the panel */
+.home-tomorrow.drop-ready { border-color: var(--accent-fill); border-style: dashed; }
+.home-tomorrow.drop-over { background: var(--accent-soft); }
 
 /* ---- Weather ---- */
 .home-wx-setup {

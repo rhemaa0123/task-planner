@@ -6,7 +6,7 @@ import { PlusIcon, TrashIcon } from '../icons'
 import {
   monthKey, shiftMonth, formatMonthLabel, daysInMonth, monthWeekStarts,
   formatWeekTitle, fromISODate, toISODate, startOfWeek, addDays, rollUp,
-  DAY_INITIALS,
+  DAY_INITIALS, addTally, popupTally, popupsOn, popupHorizon, isCounted, weekDates,
 } from '../../utils'
 
 /* ============================================================
@@ -25,8 +25,9 @@ import {
 
 // Units of work per calendar date, across every week in the store. Built once
 // per render over the whole plan rather than per day, so a month of 31 cells
-// is one pass and not thirty-one.
-function loadByDate(projects) {
+// is one pass and not thirty-one. The pop-ups on the calendar's own days
+// count beside them, as they do on the weekly board.
+function loadByDate(projects, popups, isos, horizon) {
   const map = new Map()
   const bump = (iso, completed) => {
     if (!iso) return
@@ -40,6 +41,11 @@ function loadByDate(projects) {
       const subs = t.subtasks || []
       if (subs.length) subs.forEach((s) => bump(s.day_date, s.completed))
       else bump(t.day_date, t.completed)
+    }
+  }
+  for (const iso of isos) {
+    for (const r of popupsOn(popups, iso, horizon)) {
+      if (isCounted(r)) bump(iso, r.completed)
     }
   }
   return map
@@ -117,7 +123,7 @@ function monthFromRoute(route, now) {
 
 export function MonthlyPage({ route = '#/monthly' }) {
   const {
-    allProjects, months, addMonthGoal, updateMonthGoal, deleteMonthGoal, setMonthNote, setWeekStart,
+    allProjects, months, addMonthGoal, updateMonthGoal, deleteMonthGoal, setMonthNote, setWeekStart, popups,
   } = useApp()
   const now = useToday()
   const at = monthFromRoute(route, now)
@@ -131,12 +137,17 @@ export function MonthlyPage({ route = '#/monthly' }) {
 
   const todayIso = toISODate(now)
   const thisMonth = at.year === now.getFullYear() && at.month === now.getMonth() + 1
-  const load = loadByDate(allProjects)
+  const horizon = popupHorizon(now)
+  const weekStarts = monthWeekStarts(at.year, at.month)
+  const load = loadByDate(allProjects, popups, weekStarts.flatMap(weekDates), horizon)
 
   // One row per week touching this month, with the work already planned in it
-  const weeks = monthWeekStarts(at.year, at.month).map((iso) => {
+  const weeks = weekStarts.map((iso) => {
     const inWeek = allProjects.filter((p) => p.week_start === iso)
-    const { done, total, pct } = rollUp(inWeek.flatMap((p) => p.tasks || []))
+    const { done, total, pct } = addTally(
+      rollUp(inWeek.flatMap((p) => p.tasks || [])),
+      popupTally(popups, weekDates(iso), horizon),
+    )
     return { iso, projects: inWeek.length, done, total, pct }
   })
 

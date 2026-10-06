@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useApp } from '../../context/AppContext'
-import { formatDeadline, toISODate, weekDayList, subtaskTally, rollUp, sinkCompleted, completionKey } from '../../utils'
+// DRAG_TYPE is the app's one private drag payload - see utils.js for why a
+// drag here must never carry text
+import { formatDeadline, toISODate, weekDayList, subtaskTally, rollUp, sinkCompleted, completionKey, DRAG_TYPE } from '../../utils'
 import { useSinkFlip } from '../../hooks/useSinkFlip'
 import { CopyPlanDialog, PastePlanDialog } from './PlanTransfer'
 import { DashedOutline } from '../Dash'
@@ -133,14 +135,6 @@ const pointerOutside = (e) => {
   const r = e.currentTarget.getBoundingClientRect()
   return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom
 }
-
-// Firefox will not start a drag that carries no data, but the payload must
-// not be text: a drop that misses every target here - the browser's own tab
-// strip, the desktop - is handed to whatever it lands on, and a tab strip
-// opens a page for any text it is given ("task:0" became a blank tab). A
-// private type is data only this component knows to read, so a drop
-// anywhere else is a no-op.
-const DRAG_TYPE = 'application/x-task-planner'
 
 // Matches the scale in .assign-date:hover
 const MAGNIFY = 1.14

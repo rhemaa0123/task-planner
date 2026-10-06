@@ -2,7 +2,9 @@ import React, { useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useToday } from '../../hooks/useToday'
 import { InlineText } from '../InlineText'
-import { MONTH_NAMES, monthKey, rollUp, monthWeekStarts } from '../../utils'
+import {
+  MONTH_NAMES, monthKey, rollUp, monthWeekStarts, addTally, popupTally, popupHorizon, weekDates,
+} from '../../utils'
 
 /* ============================================================
    Yearly planning — the coarsest layer, and on purpose the thinnest.
@@ -18,7 +20,7 @@ import { MONTH_NAMES, monthKey, rollUp, monthWeekStarts } from '../../utils'
    ============================================================ */
 
 export function YearlyPage() {
-  const { years, setYearTheme, setYearMonthNote, months, allProjects } = useApp()
+  const { years, setYearTheme, setYearMonthNote, months, allProjects, popups } = useApp()
   const now = useToday()
   const [year, setYear] = useState(() => now.getFullYear())
 
@@ -28,11 +30,15 @@ export function YearlyPage() {
 
   // Work planned inside a month, counted off the weeks that touch it. A week
   // on the turn of the month is counted in both, which is the honest answer -
-  // it is one week and it belongs to both of them.
+  // it is one week and it belongs to both of them. Those weeks' pop-ups count
+  // beside it, a daily only as far as the horizon - so a month ahead holds
+  // what was written into it and no more.
+  const horizon = popupHorizon(now)
   const planned = (month) => {
-    const starts = new Set(monthWeekStarts(year, month))
+    const weekStarts = monthWeekStarts(year, month)
+    const starts = new Set(weekStarts)
     const tasks = allProjects.filter((p) => starts.has(p.week_start)).flatMap((p) => p.tasks || [])
-    return rollUp(tasks)
+    return addTally(rollUp(tasks), popupTally(popups, weekStarts.flatMap(weekDates), horizon))
   }
 
   return (

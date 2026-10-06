@@ -1,13 +1,25 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useToday } from '../../hooks/useToday'
 import {
-  TodayPanel, WeatherPanel, CountdownPanel, BirthdayPanel, DeadlinePanel,
+  TodayPanel, TomorrowPanel, WeatherPanel, CountdownPanel, BirthdayPanel, DeadlinePanel,
 } from './Overview'
 import {
   toISODate, startOfWeek, rollUp, weekCountdown, formatWeekRange,
-  DAY_NAMES, MONTH_NAMES,
+  DAY_NAMES, MONTH_NAMES, addTally, popupTally, popupHorizon, weekDates,
 } from '../../utils'
+
+// Whether Tomorrow is open beside Today. A way of looking at the page, not
+// part of the plan, so it lives beside the theme and the week view - per
+// browser - rather than in the store.
+const PLAN_KEY = 'task-planner-home-tomorrow'
+const readPlanning = () => {
+  try {
+    return localStorage.getItem(PLAN_KEY) === 'open'
+  } catch {
+    return false
+  }
+}
 
 /* ============================================================
    Home — the overview, and what the app opens on.
@@ -23,12 +35,25 @@ import {
    ============================================================ */
 
 export function HomePage() {
-  const { profile, allProjects } = useApp()
+  const { profile, allProjects, popups } = useApp()
   const now = useToday()
 
   const weekIso = toISODate(startOfWeek(now))
   const thisWeek = allProjects.filter((p) => p.week_start === weekIso)
-  const { done, total, pct } = rollUp(thisWeek.flatMap((p) => p.tasks || []))
+  // The week's pop-ups count beside its work, as they do on the board
+  const { done, total, pct } = addTally(
+    rollUp(thisWeek.flatMap((p) => p.tasks || [])),
+    popupTally(popups, weekDates(weekIso), popupHorizon(now)),
+  )
+
+  const [planning, setPlanningState] = useState(readPlanning)
+  const togglePlanning = () => {
+    const next = !planning
+    setPlanningState(next)
+    try { localStorage.setItem(PLAN_KEY, next ? 'open' : 'closed') } catch { /* private mode - holds for the visit */ }
+  }
+  // The row being dragged out of Today, if any - Tomorrow lights up for it
+  const [dragKey, setDragKey] = useState(null)
 
   const day = DAY_NAMES[(now.getDay() + 6) % 7]
   const name = (profile.name || '').trim()
@@ -65,8 +90,17 @@ export function HomePage() {
           `.side`, and a bare `side` here inherited its `grid-column: 1` and its
           268px width, which dropped this column underneath the other one. */}
       <div className="home-grid">
+        {/* Planning tomorrow takes the whole width, the two days side by side
+            so a row only has to travel across; below ~700px they stack,
+            Today first */}
+        {planning && (
+          <div className="home-plan">
+            <TodayPanel planning onPlanning={togglePlanning} dragKey={dragKey} onDragKey={setDragKey} />
+            <TomorrowPanel armed={dragKey != null} onDropped={() => setDragKey(null)} />
+          </div>
+        )}
         <div className="home-col wide">
-          <TodayPanel />
+          {!planning && <TodayPanel onPlanning={togglePlanning} />}
           <DeadlinePanel />
         </div>
         <div className="home-col narrow">

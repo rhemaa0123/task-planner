@@ -48,10 +48,13 @@ function weekdayHeadline(byWeekday) {
 }
 
 export function StatsPage() {
-  const { allProjects, weekMeta, setWeekStart } = useApp()
+  const { allProjects, weekMeta, setWeekStart, popups } = useApp()
   const now = useToday()
 
-  const stats = useMemo(() => buildStats(allProjects, weekMeta, now), [allProjects, weekMeta, now])
+  const stats = useMemo(
+    () => buildStats(allProjects, weekMeta, now, popups),
+    [allProjects, weekMeta, now, popups],
+  )
   const bars = useMemo(() => recentWeeks(stats.byWeek, now, WEEK_SPAN), [stats.byWeek, now])
   const columns = useMemo(() => heatGrid(stats.byDate, now, HEAT_SPAN), [stats.byDate, now])
   const peak = useMemo(() => heatPeak(stats.byDate), [stats.byDate])

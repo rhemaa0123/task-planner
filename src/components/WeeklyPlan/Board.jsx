@@ -6,7 +6,7 @@ import { WeekGrid } from './WeekGrid'
 import { DashedOutline } from '../Dash'
 import {
   addDays, weekLabel, formatWeekRange, formatWeekTitle, startOfWeek, rollUp, toISODate, fromISODate,
-  formatShortDate, weekCountdown,
+  formatShortDate, weekCountdown, addTally, popupTally, popupHorizon, weekDates,
 } from '../../utils'
 import { useScrollLock } from '../../hooks/useScrollLock'
 
@@ -83,7 +83,7 @@ function ReopenDialog({ range, onReopen, onClose }) {
 export function Board() {
   const {
     projects, allProjects, weekStart, setWeekStart, weekMeta, weekEnded, endWeek, reopenWeek, carryForward, moveWeek,
-    showToast,
+    showToast, popups,
   } = useApp()
   const weekText = weekLabel(weekStart)
   const weekIso = toISODate(weekStart)
@@ -134,8 +134,10 @@ export function Board() {
     return () => window.removeEventListener('keydown', onKey)
   }, [moving])
 
-  // `projects` is already scoped to the visible week, so every task counts
-  const { done, total, pct } = rollUp(projects.flatMap(p => p.tasks || []))
+  // `projects` is already scoped to the visible week, so every task counts -
+  // and the week's pop-ups beside them, counted like any other unit
+  const plan = rollUp(projects.flatMap(p => p.tasks || []))
+  const { done, total, pct } = addTally(plan, popupTally(popups, weekDates(weekIso), popupHorizon(now)))
 
   return (
     <>
@@ -288,7 +290,9 @@ export function Board() {
 
       {ending && (
         <EndWeekDialog
-          unfinished={total - done}
+          // What Carry forward would move - project work only; pop-ups stay
+          // on their days
+          unfinished={plan.total - plan.done}
           onClose={() => setEnding(false)}
           onEnd={() => {
             endWeek(weekIso)
