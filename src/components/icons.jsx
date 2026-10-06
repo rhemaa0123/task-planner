@@ -153,6 +153,11 @@ export const ArrowRightIcon = () => (
   <Svg><path d="M4.5 12h15M13.5 6l6 6-6 6" /></Svg>
 )
 
+// Back to the day before
+export const ArrowLeftIcon = () => (
+  <Svg><path d="M19.5 12h-15M10.5 6l-6 6 6 6" /></Svg>
+)
+
 export const TrashIcon = () => (
   <Svg>
     <path d="M4.5 7h15M9.5 7V5.2A1.2 1.2 0 0 1 10.7 4h2.6a1.2 1.2 0 0 1 1.2 1.2V7" />

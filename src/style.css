@@ -1420,15 +1420,16 @@ input[type="text"].task-name-input.done {
   gap: 6px;
 }
 
-/* A day's pop-ups in the grid: a line each under the cards, unboxed, so the
-   plan's work and the small things never read as the same kind of row */
+/* A day's pop-ups in the grid: a line each above the cards - first, as in the
+   focused day - unboxed, so the plan's work and the small things never read as
+   the same kind of row, with a hairline before the cards */
 .day-block-pops {
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
-.day-block-list + .day-block-pops {
+.day-block-pops + .day-block-list {
   padding-top: 6px;
   border-top: 1px solid var(--line);
 }
@@ -3221,12 +3222,14 @@ input[type="text"].goal-text:focus {
 
 /* ---- Pop-ups ----
    The day's small things, outside any project. Typed in place like a month's
-   focuses - the rows are `.goal-row`s - and set apart from the plan's work
-   above them by a hairline and a quiet label. */
+   focuses - the rows are `.goal-row`s - under a quiet label, first in the day
+   (asked for, so they are the first thing seen) with a hairline above them
+   and another between them and the plan's work below. */
 .popups {
   padding: var(--sp-1) var(--sp-3) var(--sp-3);
   border-top: 1px solid var(--line);
 }
+.popups + .day-panel-list { border-top: 1px solid var(--line); }
 /* On a phone the day's work comes in to 12px, and the pop-ups with it (8
    here + the row's own 4). Here rather than in the phone block, which comes
    earlier in the file and would lose to the rule above. */
@@ -4464,6 +4467,10 @@ button.stat-sub.as-link:hover { color: var(--ink); }
 .home-today .panel-head { flex-wrap: wrap; row-gap: var(--sp-1); }
 .home-today-text { flex: 1; }
 .home-today .popups-label { padding-left: var(--sp-2); }
+/* The pop-ups lead, straight under the head; the project work follows them
+   under a hairline of its own */
+.home-today .panel-head + .popups-label { padding-top: var(--sp-1); }
+.home-today .projects-label { margin-top: var(--sp-2); border-top: 1px solid var(--line); }
 .home-today-row .popup-repeat,
 .home-today-row .row-del,
 .home-today-row .row-send { width: 24px; height: 24px; }
@@ -4529,10 +4536,11 @@ button.stat-sub.as-link:hover { color: var(--ink); }
 }
 
 .home-tomorrow-date { color: var(--ink-faint); }
-.home-tomorrow { transition: border-color 0.15s, background-color 0.15s; }
-/* Lit the moment a drag starts in Today, filled once it is over the panel */
-.home-tomorrow.drop-ready { border-color: var(--accent-fill); border-style: dashed; }
-.home-tomorrow.drop-over { background: var(--accent-soft); }
+/* Rows go either way between the two days. The panel a drag did not start in
+   is lit the moment it starts, and filled once the row is over it. */
+.home-plan > .panel { transition: border-color 0.15s, background-color 0.15s; }
+.home-today.drop-ready { border-color: var(--accent-fill); border-style: dashed; }
+.home-today.drop-over { background: var(--accent-soft); }
 
 /* ---- Weather ---- */
 .home-wx-setup {

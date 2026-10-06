@@ -52,8 +52,9 @@ export function HomePage() {
     setPlanningState(next)
     try { localStorage.setItem(PLAN_KEY, next ? 'open' : 'closed') } catch { /* private mode - holds for the visit */ }
   }
-  // The row being dragged out of Today, if any - Tomorrow lights up for it
-  const [dragKey, setDragKey] = useState(null)
+  // The row being dragged, and the day it started in - `{ key, from }`, or
+  // null. Shared by both panels, so the other one lights up for it.
+  const [drag, setDrag] = useState(null)
 
   const day = DAY_NAMES[(now.getDay() + 6) % 7]
   const name = (profile.name || '').trim()
@@ -91,12 +92,12 @@ export function HomePage() {
           268px width, which dropped this column underneath the other one. */}
       <div className="home-grid">
         {/* Planning tomorrow takes the whole width, the two days side by side
-            so a row only has to travel across; below ~700px they stack,
-            Today first */}
+            so a row only has to travel across - either way; below ~700px they
+            stack, Today first */}
         {planning && (
           <div className="home-plan">
-            <TodayPanel planning onPlanning={togglePlanning} dragKey={dragKey} onDragKey={setDragKey} />
-            <TomorrowPanel armed={dragKey != null} onDropped={() => setDragKey(null)} />
+            <TodayPanel planning onPlanning={togglePlanning} drag={drag} onDrag={setDrag} />
+            <TomorrowPanel drag={drag} onDrag={setDrag} />
           </div>
         )}
         <div className="home-col wide">

@@ -455,6 +455,9 @@ export function WeekGrid() {
                 </div>
                 {flagged && <div className="day-block-due">Due · {flagged.join(', ')}</div>}
 
+                {/* Pop-ups first, as in the focused day */}
+                {dayPops.length > 0 && <BlockPopups rows={dayPops} frozen={frozen} onTick={tickPopup} />}
+
                 {(dayItems.length > 0 || dayMissed.length > 0) && (
                   <div className="day-block-list">
                     {sinkDone(groupByTask(dayItems)).map(g => (
@@ -474,8 +477,6 @@ export function WeekGrid() {
                     ))}
                   </div>
                 )}
-
-                {dayPops.length > 0 && <BlockPopups rows={dayPops} frozen={frozen} onTick={tickPopup} />}
               </section>
             )
           })}
@@ -522,9 +523,17 @@ export function WeekGrid() {
               )}
             </div>
 
-            {items.length === 0 && missed.length === 0 ? (
-              pops.length === 0 && <div className="day-panel-empty">Nothing scheduled for {selected.name}.</div>
-            ) : (
+            {items.length === 0 && missed.length === 0 && pops.length === 0 && (
+              <div className="day-panel-empty">Nothing scheduled for {selected.name}.</div>
+            )}
+
+            {/* The day's pop-ups come first - asked for, so the small things
+                are the first thing seen - then the project work. Keyed by the
+                day, so a row half-typed on Monday is not still asking for the
+                caret when Tuesday is picked. */}
+            <PopupList key={selected.date} iso={selected.date} rows={pops} frozen={frozen} track={trackCard} />
+
+            {(items.length > 0 || missed.length > 0) && (
               <div className="day-panel-list">
                 {sinkDone(perUnit(items)).map(g => (
                   <TaskGroup
@@ -542,10 +551,6 @@ export function WeekGrid() {
                 ))}
               </div>
             )}
-
-            {/* Keyed by the day, so a row half-typed on Monday is not still
-                asking for the caret when Tuesday is picked */}
-            <PopupList key={selected.date} iso={selected.date} rows={pops} frozen={frozen} track={trackCard} />
           </div>
         </>
       )}

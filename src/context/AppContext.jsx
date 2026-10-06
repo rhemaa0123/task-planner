@@ -258,17 +258,21 @@ export function AppProvider({ children }) {
     return { ...t, subtasks: subs, completed: subs.length > 0 && subs.every(s => s.completed) }
   })
 
-  // Reschedules scheduled work onto a later day. `subtaskIds` is null when the
-  // task carries its own day. The day left behind is kept in missedDays when the
-  // dialog's "mark as missed" box is ticked, so the week still shows what slipped.
+  // Reschedules scheduled work onto another day - later from the board's move
+  // dialog, either way from Home's Today and Tomorrow. `subtaskIds` is null
+  // when the task carries its own day. The day left behind is kept in
+  // missedDays when `markMissed`, so the week still shows what slipped; the day
+  // it lands on never is - work on a day is not missed on it, so moving it
+  // back onto a day it slipped from takes that slip away.
+  const unitOnDay = (item, toDate, markMissed) => {
+    const kept = markMissed && item.day_date && item.day_date !== toDate
+      ? [...new Set([...(item.missedDays || []), item.day_date])]
+      : (item.missedDays || [])
+    return { ...item, day_date: toDate, missedDays: kept.filter(d => d !== toDate) }
+  }
+
   const moveScheduled = (taskId, subtaskIds, toDate, markMissed) => {
-    const stamp = (item) => ({
-      ...item,
-      day_date: toDate,
-      missedDays: markMissed && item.day_date && item.day_date !== toDate
-        ? [...new Set([...(item.missedDays || []), item.day_date])]
-        : (item.missedDays || []),
-    })
+    const stamp = (item) => unitOnDay(item, toDate, markMissed)
 
     patchTask(taskId, t => {
       if (subtaskIds == null) return stamp(t)
@@ -288,48 +292,48 @@ export function AppProvider({ children }) {
   }
 
   /* Moves one unit onto a day in another week than the one its project is
-     filed under - in practice Sunday's work sent on to Monday. Each week keeps
-     its own projects, so changing the unit's day alone would put it on a
-     Monday that next week's board never draws. It is filed the way Carry
+     filed under - in practice Sunday's work sent on to Monday, and back. Each
+     week keeps its own projects, so changing the unit's day alone would put it
+     on a day the other week's board never draws. It is filed the way Carry
      forward files a week's leftovers instead, one unit rather than a week's
      worth: into the same-named project in that week, made if it is not there
-     yet. A subtask joins a copy of its task there - `carriedFrom` names the
-     original, so a second subtask of the same task joins the same copy - and
-     the task left behind keeps its other subtasks, or goes once it has none.
-     The day it slipped from is kept in missedDays, as the move dialog keeps
-     it. One write. */
-  const refileUnit = (taskId, subtaskId, toIso) => {
+     yet (`carriedFrom` on it names the project it was made for).
+     A subtask joins its own task there when it came from that week in the
+     first place (the copy's `carriedFrom`), or the copy already made there for
+     its task, or else a new copy naming the original in `carriedFrom` - so
+     subtasks sent across one at a time gather in one task, and sent back they
+     go home. A task left with no subtasks goes, and so does a project that a
+     refile made and has now emptied, so there and back leaves no debris.
+     Missed days as `moveScheduled` keeps them. One write. */
+  const refileUnit = (taskId, subtaskId, toIso, markMissed = true) => {
     const all = current()
     const toWeek = toISODate(startOfWeek(fromISODate(toIso)))
     const src = all.find(p => (p.tasks || []).some(t => String(t.id) === String(taskId)))
     if (!src) return false
     if (src.week_start === toWeek) {
-      moveScheduled(taskId, subtaskId == null ? null : [subtaskId], toIso, true)
+      moveScheduled(taskId, subtaskId == null ? null : [subtaskId], toIso, markMissed)
       return true
     }
     const task = src.tasks.find(t => String(t.id) === String(taskId))
-    const slipped = (item) => (item.day_date && item.day_date !== toIso
-      ? [...new Set([...(item.missedDays || []), item.day_date])]
-      : (item.missedDays || []))
 
     // The project's namesake in the destination week, or a new one carrying
-    // the deadline on by the same number of weeks, as Carry forward does
+    // the deadline over by the same number of weeks, as Carry forward does
     const weeks = weeksBetween(src.week_start, toWeek)
     const shift = (d) => (d ? toISODate(addDays(fromISODate(d), weeks * 7)) : null)
     const existing = all.find(p => p.week_start === toWeek && p.name === src.name)
     const target = existing
       ? { ...existing, tasks: [...(existing.tasks || [])] }
-      : { id: generateId(), name: src.name, deadline: shift(src.deadline), week_start: toWeek, tasks: [] }
+      : { id: generateId(), name: src.name, deadline: shift(src.deadline), week_start: toWeek, tasks: [], carriedFrom: src.id }
 
     let srcTasks
     if (subtaskId == null) {
       // A task that is its own unit travels whole
       srcTasks = src.tasks.filter(t => String(t.id) !== String(taskId))
-      target.tasks.push({ ...task, project_id: target.id, day_date: toIso, missedDays: slipped(task) })
+      target.tasks.push({ ...unitOnDay(task, toIso, markMissed), project_id: target.id })
     } else {
       const sub = (task.subtasks || []).find(s => String(s.id) === String(subtaskId))
       if (!sub) return false
-      const moved = { ...sub, day_date: toIso, missedDays: slipped(sub) }
+      const moved = unitOnDay(sub, toIso, markMissed)
       const left = task.subtasks.filter(s => String(s.id) !== String(subtaskId))
       srcTasks = left.length
         ? src.tasks.map(t => String(t.id) === String(taskId)
@@ -337,7 +341,9 @@ export function AppProvider({ children }) {
           : t)
         : src.tasks.filter(t => String(t.id) !== String(taskId))
 
-      const at = target.tasks.findIndex(t => t.carriedFrom != null && String(t.carriedFrom) === String(taskId))
+      const at = target.tasks.findIndex(t =>
+        (task.carriedFrom != null && String(t.id) === String(task.carriedFrom))
+        || (t.carriedFrom != null && String(t.carriedFrom) === String(taskId)))
       if (at === -1) {
         target.tasks.push({
           ...task,
@@ -350,13 +356,18 @@ export function AppProvider({ children }) {
           missedDays: [],
         })
       } else {
-        const copy = target.tasks[at]
-        const subs = [...(copy.subtasks || []), moved]
-        target.tasks[at] = { ...copy, subtasks: subs, day_date: earliestDay(subs), completed: false }
+        const home = target.tasks[at]
+        const subs = [...(home.subtasks || []), moved]
+        target.tasks[at] = { ...home, subtasks: subs, day_date: earliestDay(subs), completed: subs.every(s => s.completed) }
       }
     }
 
-    const next = all.map(p => (p === src ? { ...src, tasks: srcTasks } : p === existing ? target : p))
+    // A project a refile made, now with nothing left in it, goes with the last unit
+    const emptied = !srcTasks.length && src.carriedFrom != null
+    const next = all.flatMap(p => {
+      if (p === src) return emptied ? [] : [{ ...src, tasks: srcTasks }]
+      return [p === existing ? target : p]
+    })
     save(existing ? next : [...next, target])
     return true
   }

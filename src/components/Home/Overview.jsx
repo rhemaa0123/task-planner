@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useToday } from '../../hooks/useToday'
 import { useWeather, searchPlaces, describeCode } from '../../hooks/useWeather'
-import { WeatherIcon, SearchIcon, PlusIcon, TrashIcon, ArrowRightIcon } from '../icons'
+import { WeatherIcon, SearchIcon, PlusIcon, TrashIcon, ArrowRightIcon, ArrowLeftIcon } from '../icons'
 import {
   toISODate, collectDay, sinkCompleted, sortByNextBirthday, formatBirthdayDate,
   sortCountdowns, formatShortDate, DAY_NAMES, fromISODate,
@@ -31,18 +31,24 @@ import { PopupQuickAdd, DailyRemoveDialog, RepeatToggle } from '../Popups'
    matters - a unit moved past the end of its week still belongs on the day it
    now sits on, and a list built from the *visible* week would lose it the
    moment the board browsed away. Ticking here is the same write the board
-   makes, so the two can never disagree. The day's pop-ups sit under the work,
-   with a line to jot another one down.
+   makes, so the two can never disagree. The day's pop-ups come first - asked
+   for, so the small things are the first thing you see - with a line to jot
+   another one down, and the project work under them.
 
    "Plan tomorrow" opens Tomorrow beside it - the end-of-day review. Anything
-   still open today can be dragged across (or sent with its arrow, which is
-   the only way on a touch screen): a pop-up just changes day, a unit of work
-   moves the way the board's move dialog moves it, today kept as missed, and
-   on a Sunday it is filed into next week's namesake project. */
+   still open can be dragged either way between the two, as often as you like
+   (or sent with its arrow, the only way on a touch screen). A pop-up just
+   changes day. A unit of work moved on to tomorrow keeps today as missed, as
+   the board's move dialog does; brought back, it is as if it never left -
+   today's missed mark goes - and pulling tomorrow's work into today leaves no
+   mark at all. Across the end of a week (Sunday and Monday) it is refiled into
+   the other week's namesake project, and back again. */
 
 const weekOf = (iso) => toISODate(startOfWeek(fromISODate(iso)))
 // Pop-up rows carry no task; every unit of work does
 const isPopup = (row) => row.taskId == null
+// The day a row stands on
+const dayOf = (row) => (isPopup(row) ? row.iso : row.day_date)
 
 // Leaving a target's box, not crossing onto one of its own children
 const pointerOutside = (e) => {
@@ -50,41 +56,50 @@ const pointerOutside = (e) => {
   return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom
 }
 
-function usePlanTomorrow() {
+function useDayMoves() {
   const { weekMeta, movePopup, moveScheduled, refileUnit } = useApp()
   const now = useToday()
   const todayIso = toISODate(now)
   const tomorrowIso = toISODate(addDays(now, 1))
-  const tomorrowWeek = weekOf(tomorrowIso)
-  const ended = (iso) => !!weekMeta[iso]?.ended
-  const targetEnded = ended(tomorrowWeek)
+  // Whether the week holding a day has been ended - frozen on the board
+  const ended = (iso) => !!weekMeta[weekOf(iso)]?.ended
 
-  // Why a row cannot go on to tomorrow, or null when it can. An ended week is
-  // frozen on the board, and moving work out of it or into it would change it.
-  const blocked = (row) => {
-    if (targetEnded) return "Tomorrow's week has ended - reopen it to move work there"
-    if (ended(isPopup(row) ? weekOf(row.iso) : row.weekStart)) return 'This week has ended - reopen it to move work out'
+  // Why a row cannot go to `toIso`, or null when it can. Work can neither
+  // leave an ended week nor arrive in one.
+  const blocked = (row, toIso) => {
+    if (ended(toIso)) {
+      return `${toIso === todayIso ? "Today's" : "Tomorrow's"} week has ended - reopen it to move work there`
+    }
+    if (ended(isPopup(row) ? row.iso : row.weekStart)) return 'Its week has ended - reopen it to move work out'
     return null
   }
 
-  const send = (row) => {
-    if (!row || row.completed || row.daily || blocked(row)) return
-    if (isPopup(row)) movePopup(row.iso, row.id, tomorrowIso)
-    // Filed under another week than tomorrow's - Sunday's work going on to
-    // Monday - so it is refiled rather than just re-dated
-    else if (row.weekStart !== tomorrowWeek) refileUnit(row.taskId, row.subtaskId, tomorrowIso)
-    else moveScheduled(row.taskId, row.subtaskId == null ? null : [row.subtaskId], tomorrowIso, true)
+  const move = (row, toIso) => {
+    if (!row || row.completed || row.daily || dayOf(row) === toIso || blocked(row, toIso)) return
+    if (isPopup(row)) {
+      movePopup(row.iso, row.id, toIso)
+      return
+    }
+    // Later is a slip, kept as missed on the day it left; earlier is pulling
+    // work in, and leaves no mark
+    const later = toIso > row.day_date
+    // Filed under another week than the day it is going to - Sunday's work and
+    // Monday's - so it is refiled rather than just re-dated
+    if (row.weekStart !== weekOf(toIso)) refileUnit(row.taskId, row.subtaskId, toIso, later)
+    else moveScheduled(row.taskId, row.subtaskId == null ? null : [row.subtaskId], toIso, later)
   }
 
-  return { todayIso, tomorrowIso, tomorrowWeek, targetEnded, blocked, send }
+  return { todayIso, tomorrowIso, ended, blocked, move }
 }
 
 // One row of either kind. A unit names where it came from under its title;
 // a pop-up is only its words, with its repeat switch - on, and in view, for
-// a daily.
+// a daily. While tomorrow is open, an open row carries the arrow to the other
+// day: → on today's, ← on tomorrow's.
 function HomeRow({ row, onTick, onRemove, mover, dragging }) {
   const popup = isPopup(row)
   const title = popup ? row.text : row.subtitle || row.taskTitle
+  const where = mover?.toToday ? 'today' : 'tomorrow'
   return (
     <li
       className={`home-today-row ${row.completed ? 'done' : ''} ${mover ? 'movable' : ''} ${dragging ? 'dragging' : ''}`}
@@ -113,10 +128,10 @@ function HomeRow({ row, onTick, onRemove, mover, dragging }) {
           className="row-send"
           onClick={mover.send}
           disabled={!!mover.why}
-          title={mover.why || 'Move to tomorrow'}
-          aria-label={`Move ${title} to tomorrow`}
+          title={mover.why || `Move to ${where}`}
+          aria-label={`Move ${title} to ${where}`}
         >
-          <ArrowRightIcon />
+          {mover.toToday ? <ArrowLeftIcon /> : <ArrowRightIcon />}
         </button>
       )}
       {onRemove && (
@@ -134,16 +149,24 @@ function HomeRow({ row, onTick, onRemove, mover, dragging }) {
   )
 }
 
-// One day's rows for a panel: the work first, then the pop-ups, each with
-// what is finished sunk to the foot. A pop-up still being typed somewhere
-// else (no words yet) is left out, as it is from every count.
-function useDayRows(iso) {
+/* Everything one day's panel needs: its rows - pop-ups and the work, each
+   with what is finished sunk to the foot (a pop-up still being typed
+   elsewhere, with no words yet, is left out, as it is from every count) - and,
+   while tomorrow is open, its half of the dragging. Each panel is a source for
+   its own rows and a target for the other day's: `drag` (lifted into the home
+   page) says which day a drag began in, so the other panel lights up for it
+   and this one ignores its own rows. */
+function usePlanDay({ iso, toIso, planning, drag, onDrag }) {
   const { allProjects, popups, toggleTask, toggleSubtask, tickPopup, deletePopup } = useApp()
   const now = useToday()
+  const moves = useDayMoves()
+  const [over, setOver] = useState(false)
+  const [removing, setRemoving] = useState(null)
+
   const { items, missed } = collectDay(allProjects, iso)
   const units = sinkCompleted(items)
   const pops = sinkCompleted(popupsOn(popups, iso, popupHorizon(now)).filter(isCounted))
-  const all = [...units, ...pops]
+  const all = [...pops, ...units]
   const done = all.filter((r) => r.completed).length
 
   const tick = (r, checked) => {
@@ -151,38 +174,59 @@ function useDayRows(iso) {
     else if (r.subtaskId) toggleSubtask(r.taskId, r.subtaskId, checked)
     else toggleTask(r.taskId, checked)
   }
-
-  return { units, pops, missed, total: all.length, done, tick, deletePopup }
-}
-
-export function TodayPanel({ planning = false, onPlanning, dragKey = null, onDragKey }) {
-  const now = useToday()
-  const iso = toISODate(now)
-  const { units, pops, missed, total, done, tick, deletePopup } = useDayRows(iso)
-  const plan = usePlanTomorrow()
-  const [removing, setRemoving] = useState(null)
-
   const remove = (r) => (r.daily ? setRemoving(r) : deletePopup(r.iso, r.id))
 
-  // Only while tomorrow is open, and only for what is still to do: a daily is
-  // on tomorrow already
+  // Only while tomorrow is open, and only for what is still to do: a daily
+  // stands on both days already
   const mover = (r) => {
     if (!planning || r.completed || r.daily) return null
-    const why = plan.blocked(r)
+    const why = moves.blocked(r, toIso)
     return {
       why,
-      send: () => plan.send(r),
+      toToday: toIso === moves.todayIso,
+      send: () => moves.move(r, toIso),
       drag: why ? null : {
         draggable: true,
         onDragStart: (e) => {
           e.dataTransfer.effectAllowed = 'move'
           e.dataTransfer.setData(DRAG_TYPE, JSON.stringify(r))
-          onDragKey?.(r.key)
+          onDrag?.({ key: r.key, from: iso })
         },
-        onDragEnd: () => onDragKey?.(null),
+        onDragEnd: () => onDrag?.(null),
       },
     }
   }
+
+  // Only this app's own drags are taken - anything else dragged over the page
+  // (a file, some text) is not a row - and never one that began in this panel.
+  // `dragenter` is cancelled as well as `dragover`: a drop is allowed only if
+  // the last of the two was, and the step onto a new element fires only enter.
+  const takes = (e) => Array.from(e.dataTransfer?.types || []).includes(DRAG_TYPE) && drag?.from !== iso
+  const onDragOver = (e) => {
+    if (!takes(e)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (!over) setOver(true)
+  }
+  const dropProps = planning ? {
+    onDragEnter: onDragOver,
+    onDragOver,
+    onDragLeave: (e) => { if (pointerOutside(e)) setOver(false) },
+    onDrop: (e) => {
+      if (!takes(e)) return
+      e.preventDefault()
+      setOver(false)
+      // The row has left its panel by now, so its own dragend may never come
+      onDrag?.(null)
+      try {
+        moves.move(JSON.parse(e.dataTransfer.getData(DRAG_TYPE)), iso)
+      } catch {
+        // Not a row - nothing to move
+      }
+    },
+  } : {}
+  // A drag that ended anywhere else leaves nothing lit
+  useEffect(() => { if (!drag) setOver(false) }, [drag])
 
   const row = (r, removable) => (
     <HomeRow
@@ -191,12 +235,41 @@ export function TodayPanel({ planning = false, onPlanning, dragKey = null, onDra
       onTick={tick}
       onRemove={removable ? remove : null}
       mover={mover(r)}
-      dragging={dragKey === r.key}
+      dragging={drag?.key === r.key}
     />
   )
 
+  const dropClass = `${drag && drag.from !== iso ? 'drop-ready' : ''} ${over ? 'drop-over' : ''}`
+
+  return { units, pops, missed, total: all.length, done, row, dropProps, dropClass, removing, setRemoving, moves }
+}
+
+// A day's rows: its pop-ups first, under their label and with the line to
+// add another, then the project work under a hairline
+function DayRows({ iso, units, pops, row }) {
   return (
-    <section className="panel home-today">
+    <>
+      <div className="popups-label">Pop-ups</div>
+      {pops.length > 0 && <ul className="home-today-list">{pops.map((r) => row(r, true))}</ul>}
+      <PopupQuickAdd iso={iso} />
+      {units.length > 0 && (
+        <>
+          <div className="popups-label projects-label">Projects</div>
+          <ul className="home-today-list">{units.map((r) => row(r, false))}</ul>
+        </>
+      )}
+    </>
+  )
+}
+
+export function TodayPanel({ planning = false, onPlanning, drag = null, onDrag }) {
+  const now = useToday()
+  const iso = toISODate(now)
+  const day = usePlanDay({ iso, toIso: toISODate(addDays(now, 1)), planning, drag, onDrag })
+  const { units, pops, missed, total, done } = day
+
+  return (
+    <section className={`panel home-today ${day.dropClass}`} {...day.dropProps}>
       <div className="panel-head">
         <span className="eyebrow">TODAY</span>
         {total > 0 && (
@@ -217,24 +290,17 @@ export function TodayPanel({ planning = false, onPlanning, dragKey = null, onDra
         <a className="panel-link" href="#/weekly">Open the week ↗</a>
       </div>
 
-      {total === 0 ? (
+      {day.moves.ended(iso) && planning && (
+        <p className="panel-hint">Today's week has ended. Reopen it on the weekly page to move work in or out.</p>
+      )}
+
+      {total === 0 && (
         <p className="home-empty">
           Nothing is scheduled for today. <a href="#/weekly">Plan the week</a>, or jot a
           pop-up down below.
         </p>
-      ) : (
-        <>
-          {units.length > 0 && <ul className="home-today-list">{units.map((r) => row(r, false))}</ul>}
-          {pops.length > 0 && (
-            <>
-              <div className="popups-label">Pop-ups</div>
-              <ul className="home-today-list">{pops.map((r) => row(r, true))}</ul>
-            </>
-          )}
-        </>
       )}
-
-      <PopupQuickAdd iso={iso} />
+      <DayRows iso={iso} units={units} pops={pops} row={day.row} />
 
       {missed.length > 0 && (
         <p className="home-missed">
@@ -242,61 +308,24 @@ export function TodayPanel({ planning = false, onPlanning, dragKey = null, onDra
         </p>
       )}
 
-      {removing && <DailyRemoveDialog row={removing} onClose={() => setRemoving(null)} />}
+      {day.removing && <DailyRemoveDialog row={day.removing} onClose={() => day.setRemoving(null)} />}
     </section>
   )
 }
 
 /* Tomorrow, beside today while you plan it: what the week already has on it,
-   its pop-ups, and the target for today's leftovers. `armed` lights it up the
-   moment a drag starts in Today, so the place to drop is never a guess. */
-export function TomorrowPanel({ armed = false, onDropped }) {
+   its pop-ups, and the other end of the drag. It lights up the moment a drag
+   starts in Today, as Today does for one that starts here, so the place to
+   drop is never a guess. */
+export function TomorrowPanel({ drag = null, onDrag }) {
   const { setWeekStart } = useApp()
-  const plan = usePlanTomorrow()
-  const iso = plan.tomorrowIso
-  const { units, pops, total, done, tick, deletePopup } = useDayRows(iso)
-  const [over, setOver] = useState(false)
-  const [removing, setRemoving] = useState(null)
-
-  const remove = (r) => (r.daily ? setRemoving(r) : deletePopup(r.iso, r.id))
-
-  // Only this app's own drags are taken; anything else dragged over the page
-  // (a file, some text) is not a row and is left alone
-  const ours = (e) => Array.from(e.dataTransfer?.types || []).includes(DRAG_TYPE)
-  // `dragenter` is cancelled as well as `dragover`: a drop is allowed only if
-  // the last of the two was, and the step onto a new element fires only enter
-  const onDragOver = (e) => {
-    if (!ours(e)) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    if (!over) setOver(true)
-  }
-  const onDragLeave = (e) => { if (pointerOutside(e)) setOver(false) }
-  const onDrop = (e) => {
-    if (!ours(e)) return
-    e.preventDefault()
-    setOver(false)
-    // The row is gone from Today by now, so its own dragend may never come
-    onDropped?.()
-    try {
-      plan.send(JSON.parse(e.dataTransfer.getData(DRAG_TYPE)))
-    } catch {
-      // Not a row - nothing to move
-    }
-  }
-
-  const row = (r, removable) => (
-    <HomeRow key={r.key} row={r} onTick={tick} onRemove={removable ? remove : null} />
-  )
+  const now = useToday()
+  const iso = toISODate(addDays(now, 1))
+  const day = usePlanDay({ iso, toIso: toISODate(now), planning: true, drag, onDrag })
+  const { units, pops, total, done } = day
 
   return (
-    <section
-      className={`panel home-today home-tomorrow ${armed ? 'drop-ready' : ''} ${over ? 'drop-over' : ''}`}
-      onDragEnter={onDragOver}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-    >
+    <section className={`panel home-today home-tomorrow ${day.dropClass}`} {...day.dropProps}>
       <div className="panel-head">
         <span className="eyebrow">
           TOMORROW <span className="home-tomorrow-date">· {formatDeadline(iso)}</span>
@@ -308,35 +337,24 @@ export function TomorrowPanel({ armed = false, onDropped }) {
         )}
         {/* On a Sunday tomorrow is next week's Monday: the board opens on
             the week tomorrow is in, not on the one it was last showing */}
-        <a className="panel-link" href="#/weekly" onClick={() => setWeekStart(fromISODate(plan.tomorrowWeek))}>
+        <a className="panel-link" href="#/weekly" onClick={() => setWeekStart(fromISODate(weekOf(iso)))}>
           Open the week ↗
         </a>
       </div>
 
-      {plan.targetEnded && (
+      {day.moves.ended(iso) && (
         <p className="panel-hint">Tomorrow's week has ended. Reopen it on the weekly page to move work into it.</p>
       )}
 
-      {total === 0 ? (
+      {total === 0 && (
         <p className="home-empty">
           Nothing planned for tomorrow yet. Drag what is left of today here, or jot a
           pop-up down below.
         </p>
-      ) : (
-        <>
-          {units.length > 0 && <ul className="home-today-list">{units.map((r) => row(r, false))}</ul>}
-          {pops.length > 0 && (
-            <>
-              <div className="popups-label">Pop-ups</div>
-              <ul className="home-today-list">{pops.map((r) => row(r, true))}</ul>
-            </>
-          )}
-        </>
       )}
+      <DayRows iso={iso} units={units} pops={pops} row={day.row} />
 
-      <PopupQuickAdd iso={iso} />
-
-      {removing && <DailyRemoveDialog row={removing} onClose={() => setRemoving(null)} />}
+      {day.removing && <DailyRemoveDialog row={day.removing} onClose={() => day.setRemoving(null)} />}
     </section>
   )
 }
