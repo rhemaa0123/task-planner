@@ -2969,6 +2969,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
 
   .row-del,
   .row-send,
+  .popup-repeat,
   .day-card-clear,
   .sched-sub-del,
   .asg-disclose,
@@ -2978,6 +2979,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   }
   .row-del::after,
   .row-send::after,
+  .popup-repeat::after,
   .day-card-clear::after,
   .sched-sub-del::after,
   .asg-disclose::after,
@@ -3246,24 +3248,42 @@ input[type="text"].goal-text:focus {
    card's line, and no inset on the field, which never draws a box anyway */
 .popup-row { gap: var(--sp-2); transition: background-color 0.12s, var(--travel); }
 .popups input[type="text"].goal-text { padding-left: 0; }
-/* "Repeat every day", hidden with the × until the row is hovered; it asks
-   nothing of you, so it lights up in the accent rather than the warning red */
-.row-repeat:hover { color: var(--accent); background: var(--accent-soft); }
-/* A daily's mark: always shown, since it says what the row is. Set on a soft
-   accent ground, so on touch - where every written row also shows its plain
-   "repeat" button - a row that already repeats is never mistaken for one
-   that only offers to */
-.popup-daily {
+/* The repeat switch. Off, it is a quiet glyph that waits for the row's hover,
+   like the ×; on, it sits on a soft accent ground and stays in view, since it
+   says what the row is - and on touch, where every row shows its switch, the
+   ground is what tells a row that repeats from one that only offers to.
+   Hovered off it lifts grey, not accent, so it never looks switched on
+   before it is; hovered on it takes a ring, to say it can be switched off. */
+.popup-repeat {
   flex-shrink: 0;
   width: 26px;
   height: 26px;
   display: grid;
   place-items: center;
+  padding: 0;
+  background: transparent;
+  border: none;
   border-radius: var(--r-chip);
-  background: var(--accent-soft);
-  color: var(--accent);
+  color: var(--ink-faint);
+  opacity: 0;
 }
-.popup-daily svg { width: 14px; height: 14px; }
+.popup-repeat svg { width: 14px; height: 14px; }
+.goal-row:hover .popup-repeat,
+.home-today-row:hover .popup-repeat,
+.popup-repeat:focus-visible,
+.popup-repeat.on { opacity: 1; }
+.popup-repeat.on { background: var(--accent-soft); color: var(--accent); }
+.popup-repeat:hover:not(:disabled) { color: var(--accent); background: var(--hover-neutral); }
+.popup-repeat.on:hover:not(:disabled) {
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.popup-repeat:disabled { cursor: default; }
+/* Touch has no hover: every switch is in view from the start. Here, after the
+   rules above, so it outranks them at equal weight. */
+@media (hover: none) {
+  .popup-repeat { opacity: 1; }
+}
 
 /* One line to jot a pop-up down: always open, no box until it is typed in */
 .popup-add {
@@ -4444,7 +4464,7 @@ button.stat-sub.as-link:hover { color: var(--ink); }
 .home-today .panel-head { flex-wrap: wrap; row-gap: var(--sp-1); }
 .home-today-text { flex: 1; }
 .home-today .popups-label { padding-left: var(--sp-2); }
-.home-today-row .popup-daily { width: 22px; height: 22px; }
+.home-today-row .popup-repeat,
 .home-today-row .row-del,
 .home-today-row .row-send { width: 24px; height: 24px; }
 

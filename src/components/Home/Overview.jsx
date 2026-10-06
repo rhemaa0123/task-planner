@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useToday } from '../../hooks/useToday'
 import { useWeather, searchPlaces, describeCode } from '../../hooks/useWeather'
-import { WeatherIcon, SearchIcon, PlusIcon, TrashIcon, RepeatIcon, ArrowRightIcon } from '../icons'
+import { WeatherIcon, SearchIcon, PlusIcon, TrashIcon, ArrowRightIcon } from '../icons'
 import {
   toISODate, collectDay, sinkCompleted, sortByNextBirthday, formatBirthdayDate,
   sortCountdowns, formatShortDate, DAY_NAMES, fromISODate,
@@ -10,7 +10,7 @@ import {
   addDays, startOfWeek, popupsOn, popupHorizon, isCounted, DRAG_TYPE,
 } from '../../utils'
 import { useScrollLock } from '../../hooks/useScrollLock'
-import { PopupQuickAdd, DailyRemoveDialog } from '../Popups'
+import { PopupQuickAdd, DailyRemoveDialog, RepeatToggle } from '../Popups'
 
 /* ============================================================
    The panels of the home page.
@@ -80,7 +80,8 @@ function usePlanTomorrow() {
 }
 
 // One row of either kind. A unit names where it came from under its title;
-// a pop-up is only its words, with the repeat mark when it is a daily.
+// a pop-up is only its words, with its repeat switch - on, and in view, for
+// a daily.
 function HomeRow({ row, onTick, onRemove, mover, dragging }) {
   const popup = isPopup(row)
   const title = popup ? row.text : row.subtitle || row.taskTitle
@@ -105,11 +106,7 @@ function HomeRow({ row, onTick, onRemove, mover, dragging }) {
           </span>
         )}
       </span>
-      {popup && row.daily && (
-        <span className="popup-daily" title="Repeats every day" aria-label="Repeats every day">
-          <RepeatIcon />
-        </span>
-      )}
+      {popup && <RepeatToggle row={row} />}
       {mover && (
         <button
           type="button"

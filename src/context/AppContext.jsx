@@ -781,6 +781,7 @@ export function AppProvider({ children }) {
     })
 
   const sameId = (a, b) => String(a) === String(b)
+  const dayBefore = (iso) => toISODate(addDays(fromISODate(iso), -1))
 
   // Takes a pop-up out of one day's list; a day left with none drops its key,
   // so the store does not fill up with empty dates
@@ -823,13 +824,36 @@ export function AppProvider({ children }) {
       return { days }
     })
 
-  // A written pop-up becomes a daily from its own day on, keeping its tick
+  // Repeat switched on: a written pop-up becomes a daily from its own day on,
+  // keeping its tick. A row whose repeat was switched off on this very day
+  // (`fromDaily`, the daily it came out of, ending the day before) picks that
+  // daily up again rather than starting a second one - so off and straight
+  // back on leaves things exactly as they were
   const makeDaily = (iso, id) =>
     patchPopups((s) => {
       const item = (s.days[iso] || []).find((p) => sameId(p.id, id))
       if (!item) return {}
+      const days = withoutPopup(s.days, iso, id)
+      const prev = item.fromDaily == null
+        ? null
+        : s.daily.find((d) => sameId(d.id, item.fromDaily) && d.until === dayBefore(iso))
+      if (prev) {
+        return {
+          days,
+          daily: s.daily.map((d) => (d !== prev ? d : {
+            ...d,
+            // One record across every day: a rename made meanwhile carries
+            text: item.text || '',
+            until: null,
+            done: item.done
+              ? [...new Set([...(d.done || []), iso])].sort()
+              : (d.done || []).filter((x) => x !== iso),
+            skip: (d.skip || []).filter((x) => x !== iso),
+          })),
+        }
+      }
       return {
-        days: withoutPopup(s.days, iso, id),
+        days,
         daily: [...s.daily, {
           id: item.id,
           text: item.text || '',
@@ -840,6 +864,33 @@ export function AppProvider({ children }) {
         }],
       }
     })
+
+  // Repeat switched off on one day. A switch turns the repeat off - it does
+  // not take the row away - so that day keeps it as a written pop-up, tick
+  // and all, first of the written ones (the dailies are drawn above them, so
+  // it stays where it was on screen). The daily ends the day before: earlier
+  // days keep their ticks, and its later ticks and skips are left in place
+  // for `makeDaily` to find if it is switched straight back on. A daily that
+  // began on this day has nothing before it to keep, and goes.
+  const stopRepeating = (iso, id) =>
+    patchPopups((s) => {
+      const d = s.daily.find((x) => sameId(x.id, id))
+      if (!d) return {}
+      const until = dayBefore(iso)
+      const row = { id: generateId(), text: d.text || '', done: (d.done || []).includes(iso), fromDaily: d.id }
+      return {
+        days: { ...s.days, [iso]: [row, ...(s.days[iso] || [])] },
+        daily: until < d.from
+          ? s.daily.filter((x) => x !== d)
+          : s.daily.map((x) => (x !== d ? x : { ...x, until: x.until && x.until < until ? x.until : until })),
+      }
+    })
+
+  // The repeat switch on a row, as `popupsOn()` draws it: on for a written
+  // one, off for a daily
+  const toggleRepeat = (row) => (row.daily
+    ? stopRepeating(row.iso, row.id)
+    : makeDaily(row.iso, row.id))
 
   // `fn` returns the daily's replacement - an empty list removes it
   const patchDaily = (id, fn) =>
@@ -867,7 +918,7 @@ export function AppProvider({ children }) {
   // daily stopped on its very first day is gone altogether
   const stopDaily = (id, iso) =>
     patchDaily(id, (d) => {
-      const until = toISODate(addDays(fromISODate(iso), -1))
+      const until = dayBefore(iso)
       if (until < d.from) return []
       const end = d.until && d.until < until ? d.until : until
       return [{
@@ -919,7 +970,7 @@ export function AppProvider({ children }) {
       addProject, updateProjectName, deleteProject, setProjectDeadline, reorderProjects, importPlan,
       addTask, updateTaskTitle, setTaskDay, setTaskSchedule, toggleSubtask, moveScheduled, clearMissedDay,
       deleteTask, toggleTask, reorderTasks, refileUnit,
-      popups, addPopup, updatePopup, deletePopup, movePopup, makeDaily,
+      popups, addPopup, updatePopup, deletePopup, movePopup, makeDaily, stopRepeating, toggleRepeat,
       toggleDaily, renameDaily, skipDaily, stopDaily, tickPopup, renamePopup,
       profile, setProfileName,
       birthdays, addBirthday, updateBirthday, deleteBirthday,

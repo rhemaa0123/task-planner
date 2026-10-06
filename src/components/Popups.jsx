@@ -69,14 +69,39 @@ export function DailyRemoveDialog({ row, onClose }) {
   )
 }
 
+/* ---- The repeat switch ----
+   On every pop-up row, on the weekly page and the home page alike. Off on a
+   written row, where it waits for the row's hover like the ×; on for a
+   daily, where it stays in view on its accent chip, since it says what the
+   row is. Switching it off keeps the row on that day - see `stopRepeating`.
+   In an ended week a daily's switch still shows, but cannot be pressed. */
+export function RepeatToggle({ row, frozen = false }) {
+  const { toggleRepeat } = useApp()
+  const on = !!row.daily
+  if (frozen && !on) return null
+  return (
+    <button
+      type="button"
+      className={`popup-repeat ${on ? 'on' : ''}`}
+      onClick={() => toggleRepeat(row)}
+      disabled={frozen}
+      aria-pressed={on}
+      aria-label="Repeat every day"
+      title={on ? 'Repeats every day - click to stop' : 'Repeat every day'}
+    >
+      <RepeatIcon />
+    </button>
+  )
+}
+
 /* ---- The focused day's list, on the weekly page ----
    Rows typed in place like a month's focuses: Enter saves and opens the next
    row under it, a row left empty goes when you move away from it, and a
-   ticked one sinks. A written row can be made daily from its hover; a daily
-   wears the repeat mark, and its × asks which days it leaves. An ended week
-   shows its pop-ups as they were left and takes no edits. */
+   ticked one sinks. Each row's repeat switch turns it daily and back; a
+   daily's × asks which days it leaves. An ended week shows its pop-ups as
+   they were left and takes no edits. */
 export function PopupList({ iso, rows, frozen = false, track }) {
-  const { addPopup, deletePopup, makeDaily, tickPopup, renamePopup } = useApp()
+  const { addPopup, deletePopup, tickPopup, renamePopup } = useApp()
   // The row Enter or "Add a pop-up" just made, so the caret lands in it
   const [focusId, setFocusId] = useState(null)
   const [removing, setRemoving] = useState(null)
@@ -125,21 +150,7 @@ export function PopupList({ iso, rows, frozen = false, track }) {
                 onSave={(text) => renamePopup(r, text)}
                 onEnter={() => add(r.daily ? { first: true } : { after: r.id })}
               />
-              {r.daily ? (
-                <span className="popup-daily" title="Repeats every day" aria-label="Repeats every day">
-                  <RepeatIcon />
-                </span>
-              ) : !frozen && (
-                <button
-                  type="button"
-                  className="row-del row-repeat"
-                  onClick={() => makeDaily(iso, r.id)}
-                  title="Repeat every day"
-                  aria-label={`Repeat ${r.text || 'this pop-up'} every day`}
-                >
-                  <RepeatIcon />
-                </button>
-              )}
+              <RepeatToggle row={r} frozen={frozen} />
               {!frozen && (
                 <button
                   type="button"
