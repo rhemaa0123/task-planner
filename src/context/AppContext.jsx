@@ -220,15 +220,16 @@ export function AppProvider({ children }) {
 
   // Writes back everything the schedule dialog owns: the task's deadline, its
   // note, and the subtasks spread across weekdays.
-  // The task's own day_date follows the earliest subtask so the week grid
-  // still places it.
+  // A subtask not yet dragged onto a day is kept with no day_date: it counts
+  // toward the task, and no day draws it. The task's own day_date follows the
+  // earliest placed subtask so the week grid still places it.
   const setTaskSchedule = (taskId, { subtasks = [], note = '', deadline = null, deadlineTime = null } = {}) => {
     const clean = subtasks
-      .filter(s => s && s.day_date)
+      .filter(Boolean)
       .map(s => ({
         id: s.id || generateId(),
         title: s.title || '',
-        day_date: s.day_date,
+        day_date: s.day_date || null,
         completed: !!s.completed,
         missedDays: s.missedDays || [],
       }))

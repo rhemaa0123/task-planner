@@ -295,7 +295,8 @@ function TaskRow({
           disabled={frozen}
           title="Schedule across days"
         >
-          {total > 0 ? (
+          {/* Subtasks written but none on a day yet still read as unassigned */}
+          {total > 0 && task.day_date ? (
             <span>edit days</span>
           ) : (
             <>
@@ -316,7 +317,11 @@ function TaskRow({
 }
 
 const rowId = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2))
-const blankRow = () => ({ id: rowId(), title: '', completed: false })
+const blankRow = () => ({ id: rowId(), title: '', completed: false, missedDays: [] })
+
+// The dialog's list of subtasks not yet on a day. It sits in `byDay` beside
+// the dates, so moving a row in or out of it is the same move as between days.
+const TRAY = 'tray'
 
 function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }) {
   // Holds the page still underneath; on touch a drag on the backdrop
@@ -324,31 +329,40 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
   useScrollLock()
   const days = weekDayList(weekStartIso)
 
-  // Subtasks are grouped by their day so a day box owns its own rows; the flat
-  // list is rebuilt in week order on save.
+  // Subtasks are grouped by their day so a day box owns its own rows - and
+  // the ones on no day yet under TRAY. The flat list is rebuilt on save.
   const [byDay, setByDay] = useState(() => {
-    const seed = {}
+    const seed = { [TRAY]: [] }
     for (const s of task.subtasks || []) {
-      if (!s.day_date) continue
-      if (!seed[s.day_date]) seed[s.day_date] = []
-      seed[s.day_date].push({
+      const key = s.day_date || TRAY
+      ;(seed[key] ||= []).push({
         id: s.id || rowId(),
         title: s.title || '',
         completed: !!s.completed,
+        // Carried through so saving the dialog keeps a subtask's MISSED marks
+        missedDays: s.missedDays || [],
       })
     }
-    // A task scheduled before subtasks existed still opens on the day it had
-    if (!Object.keys(seed).length && task.day_date) seed[task.day_date] = [blankRow()]
+    const hasRows = Object.values(seed).some(rows => rows.length)
+    // A task scheduled before subtasks existed still opens on the day it had;
+    // a task with nothing yet opens on a blank row to type into
+    if (!hasRows && task.day_date) seed[task.day_date] = [blankRow()]
+    else if (!hasRows) seed[TRAY] = [blankRow()]
     return seed
+  })
+  // The row that takes the caret when it mounts - the blank one a fresh task
+  // opens on, or the one Enter just added
+  const [focusId, setFocusId] = useState(() => {
+    const tray = byDay[TRAY]
+    return tray.length === 1 && !tray[0].title ? tray[0].id : null
   })
   const [note, setNote] = useState(task.note || '')
   const [deadline, setDeadline] = useState(task.deadline || '')
   const [time, setTime] = useState(task.deadline_time || '')
 
-  // A row picked up by its grip. `over` is where it would land: the day and
-  // the slot in that day's rows, or a day toggle (`atEnd`) for a day that has
-  // no rows on screen yet. Row heights are taken once, at pick-up, so the
-  // gap opened in another day matches the row exactly.
+  // A row picked up by its grip. `over` is where it would land: the list (a
+  // day, or the tray) and the slot in its rows. Row heights are taken once,
+  // at pick-up, so the gap opened in another list matches the row exactly.
   const [armed, setArmed] = useState(null)
   const [drag, setDrag] = useState(null)
   const rowRefs = useRef({})
@@ -367,45 +381,50 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
     return () => window.removeEventListener('mouseup', disarm)
   }, [armed])
 
-  const toggleDay = (date) => setByDay(prev => {
-    const next = { ...prev }
-    if (next[date]) delete next[date]
-    else next[date] = [blankRow()]
-    return next
-  })
+  const editRows = (key, fn) => setByDay(prev => ({ ...prev, [key]: fn(prev[key] || []) }))
+  const removeRow = (key, id) => editRows(key, rows => rows.filter(r => r.id !== id))
+  const patchRow = (key, id, patch) =>
+    editRows(key, rows => rows.map(r => (r.id === id ? { ...r, ...patch } : r)))
 
-  const editRows = (date, fn) => setByDay(prev => ({ ...prev, [date]: fn(prev[date] || []) }))
-  const addRow = (date) => editRows(date, rows => [...rows, blankRow()])
-  const removeRow = (date, id) => editRows(date, rows => rows.filter(r => r.id !== id))
-  const patchRow = (date, id, patch) =>
-    editRows(date, rows => rows.map(r => (r.id === id ? { ...r, ...patch } : r)))
+  // New subtasks are only ever written in the tray - at its end, or straight
+  // under the row Enter was pressed in - and the new row takes the caret
+  const addTrayRow = (afterId = null) => {
+    const row = blankRow()
+    editRows(TRAY, rows => {
+      const at = afterId == null ? -1 : rows.findIndex(r => r.id === afterId)
+      const next = [...rows]
+      next.splice(at === -1 ? next.length : at + 1, 0, row)
+      return next
+    })
+    setFocusId(row.id)
+  }
 
-  // Within a day the indices are slots among that day's rows, as for tasks.
-  // Across days the row leaves its list - a day emptied this way is unpicked,
-  // since a picked day is one with work on it - and goes in before `toIdx`
-  // of the other, or at the end when `toIdx` is null.
-  const moveRow = (id, fromDate, toDate, fromIdx, toIdx) => setByDay(prev => {
-    const src = prev[fromDate] || []
+  // Within a list the indices are slots among its rows, as for tasks. Across
+  // lists the row leaves its own and goes in before `toIdx` of the other, or
+  // at the end when `toIdx` is null.
+  const moveRow = (id, fromKey, toKey, fromIdx, toIdx) => setByDay(prev => {
+    const src = prev[fromKey] || []
     const row = src.find(r => r.id === id)
     if (!row) return prev
     const next = { ...prev }
-    if (fromDate === toDate) {
+    if (fromKey === toKey) {
       const rows = [...src]
       rows.splice(fromIdx, 1)
       rows.splice(toIdx, 0, row)
-      next[fromDate] = rows
+      next[fromKey] = rows
       return next
     }
-    const rest = src.filter(r => r.id !== id)
-    if (rest.length) next[fromDate] = rest
-    else delete next[fromDate]
-    const dst = [...(prev[toDate] || [])]
+    next[fromKey] = src.filter(r => r.id !== id)
+    const dst = [...(prev[toKey] || [])]
     dst.splice(toIdx == null ? dst.length : toIdx, 0, row)
-    next[toDate] = dst
+    next[toKey] = dst
     return next
   })
 
-  const pickedDays = days.filter(d => byDay[d.date])
+  // Touch has no drag: a tap on a day's letter files the row there, and a tap
+  // on the day it is already on sends it back to the tray
+  const pickDay = (id, fromKey, fromIdx, date) =>
+    moveRow(id, fromKey, fromKey === date ? TRAY : date, fromIdx, null)
 
   /* ---- Dragging a row between days ---- */
 
@@ -436,7 +455,7 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
     // height plus that gap
     const gap = el ? parseFloat(getComputedStyle(el.parentElement).rowGap) || 0 : 0
     pinCard()
-    setDrag({ id, fromDate: date, fromIdx: index, overDate: null, overIdx: null, atEnd: false, height: el?.offsetHeight ?? 0, gap })
+    setDrag({ id, fromDate: date, fromIdx: index, overDate: null, overIdx: null, height: el?.offsetHeight ?? 0, gap })
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData(DRAG_TYPE, 'subtask')
   }
@@ -447,9 +466,9 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
     setArmed(null)
   }
 
-  const setOver = (overDate, overIdx, atEnd = false) => {
-    if (drag.overDate === overDate && drag.overIdx === overIdx && drag.atEnd === atEnd) return
-    setDrag({ ...drag, overDate, overIdx, atEnd })
+  const setOver = (overDate, overIdx) => {
+    if (drag.overDate === overDate && drag.overIdx === overIdx) return
+    setDrag({ ...drag, overDate, overIdx })
   }
 
   // The ghost flies into another day's box but stays in its own day's DOM,
@@ -473,9 +492,9 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
     if (idx !== null) setOver(date, idx)
   }
 
-  // Leaving a day box returns its rows to their resting slots
+  // Leaving a list returns its rows to their resting slots
   const onDayDragLeave = (e, date) => {
-    if (!drag || drag.overDate !== date || drag.atEnd) return
+    if (!drag || drag.overDate !== date) return
     if (pointerOutside(e)) setOver(null, null)
   }
 
@@ -483,7 +502,7 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
     if (!drag) return
     e.preventDefault()
     const { overDate, overIdx } = drag
-    if (overDate !== null && overIdx !== null && !drag.atEnd) {
+    if (overDate !== null && overIdx !== null) {
       if (overDate !== drag.fromDate || overIdx !== drag.fromIdx) {
         moveRow(drag.id, drag.fromDate, overDate, drag.fromIdx, overIdx)
       }
@@ -491,30 +510,11 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
     endRowDrag()
   }
 
-  // The toggles take a row too, which is the only way onto a day with no box
-  // yet. The day it came from is not a target - there is nowhere to go.
-  const onToggleDragOver = (e, date) => {
-    if (!drag || date === drag.fromDate) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    setOver(date, null, true)
-  }
-  const onToggleDragLeave = (e, date) => {
-    if (!drag || !drag.atEnd || drag.overDate !== date) return
-    if (pointerOutside(e)) setOver(null, null)
-  }
-  const onToggleDrop = (e, date) => {
-    if (!drag || date === drag.fromDate) return
-    e.preventDefault()
-    moveRow(drag.id, drag.fromDate, date, drag.fromIdx, null)
-    endRowDrag()
-  }
-
-  // Within its own day a row slides to its slot and the others make room, as
-  // task rows do. Bound for another day, the ghost flies to the gap that
+  // Within its own list a row slides to its slot and the others make room, as
+  // task rows do. Bound for another list, the ghost flies to the gap that
   // opens there, and the rows from that slot down step aside by its footprint.
   const rowTransform = (date, index) => {
-    if (!drag || drag.atEnd || drag.overDate === null) return 'none'
+    if (!drag || drag.overDate === null) return 'none'
     const footprint = drag.height + drag.gap
     if (date === drag.fromDate) {
       if (drag.overDate === date) return slideTransform(rowsOf(date), drag.fromIdx, drag.overIdx, index)
@@ -522,6 +522,7 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
       const target = rowsOf(drag.overDate)
       const me = rowsOf(date)[index]
       const last = target[target.length - 1]
+      // An empty list opens no gap (see `opensGap`), so there is nowhere to fly
       if (!me || !last) return 'none'
       const gapTop = drag.overIdx < target.length
         ? target[drag.overIdx].offsetTop
@@ -531,23 +532,114 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
     if (date === drag.overDate && index >= drag.overIdx) return `translateY(${footprint}px)`
     return 'none'
   }
-  const isCrossTarget = (date) => !!drag && !drag.atEnd && drag.overDate === date && drag.fromDate !== date
+  const isCrossTarget = (date) => !!drag && drag.overDate === date && drag.fromDate !== date
+  // Only a list with rows opens a slot - there is a place among them to pick.
+  // An empty day just lights up: opening a row's worth of space in every
+  // empty day the pointer crosses would push the days below it away from
+  // under the pointer, all the way down the week.
+  const opensGap = (key) => isCrossTarget(key) && (byDay[key] || []).length > 0
 
   const submit = (e) => {
     e.preventDefault()
     const subtasks = []
-    for (const d of pickedDays) {
-      for (const r of byDay[d.date]) {
-        subtasks.push({
-          id: r.id,
-          title: r.title.trim(),
-          day_date: d.date,
-          completed: r.completed,
-        })
-      }
+    const push = (r, day_date) => subtasks.push({
+      id: r.id,
+      title: r.title.trim(),
+      day_date,
+      completed: r.completed,
+      missedDays: r.missedDays || [],
+    })
+    for (const d of days) (byDay[d.date] || []).forEach(r => push(r, d.date))
+    // A subtask that drifted onto a date outside this week is not drawn here;
+    // it is written back exactly where it was rather than lost
+    const inWeek = new Set(days.map(d => d.date))
+    for (const [key, rows] of Object.entries(byDay)) {
+      if (key !== TRAY && !inWeek.has(key)) rows.forEach(r => push(r, key))
     }
+    // The tray keeps what was written and not yet placed; a blank row in it
+    // is only the line left open for typing
+    for (const r of byDay[TRAY]) if (r.title.trim()) push(r, null)
     onSave({ subtasks, note: note.trim(), deadline: deadline || null, deadlineTime: time || null })
   }
+
+  // One subtask row, the same in the tray and under a day: grip, name, ×, and
+  // on touch the day letters. Only the tray chains rows on Enter.
+  const renderRow = (key, r, i) => (
+    <div
+      className={`sched-sub-row ${drag?.id === r.id ? 'dragging' : ''}`}
+      key={r.id}
+      ref={el => { (rowRefs.current[key] ||= [])[i] = el }}
+      draggable={armed === r.id}
+      onDragStart={e => onRowDragStart(e, key, i, r.id)}
+      onDragEnd={endRowDrag}
+      style={{ transform: rowTransform(key, i) }}
+    >
+      <span
+        className="sched-sub-grip"
+        role="button"
+        aria-label="Drag to a day"
+        title="Drag to a day"
+        onMouseDown={() => setArmed(r.id)}
+      >
+        <GripIcon />
+      </span>
+      <input
+        type="text"
+        className="sched-sub-input"
+        value={r.title}
+        autoFocus={r.id === focusId}
+        placeholder={key === TRAY ? 'Subtask...' : 'add a note (optional)'}
+        onChange={e => patchRow(key, r.id, { title: e.target.value })}
+        // Enter finishes the name, not the dialog - the form would otherwise
+        // submit and close on the first subtask typed. In the tray a named
+        // row hands on to a new one under it, as a task name does.
+        onKeyDown={e => {
+          if (e.key !== 'Enter') return
+          e.preventDefault()
+          if (key === TRAY && r.title.trim()) addTrayRow(r.id)
+          else e.currentTarget.blur()
+        }}
+      />
+      <button
+        type="button"
+        className="sched-sub-del"
+        onClick={() => removeRow(key, r.id)}
+        title="Remove subtask"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+      <div className="sched-pick" role="group" aria-label="Put on a day">
+        {days.map(d => (
+          <button
+            type="button"
+            key={d.date}
+            className={`sched-pick-day ${key === d.date ? 'on' : ''}`}
+            onClick={() => pickDay(r.id, key, i, d.date)}
+            aria-pressed={key === d.date}
+            title={key === d.date ? `Take off ${d.name}` : d.name}
+          >
+            {d.initial}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+
+  // A list of rows that takes drops: the tray, or one day
+  const renderList = (key) => (
+    <div className="sched-sub-list">
+      {(byDay[key] || []).map((r, i) => renderRow(key, r, i))}
+      {/* Holds the list open by one row while a row from another list is
+          over it; sits at the end so no row's offset moves under the pointer */}
+      {opensGap(key) && <div className="sched-sub-gap" style={{ height: drag.height }} aria-hidden="true" />}
+    </div>
+  )
+  const dropProps = (key) => ({
+    onDragEnter: e => onDayDragOver(e, key),
+    onDragOver: e => onDayDragOver(e, key),
+    onDragLeave: e => onDayDragLeave(e, key),
+    onDrop: onDayDrop,
+  })
 
   return (
     <div className="modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
@@ -572,93 +664,37 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
           />
         </div>
 
-        <div className="field-label">DAYS</div>
-        <div className="day-toggle-row">
-          {days.map(d => (
-            <button
-              type="button"
-              key={d.date}
-              className={`day-toggle ${byDay[d.date] ? 'selected' : ''} ${drag?.atEnd && drag.overDate === d.date ? 'drop-target' : ''}`}
-              onClick={() => toggleDay(d.date)}
-              onDragEnter={e => onToggleDragOver(e, d.date)}
-              onDragOver={e => onToggleDragOver(e, d.date)}
-              onDragLeave={e => onToggleDragLeave(e, d.date)}
-              onDrop={e => onToggleDrop(e, d.date)}
-              aria-pressed={!!byDay[d.date]}
-              title={d.name}
-            >
-              {d.initial}
-            </button>
-          ))}
+        <div className="field-label">SUBTASKS</div>
+        {/* Written here and only here, then dragged down onto a day. Dropping
+            a row back here takes it off its day. */}
+        <div
+          className={`sched-day sched-tray ${isCrossTarget(TRAY) ? 'drop-target' : ''}`}
+          {...dropProps(TRAY)}
+        >
+          {renderList(TRAY)}
+          <button type="button" className="sched-add" onClick={() => addTrayRow()}>
+            + add subtask
+          </button>
         </div>
 
-        {pickedDays.map(d => (
-          <div
-            className={`sched-day ${isCrossTarget(d.date) ? 'drop-target' : ''}`}
-            key={d.date}
-            onDragEnter={e => onDayDragOver(e, d.date)}
-            onDragOver={e => onDayDragOver(e, d.date)}
-            onDragLeave={e => onDayDragLeave(e, d.date)}
-            onDrop={onDayDrop}
-          >
-            <div className="sched-day-name">{d.name}</div>
-            <div className="sched-sub-list">
-              {byDay[d.date].map((r, i) => (
-                <div
-                  className={`sched-sub-row ${drag?.id === r.id ? 'dragging' : ''}`}
-                  key={r.id}
-                  ref={el => { (rowRefs.current[d.date] ||= [])[i] = el }}
-                  draggable={armed === r.id}
-                  onDragStart={e => onRowDragStart(e, d.date, i, r.id)}
-                  onDragEnd={endRowDrag}
-                  style={{ transform: rowTransform(d.date, i) }}
-                >
-                  <span
-                    className="sched-sub-grip"
-                    role="button"
-                    aria-label="Drag to another day"
-                    title="Drag to another day"
-                    onMouseDown={() => setArmed(r.id)}
-                  >
-                    <GripIcon />
-                  </span>
-                  <input
-                    type="text"
-                    className="sched-sub-input"
-                    value={r.title}
-                    placeholder="add a note (optional)"
-                    onChange={e => patchRow(d.date, r.id, { title: e.target.value })}
-                    // Enter finishes the name, not the dialog - the form would
-                    // otherwise submit and close on the first subtask typed
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        e.currentTarget.blur()
-                      }
-                    }}
-                  />
-                  {byDay[d.date].length > 1 && (
-                    <button
-                      type="button"
-                      className="sched-sub-del"
-                      onClick={() => removeRow(d.date, r.id)}
-                      title="Remove subtask"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                    </button>
-                  )}
-                </div>
-              ))}
-              {/* Holds the list open by one row while a row from another day
-                  is over it; sits at the end so no row's offset moves under
-                  the pointer */}
-              {isCrossTarget(d.date) && <div className="sched-sub-gap" style={{ height: drag.height }} aria-hidden="true" />}
-            </div>
-            <button type="button" className="sched-add" onClick={() => addRow(d.date)}>
-              + add subtask on {d.short}
-            </button>
-          </div>
-        ))}
+        <div className="field-label">DAYS</div>
+        {/* Every day of the week, always: an empty one is a single line that
+            lights up when a row is brought over it */}
+        <div className="sched-days">
+          {days.map(d => {
+            const empty = !(byDay[d.date] || []).length
+            return (
+              <div
+                className={`sched-day ${empty ? 'empty' : ''} ${isCrossTarget(d.date) ? 'drop-target' : ''}`}
+                key={d.date}
+                {...dropProps(d.date)}
+              >
+                <div className="sched-day-name">{d.name}</div>
+                {renderList(d.date)}
+              </div>
+            )
+          })}
+        </div>
 
         <div className="field-label">NOTE</div>
         <textarea

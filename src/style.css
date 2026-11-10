@@ -1971,13 +1971,36 @@ input[type="text"].task-name-input.done {
   cursor: not-allowed;
 }
 
-/* One section per picked day, holding that day's subtasks; a hairline
+/* One section per day of the week, holding that day's subtasks; a hairline
    between days is all that separates them */
 .sched-day {
   padding: var(--sp-3) 0;
 }
 .sched-day + .sched-day {
   border-top: 1px solid var(--line);
+}
+/* A day with nothing on it is just its name - a slim line that waits for a
+   row to be dragged over it, and opens a slot under the name when one is */
+.sched-day.empty {
+  padding: var(--sp-2) 0;
+}
+.sched-day.empty .sched-day-name {
+  margin-bottom: 0;
+  color: var(--ink-faint);
+}
+.sched-day.empty .sched-sub-list { margin-bottom: 0; }
+.sched-days { margin-bottom: var(--sp-4); }
+
+/* The subtasks not on a day yet - the one place a subtask is written */
+.sched-tray {
+  padding-top: 0;
+  margin-bottom: var(--sp-2);
+  border-radius: var(--r-chip);
+  transition: box-shadow 0.15s ease;
+}
+/* A row from a day is over it: dropping takes the row off its day */
+.sched-tray.drop-target {
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 .sched-day-name {
@@ -2030,9 +2053,11 @@ input[type="text"].task-name-input.done {
 /* A row from another day is over this one: its name takes the "Assign
    days" orange while the rows below the slot step aside */
 .sched-day.drop-target .sched-day-name { color: var(--attention); }
-.day-toggle.drop-target {
-  border-color: var(--accent-fill);
-  color: var(--ink);
+/* An empty day opens no slot (nothing below it should move under the
+   pointer), so the whole line lights up instead */
+.sched-day.empty.drop-target {
+  border-radius: var(--r-chip);
+  background: var(--hover-accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
@@ -2072,6 +2097,36 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   font-weight: 500;
 }
 .sched-add:hover { text-decoration: underline; }
+
+/* Touch cannot drag, so each row carries the week's letters instead: a tap
+   files the row on that day, a tap on the lit one takes it off again. Only
+   drawn without a cursor - see the (hover: none) rule right below. */
+.sched-pick {
+  display: none;
+  flex-basis: 100%;
+  gap: 4px;
+}
+.sched-pick-day {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-chip);
+  background: var(--bg);
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: var(--w-mono);
+}
+.sched-pick-day.on {
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--on-accent);
+}
+@media (hover: none) {
+  .sched-sub-row { flex-wrap: wrap; }
+  .sched-pick { display: flex; }
+}
 
 .schedule-note {
   display: block;
