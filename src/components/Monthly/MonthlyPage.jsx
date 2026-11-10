@@ -3,113 +3,25 @@ import { useApp } from '../../context/AppContext'
 import { useToday } from '../../hooks/useToday'
 import { InlineText } from '../InlineText'
 import { PlusIcon, TrashIcon } from '../icons'
-import {
-  monthKey, shiftMonth, formatMonthLabel, daysInMonth, monthWeekStarts,
-  formatWeekTitle, fromISODate, toISODate, startOfWeek, addDays, rollUp,
-  DAY_INITIALS, addTally, popupTally, popupsOn, popupHorizon, isCounted, weekDates,
-} from '../../utils'
+import { CATEGORIES, monthKey, shiftMonth, formatMonthLabel } from '../../utils'
 
 /* ============================================================
-   Monthly planning
+   Monthly planning — the month's tasks, under the year's seven headings.
 
-   The layer above the week, and deliberately not wired into it. Nothing here
-   is a task: a month's focuses are never scheduled, never roll into a week's
-   progress, and the weekly board does not read them. They are what you look
-   at while you decide what next week is for — the reference, not the source.
+   Rebuilt Nov 2026 around the yearly page's categories. It held a list of
+   focuses, a note, a calendar of the month and its weeks; the calendar and
+   the weeks only drew the weekly plan again, which the board and the weeks
+   page already do, so the page is now the seven boxes and nothing else.
 
-   What the page does do is read the plan, one way only: the calendar and the
-   week list show how much work already sits in each day and each week of this
-   month, and a week clicks through to itself on the weekly page. So the two
-   pages refer to each other without either owning the other's data.
+   A task here is ticked here, and each one may point at the line of its own
+   category on its year's page that it serves - that pointer is the only tie
+   between the two pages. The week is still not wired to any of it: the board
+   neither reads these tasks nor counts them.
    ============================================================ */
 
-// Units of work per calendar date, across every week in the store. Built once
-// per render over the whole plan rather than per day, so a month of 31 cells
-// is one pass and not thirty-one. The pop-ups on the calendar's own days
-// count beside them, as they do on the weekly board.
-function loadByDate(projects, popups, isos, horizon) {
-  const map = new Map()
-  const bump = (iso, completed) => {
-    if (!iso) return
-    const slot = map.get(iso) || { total: 0, done: 0 }
-    slot.total++
-    if (completed) slot.done++
-    map.set(iso, slot)
-  }
-  for (const p of projects || []) {
-    for (const t of p.tasks || []) {
-      const subs = t.subtasks || []
-      if (subs.length) subs.forEach((s) => bump(s.day_date, s.completed))
-      else bump(t.day_date, t.completed)
-    }
-  }
-  for (const iso of isos) {
-    for (const r of popupsOn(popups, iso, horizon)) {
-      if (isCounted(r)) bump(iso, r.completed)
-    }
-  }
-  return map
-}
-
-/* ---- The month as a calendar ----
-   Monday-first, with the days either side of the month drawn faint so the
-   weeks stay whole - a week that straddles the turn of the month is still one
-   week on the weekly page, and showing it cut in half would be a lie. */
-function MonthCalendar({ year, month, load, todayIso, onPickWeek }) {
-  const first = new Date(year, month - 1, 1)
-  const gridStart = startOfWeek(first)
-  const total = daysInMonth(year, month)
-  const last = new Date(year, month - 1, total)
-  const weeks = []
-  for (let d = gridStart; d <= last; d = addDays(d, 7)) {
-    weeks.push(Array.from({ length: 7 }, (_, i) => addDays(d, i)))
-  }
-
-  return (
-    <div className="mcal">
-      <div className="mcal-dow">
-        {DAY_INITIALS.map((d, i) => <span key={i}>{d}</span>)}
-      </div>
-      {weeks.map((week) => {
-        const weekIso = toISODate(week[0])
-        return (
-          <div className="mcal-week" key={weekIso}>
-            <button
-              type="button"
-              className="mcal-week-grip"
-              onClick={() => onPickWeek(weekIso)}
-              title={`Open ${formatWeekTitle(weekIso)} in the weekly plan`}
-              aria-label={`Open ${formatWeekTitle(weekIso)} in the weekly plan`}
-            />
-            {week.map((d) => {
-              const iso = toISODate(d)
-              const slot = load.get(iso)
-              const outside = d.getMonth() !== month - 1
-              return (
-                <div
-                  key={iso}
-                  className={`mcal-day ${outside ? 'outside' : ''} ${iso === todayIso ? 'today' : ''}`}
-                >
-                  <span className="mcal-num">{d.getDate()}</span>
-                  {slot && (
-                    <span className={`mcal-load ${slot.done === slot.total ? 'full' : ''}`}>
-                      {slot.total}
-                    </span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 // Which month the page is on lives in the hash - `#/monthly` is this one,
-// `#/monthly/2026-03` is March. That is what lets the yearly page link
-// straight at a month, and it gives the browser's own back button something
-// to walk through.
+// `#/monthly/2026-03` is March - so the browser's own back button has
+// something to walk through
 const MONTH_ROUTE = /^#\/monthly\/(\d{4})-(\d{2})$/
 
 function monthFromRoute(route, now) {
@@ -122,43 +34,28 @@ function monthFromRoute(route, now) {
 }
 
 export function MonthlyPage({ route = '#/monthly' }) {
-  const {
-    allProjects, months, addMonthGoal, updateMonthGoal, deleteMonthGoal, setMonthNote, setWeekStart, popups,
-  } = useApp()
+  const { months, years, addMonthTask, updateMonthTask, deleteMonthTask } = useApp()
   const now = useToday()
   const at = monthFromRoute(route, now)
-  // The row that was just added by Enter, so the caret lands in it
-  const [focusGoal, setFocusGoal] = useState(null)
+  // The task just added by Enter or by Add, so the caret lands in it
+  const [focusTask, setFocusTask] = useState(null)
 
   const key = monthKey(at.year, at.month)
-  const month = months[key] || { goals: [], note: '' }
-  const goals = month.goals || []
-  const doneGoals = goals.filter((g) => g.done).length
-
-  const todayIso = toISODate(now)
+  const month = months[key] || {}
+  // The lines this month's tasks can point at: its own year's, per category
+  const yearLines = years[String(at.year)]?.categories || {}
   const thisMonth = at.year === now.getFullYear() && at.month === now.getMonth() + 1
-  const horizon = popupHorizon(now)
-  const weekStarts = monthWeekStarts(at.year, at.month)
-  const load = loadByDate(allProjects, popups, weekStarts.flatMap(weekDates), horizon)
-
-  // One row per week touching this month, with the work already planned in it
-  const weeks = weekStarts.map((iso) => {
-    const inWeek = allProjects.filter((p) => p.week_start === iso)
-    const { done, total, pct } = addTally(
-      rollUp(inWeek.flatMap((p) => p.tasks || [])),
-      popupTally(popups, weekDates(iso), horizon),
-    )
-    return { iso, projects: inWeek.length, done, total, pct }
-  })
-
-  // The one link out of this page: take the weekly board to that week and go
-  const openWeek = (iso) => {
-    setWeekStart(fromISODate(iso))
-    window.location.hash = '#/weekly'
-  }
 
   const goTo = ({ year, month }) => { window.location.hash = `#/monthly/${monthKey(year, month)}` }
   const step = (by) => goTo(shiftMonth(at.year, at.month, by))
+
+  // A task left with no words, no tick and no link goes when focus leaves its
+  // row - a stray click on Add cannot leave a blank, counted task behind
+  const dropIfEmpty = (e, cat, t) => {
+    if (e.currentTarget.contains(e.relatedTarget)) return
+    const field = e.currentTarget.querySelector('.goal-text')
+    if (field && !field.value.trim() && !t.done && !t.ref) deleteMonthTask(key, cat, t.id)
+  }
 
   return (
     <div className="page">
@@ -180,119 +77,95 @@ export function MonthlyPage({ route = '#/monthly' }) {
             )}
           </div>
         </div>
-        <a className="page-head-link" href="#/yearly">The year ↗</a>
+        <a className="page-head-link" href={`#/yearly/${at.year}`}>The year ↗</a>
       </div>
 
-      <div className="month-body">
-        {/* ---- What the month is for ---- */}
-        <section className="panel">
-          <div className="panel-head">
-            <span className="eyebrow">FOCUS</span>
-            {goals.length > 0 && (
-              <span className={`panel-count ${doneGoals === goals.length ? 'full' : ''}`}>
-                {doneGoals}/{goals.length}
-              </span>
-            )}
-          </div>
-
-          <p className="panel-hint">
-            A handful of things this month is for. Not tasks — nothing here is scheduled
-            or counted in a week. Read them when you sit down to plan the week.
-          </p>
-
-          <ul className="goal-list">
-            {goals.map((g) => (
-              <li key={g.id} className={`goal-row ${g.done ? 'done' : ''}`}>
-                <input
-                  type="checkbox"
-                  className="task-check"
-                  checked={!!g.done}
-                  onChange={(e) => updateMonthGoal(key, g.id, { done: e.target.checked })}
-                  aria-label={g.text || 'Focus'}
-                />
-                <InlineText
-                  className="goal-text"
-                  value={g.text}
-                  autoFocus={focusGoal === g.id}
-                  placeholder="What matters this month"
-                  onSave={(text) => updateMonthGoal(key, g.id, { text })}
-                  onEnter={() => setFocusGoal(addMonthGoal(key, '', { after: g.id }))}
-                />
-                <button
-                  type="button"
-                  className="row-del"
-                  onClick={() => deleteMonthGoal(key, g.id)}
-                  aria-label="Remove"
-                >
-                  <TrashIcon />
-                </button>
-              </li>
-            ))}
-          </ul>
-
-          <button
-            type="button"
-            className="add-row"
-            onClick={() => setFocusGoal(addMonthGoal(key))}
-          >
-            <span className="add-row-plus"><PlusIcon /></span>
-            Add a focus
-          </button>
-
-          <div className="panel-divider" />
-
-          <div className="eyebrow">NOTES</div>
-          <InlineText
-            multiline
-            rows={5}
-            className="panel-note"
-            value={month.note}
-            placeholder={`Anything ${formatMonthLabel(at.year, at.month)} should remember — trips, deadlines, people to see.`}
-            onSave={(note) => setMonthNote(key, note)}
-          />
-        </section>
-
-        {/* ---- What is already planned in it ---- */}
-        <section className="panel">
-          <div className="panel-head">
-            <span className="eyebrow">THE MONTH</span>
-            <span className="panel-sub">from the weekly plan</span>
-          </div>
-
-          <MonthCalendar
-            year={at.year}
-            month={at.month}
-            load={load}
-            todayIso={todayIso}
-            onPickWeek={openWeek}
-          />
-
-          <div className="panel-divider" />
-
-          <div className="eyebrow">ITS WEEKS</div>
-          <ul className="month-weeks">
-            {weeks.map((w) => (
-              <li key={w.iso}>
-                <button
-                  type="button"
-                  className={`mweek ${w.iso === toISODate(startOfWeek(now)) ? 'current' : ''}`}
-                  onClick={() => openWeek(w.iso)}
-                >
-                  <span className="mweek-title">{formatWeekTitle(w.iso)}</span>
-                  <span className="mweek-track">
-                    <span className="mweek-fill" style={{ width: `${w.pct}%` }} />
+      <div className="cat-grid">
+        {CATEGORIES.map((c) => {
+          const tasks = month.categories?.[c.key] || []
+          const lines = (yearLines[c.key] || []).filter((l) => (l.text || '').trim())
+          const done = tasks.filter((t) => t.done).length
+          return (
+            <section className="panel cat-box" key={c.key}>
+              <div className="panel-head">
+                <span className="eyebrow">{c.name}</span>
+                {tasks.length > 0 && (
+                  <span className={`panel-count ${done === tasks.length ? 'full' : ''}`}>
+                    {done}/{tasks.length}
                   </span>
-                  <span className="mweek-stat">
-                    {w.total ? `${w.done}/${w.total}` : 'empty'}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          <p className="panel-hint">
-            A week opens on the weekly page, where its plan is actually written.
-          </p>
-        </section>
+                )}
+              </div>
+
+              <ul className="goal-list">
+                {tasks.map((t) => {
+                  // Looked up, never trusted: a line deleted from the year
+                  // leaves this task simply unlinked
+                  const linked = lines.find((l) => String(l.id) === String(t.ref))
+                  return (
+                    <li
+                      key={t.id}
+                      className={`goal-row cat-task ${t.done ? 'done' : ''}`}
+                      onBlur={(e) => dropIfEmpty(e, c.key, t)}
+                    >
+                      <input
+                        type="checkbox"
+                        className="task-check"
+                        checked={!!t.done}
+                        onChange={(e) => updateMonthTask(key, c.key, t.id, { done: e.target.checked })}
+                        aria-label={t.text || 'Task'}
+                      />
+                      <div className="cat-task-body">
+                        <InlineText
+                          wrap
+                          className="goal-text"
+                          value={t.text}
+                          autoFocus={focusTask === t.id}
+                          placeholder="A task for this month"
+                          onSave={(text) => updateMonthTask(key, c.key, t.id, { text })}
+                          onEnter={() => setFocusTask(addMonthTask(key, c.key, { after: t.id }))}
+                          aria-label={`${c.name}, ${formatMonthLabel(at.year, at.month)}`}
+                        />
+                        {lines.length > 0 && (
+                          <select
+                            className={`cat-ref ${linked ? 'linked' : ''}`}
+                            value={linked ? String(linked.id) : ''}
+                            onChange={(e) => updateMonthTask(key, c.key, t.id, { ref: e.target.value || null })}
+                            aria-label={`The ${c.name} line on the ${at.year} page this task serves`}
+                          >
+                            <option value="">{linked ? 'No link' : `Link to a ${at.year} line…`}</option>
+                            {lines.map((l) => (
+                              <option key={l.id} value={String(l.id)}>↳ {l.text}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className="row-del"
+                        onClick={() => deleteMonthTask(key, c.key, t.id)}
+                        aria-label="Remove"
+                      >
+                        <TrashIcon />
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+
+              <button type="button" className="add-row" onClick={() => setFocusTask(addMonthTask(key, c.key))}>
+                <span className="add-row-plus"><PlusIcon /></span>
+                Add a task
+              </button>
+
+              {/* Nothing to link to yet: say where the lines are written */}
+              {tasks.length > 0 && lines.length === 0 && (
+                <a className="cat-empty-link" href={`#/yearly/${at.year}`}>
+                  No {c.name} lines on the {at.year} page yet ↗
+                </a>
+              )}
+            </section>
+          )
+        })}
       </div>
     </div>
   )

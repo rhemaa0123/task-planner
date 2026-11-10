@@ -2,44 +2,58 @@ import React, { useState } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useToday } from '../../hooks/useToday'
 import { InlineText } from '../InlineText'
-import {
-  MONTH_NAMES, monthKey, rollUp, monthWeekStarts, addTally, popupTally, popupHorizon, weekDates,
-} from '../../utils'
+import { PlusIcon, TrashIcon } from '../icons'
+import { CATEGORIES, yearProgress } from '../../utils'
 
 /* ============================================================
-   Yearly planning — the coarsest layer, and on purpose the thinnest.
+   Yearly planning — what the year is for, in seven boxes.
 
-   A line for the year, and a line for each of its twelve months. That is the
-   whole page. It is not a calendar and not a task list: it is the thing you
-   write in January and read in March, and the only reason it exists is so the
-   monthly page has something above it to answer to.
+   Rebuilt Nov 2026. It was a theme line and a note per month; it is now the
+   calendar year's days, counted, and one box per category (`CATEGORIES`)
+   holding the year's values and objectives as plain lines. Lines, not tasks:
+   nothing here is ticked.
 
-   A month card carries two more things it does not own: how many focuses the
-   monthly page has for it, and how much work the weekly plans in it hold. Both
-   are read, never written — click the card and the monthly page takes over.
+   The monthly page's tasks point back at these lines, and that is the whole
+   link between the two. This page reads nothing from the months, so deleting
+   a month cannot touch a line written here.
    ============================================================ */
 
-export function YearlyPage() {
-  const { years, setYearTheme, setYearMonthNote, months, allProjects, popups } = useApp()
+// Which year the page is on lives in the hash - `#/yearly` is this one,
+// `#/yearly/2027` is 2027 - so a month can link at the year it belongs to
+const YEAR_ROUTE = /^#\/yearly\/(\d{4})$/
+
+function yearFromRoute(route, now) {
+  const hit = YEAR_ROUTE.exec(route || '')
+  return hit ? Number(hit[1]) : now.getFullYear()
+}
+
+const days = (n) => `${n} ${n === 1 ? 'day' : 'days'}`
+
+export function YearlyPage({ route = '#/yearly' }) {
+  const { years, addYearLine, updateYearLine, deleteYearLine } = useApp()
   const now = useToday()
-  const [year, setYear] = useState(() => now.getFullYear())
-
-  const data = years[String(year)] || { theme: '', months: {} }
+  const year = yearFromRoute(route, now)
   const thisYear = year === now.getFullYear()
-  const currentMonth = now.getMonth() + 1
+  const data = years[String(year)] || {}
+  const count = yearProgress(year, now)
+  // The line just added by Enter or by Add, so the caret lands in it
+  const [focusLine, setFocusLine] = useState(null)
 
-  // Work planned inside a month, counted off the weeks that touch it. A week
-  // on the turn of the month is counted in both, which is the honest answer -
-  // it is one week and it belongs to both of them. Those weeks' pop-ups count
-  // beside it, a daily only as far as the horizon - so a month ahead holds
-  // what was written into it and no more.
-  const horizon = popupHorizon(now)
-  const planned = (month) => {
-    const weekStarts = monthWeekStarts(year, month)
-    const starts = new Set(weekStarts)
-    const tasks = allProjects.filter((p) => starts.has(p.week_start)).flatMap((p) => p.tasks || [])
-    return addTally(rollUp(tasks), popupTally(popups, weekStarts.flatMap(weekDates), horizon))
+  const goTo = (y) => { window.location.hash = `#/yearly/${y}` }
+
+  // A line left empty goes when focus leaves its row, so a stray click on Add
+  // cannot leave a blank bullet behind - the same rule a pop-up follows
+  const dropIfEmpty = (e, cat, id) => {
+    if (e.currentTarget.contains(e.relatedTarget)) return
+    const field = e.currentTarget.querySelector('.goal-text')
+    if (field && !field.value.trim()) deleteYearLine(year, cat, id)
   }
+
+  const headline = count.state === 'ahead' ? `Starts in ${days(count.startsIn)}`
+    : `Day ${count.day} of ${count.total}`
+  const aside = count.state === 'ahead' ? days(count.total)
+    : count.state === 'over' ? 'Over'
+    : count.left === 0 ? 'The last day' : `${days(count.left)} left`
 
   return (
     <div className="page">
@@ -47,70 +61,75 @@ export function YearlyPage() {
         <div className="page-head-left">
           <div className="eyebrow">YEARLY</div>
           <div className="month-nav">
-            <button className="icon-btn" onClick={() => setYear((y) => y - 1)} aria-label="Previous year">
+            <button className="icon-btn" onClick={() => goTo(year - 1)} aria-label="Previous year">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
             </button>
             <h1 className="month-title year">{year}</h1>
-            <button className="icon-btn" onClick={() => setYear((y) => y + 1)} aria-label="Next year">
+            <button className="icon-btn" onClick={() => goTo(year + 1)} aria-label="Next year">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
             </button>
             {!thisYear && (
-              <span className="today-link" onClick={() => setYear(now.getFullYear())}>This year</span>
+              <span className="today-link" onClick={() => { window.location.hash = '#/yearly' }}>This year</span>
             )}
           </div>
         </div>
-        <a className="page-head-link" href="#/monthly">The month ↗</a>
+        <a className="page-head-link" href={thisYear ? '#/monthly' : `#/monthly/${year}-01`}>The month ↗</a>
       </div>
 
-      <section className="year-theme">
-        <div className="eyebrow">THE YEAR IN ONE LINE</div>
-        <InlineText
-          className="year-theme-input"
-          value={data.theme}
-          placeholder={`What is ${year} for?`}
-          onSave={(theme) => setYearTheme(year, theme)}
-          aria-label={`Theme for ${year}`}
-        />
+      {/* The year's days, counted - Jan 1 is day 1 */}
+      <section className={`year-count ${count.state}`} aria-label={`${year}: ${headline}, ${aside}`}>
+        <div className="year-count-head">
+          <span className="year-count-day">{headline}</span>
+          <span className="year-count-left">{aside}</span>
+        </div>
+        <div className="year-count-bar">
+          <span className="year-count-track">
+            <span className="year-count-fill" style={{ width: `${count.pct}%` }} />
+          </span>
+          <span className="year-count-pct">{count.pct}%</span>
+        </div>
       </section>
 
-      <div className="year-grid">
-        {MONTH_NAMES.map((name, i) => {
-          const month = i + 1
-          const focuses = (months[monthKey(year, month)]?.goals || [])
-          const work = planned(month)
-          const isNow = thisYear && month === currentMonth
-          const isPast = thisYear ? month < currentMonth : year < now.getFullYear()
-
+      <div className="cat-grid">
+        {CATEGORIES.map((c) => {
+          const lines = data.categories?.[c.key] || []
           return (
-            <article className={`year-month ${isNow ? 'current' : ''} ${isPast ? 'past' : ''}`} key={month}>
-              <div className="year-month-head">
-                <h2 className="year-month-name">{name}</h2>
-                <div className="year-month-marks">
-                  {focuses.length > 0 && (
-                    <span className="year-chip" title={`${focuses.length} focuses on the monthly page`}>
-                      {focuses.filter((g) => g.done).length}/{focuses.length}
-                    </span>
-                  )}
-                  {work.total > 0 && (
-                    <span className="year-chip plain" title={`${work.total} units of work planned`}>
-                      {work.total}
-                    </span>
-                  )}
-                </div>
+            <section className="panel cat-box" key={c.key}>
+              <div className="panel-head">
+                <span className="eyebrow">{c.name}</span>
               </div>
 
-              <InlineText
-                multiline
-                rows={3}
-                className="year-month-note"
-                value={data.months?.[month] || ''}
-                placeholder="—"
-                onSave={(text) => setYearMonthNote(year, month, text)}
-                aria-label={`${name} ${year}`}
-              />
+              <ul className="goal-list">
+                {lines.map((l) => (
+                  <li key={l.id} className="goal-row cat-line" onBlur={(e) => dropIfEmpty(e, c.key, l.id)}>
+                    <span className="cat-dot" aria-hidden="true" />
+                    <InlineText
+                      wrap
+                      className="goal-text"
+                      value={l.text}
+                      autoFocus={focusLine === l.id}
+                      placeholder="A value or an objective"
+                      onSave={(text) => updateYearLine(year, c.key, l.id, text)}
+                      onEnter={() => setFocusLine(addYearLine(year, c.key, { after: l.id }))}
+                      aria-label={`${c.name}, ${year}`}
+                    />
+                    <button
+                      type="button"
+                      className="row-del"
+                      onClick={() => deleteYearLine(year, c.key, l.id)}
+                      aria-label="Remove"
+                    >
+                      <TrashIcon />
+                    </button>
+                  </li>
+                ))}
+              </ul>
 
-              <a className="year-month-open" href={`#/monthly/${monthKey(year, month)}`}>Plan {name} ↗</a>
-            </article>
+              <button type="button" className="add-row" onClick={() => setFocusLine(addYearLine(year, c.key))}>
+                <span className="add-row-plus"><PlusIcon /></span>
+                Add
+              </button>
+            </section>
           )
         })}
       </div>

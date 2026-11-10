@@ -1,4 +1,4 @@
-import { toISODate, fromISODate, addDays, startOfWeek, MONTH_SHORT, popupUnits, popupHorizon } from '../../utils'
+import { toISODate, fromISODate, addDays, startOfWeek, MONTH_SHORT } from '../../utils'
 
 /* ============================================================
    What the stats page counts, and what it refuses to.
@@ -74,15 +74,12 @@ function streakOf(byWeek, thisWeekIso) {
   }
 }
 
-// The plan's units, then the pop-ups' - counted as units like any other, a
-// daily once for every day it has stood on, as far as the horizon
-function* allUnits(projects, popups, now) {
-  yield* units(projects)
-  yield* popupUnits(popups, popupHorizon(now))
-}
+/* One pass over the plan, every figure on the page falling out of it.
 
-/* One pass over the plan, every figure on the page falling out of it. */
-export function buildStats(allProjects, weekMeta = {}, now = new Date(), popups = null) {
+   Project work only. Pop-ups were counted here for a while and were taken
+   back out by request (Nov 2026): the stats are about the work you plan, not
+   the day's small things. The board and Home still count them. */
+export function buildStats(allProjects, weekMeta = {}, now = new Date()) {
   const byWeek = new Map()
   const byDate = new Map()
   const byWeekday = Array.from({ length: 7 }, (_, i) => ({ i, planned: 0, done: 0, pct: 0 }))
@@ -92,7 +89,7 @@ export function buildStats(allProjects, weekMeta = {}, now = new Date(), popups 
   let slipped = 0
   let unscheduled = 0
 
-  for (const u of allUnits(allProjects, popups, now)) {
+  for (const u of units(allProjects)) {
     total++
     if (u.done) done++
     slipped += u.missed.length

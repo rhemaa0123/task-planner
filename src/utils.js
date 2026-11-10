@@ -379,7 +379,7 @@ export const MONTH_NAMES = [
 ]
 export const MONTH_SHORT = MONTH_NAMES.map((m) => m.slice(0, 3))
 
-// "2026-10" - the key the monthly page stores a month's goals and note under.
+// "2026-10" - the key the monthly page stores a month's tasks under.
 // Month is 1-12 here and everywhere else in this file; only the Date
 // constructor speaks 0-11, and it is fed `month - 1` at every call site.
 export function monthKey(year, month) {
@@ -395,17 +395,6 @@ export function daysInMonth(year, month) {
   return new Date(year, month, 0).getDate()
 }
 
-// Every Monday whose week touches this month, in order. The month's weeks as
-// the weekly planner counts them - so the first and last may reach into the
-// neighbouring month, which is exactly the overlap a week-by-week plan has.
-export function monthWeekStarts(year, month) {
-  const first = startOfWeek(new Date(year, month - 1, 1))
-  const last = new Date(year, month - 1, daysInMonth(year, month))
-  const out = []
-  for (let d = first; d <= last; d = addDays(d, 7)) out.push(toISODate(d))
-  return out
-}
-
 // Step a {year, month} pair by whole months, wrapping the year
 export function shiftMonth(year, month, by) {
   const m0 = year * 12 + (month - 1) + by
@@ -414,6 +403,31 @@ export function shiftMonth(year, month, by) {
 
 export function formatMonthLabel(year, month) {
   return `${MONTH_NAMES[month - 1]} ${year}`
+}
+
+// The seven boxes the yearly and monthly pages are built from, in the order
+// they were asked for. `key` is what the stores hold, `name` what is printed.
+export const CATEGORIES = [
+  { key: 'spirituality', name: 'Spirituality' },
+  { key: 'career', name: 'Career' },
+  { key: 'growth', name: 'Personal Growth' },
+  { key: 'relationships', name: 'Relationships' },
+  { key: 'finance', name: 'Finance' },
+  { key: 'health', name: 'Health' },
+  { key: 'relaxation', name: 'Relaxation' },
+]
+
+// Where a calendar year stands today: day N of 365 (366 in a leap year), Jan
+// 1 being day 1, and how many days are left after today. A year not begun yet
+// says how far off it is; one gone by is simply over.
+export function yearProgress(year, now = new Date()) {
+  const total = daysInMonth(year, 2) === 29 ? 366 : 365
+  const today = new Date(now)
+  today.setHours(0, 0, 0, 0)
+  const day = Math.round((today - new Date(year, 0, 1)) / DAY_MS) + 1
+  if (day < 1) return { state: 'ahead', day: 0, total, left: total, startsIn: 1 - day, pct: 0 }
+  if (day > total) return { state: 'over', day: total, total, left: 0, pct: 100 }
+  return { state: 'now', day, total, left: total - day, pct: Math.round((day / total) * 100) }
 }
 
 /* ---- Birthdays ---- */
@@ -815,29 +829,6 @@ export function popupTally(store, isos, horizon = null) {
 
 // The seven days of the week starting `weekStartIso`, as dates
 export const weekDates = (weekStartIso) => weekDayList(weekStartIso).map((d) => d.date)
-
-// Every counted pop-up in the store, one per day it stands on, each saying
-// its week and day - the shape `units()` in the stats module walks. Written
-// ones are taken as they are; a daily is walked from its first day to the
-// horizon (or its last day, if sooner).
-export function* popupUnits(store, horizon) {
-  const weekOf = (iso) => toISODate(startOfWeek(fromISODate(iso)))
-  for (const [iso, list] of Object.entries(store?.days || {})) {
-    for (const p of list || []) {
-      if (!isCounted(p)) continue
-      yield { week: weekOf(iso), day: iso, done: !!p.done, missed: [] }
-    }
-  }
-  for (const d of store?.daily || []) {
-    if (!isCounted(d) || !d.from) continue
-    const end = d.until && d.until < horizon ? d.until : horizon
-    const done = new Set(d.done || [])
-    for (let iso = d.from; iso <= end; iso = toISODate(addDays(fromISODate(iso), 1))) {
-      if (!dailyOn(d, iso)) continue
-      yield { week: weekOf(iso), day: iso, done: done.has(iso), missed: [] }
-    }
-  }
-}
 
 // Every ticked pop-up across some days, as one string - the pop-up half of
 // `completionKey`, so a ticked pop-up sinks the way a ticked task does

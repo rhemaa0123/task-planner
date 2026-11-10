@@ -4,6 +4,7 @@ import { useToday } from '../../hooks/useToday'
 import {
   TodayPanel, TomorrowPanel, WeatherPanel, CountdownPanel, BirthdayPanel, DeadlinePanel,
 } from './Overview'
+import { VerseBanner } from './Verse'
 import {
   toISODate, startOfWeek, rollUp, weekCountdown, formatWeekRange,
   DAY_NAMES, MONTH_NAMES, addTally, popupTally, popupHorizon, weekDates,
@@ -61,6 +62,9 @@ export function HomePage() {
 
   return (
     <div className="page">
+      {/* Above everything else on the page, as asked: the day's verse */}
+      <VerseBanner />
+
       <div className="page-head">
         <div className="page-head-left">
           <div className="eyebrow">{name ? `${name.toUpperCase()}'S DAY` : 'TODAY'}</div>

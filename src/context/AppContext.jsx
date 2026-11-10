@@ -546,7 +546,7 @@ export function AppProvider({ children }) {
   }
 
   /* ---- The other pages ----
-     Birthdays, contacts and the month / year notes never touch the plan, so
+     Birthdays, contacts and the month / year lists never touch the plan, so
      they are written through their own small path: `setStore` mirrors the
      value into `sideRefs` (read back in the same tick), pushes it to React,
      and persists it, exactly as `save()` does for projects. */
@@ -611,37 +611,69 @@ export function AppProvider({ children }) {
   const deleteContact = (id) =>
     setStore(CONTACTS_KEY, setContacts, (list) => list.filter((c) => String(c.id) !== String(id)))
 
-  /* One month's intentions, keyed "YYYY-MM". Goals here are not tasks: they
-     are never scheduled, never roll up into a week's progress, and nothing in
-     the weekly plan reads them. They are what you look at while planning a
-     week, which is the only link between the two pages. */
-  const patchMonth = (key, fn) =>
-    setStore(MONTHS_KEY, setMonths, (all) => {
-      const month = all[key] || { goals: [], note: '' }
-      return { ...all, [key]: fn(month) }
+  /* The yearly and monthly pages: one list per category (`CATEGORIES` in
+     utils.js) under `categories` in a year's record ("2026") or a month's
+     ("2026-11"). A year's lines are its values and objectives - text, no
+     ticks. A month's are tasks: ticked, and each may name the line of its
+     category on its year's page that it serves (`ref`). The month refers to
+     the year and nothing flows back; a line deleted from the year leaves its
+     tasks unlinked, since the page looks the id up rather than trusting it.
+     Neither is wired into the week: the board reads none of this.
+     What the two pages held before Nov 2026 - a year's theme and twelve
+     month lines, a month's focuses and note - is left in the stores as it
+     was; nothing reads it any more. */
+
+  // One category's list inside a year's or a month's record, rewritten by `fn`
+  const withCategory = (record, cat, fn) => ({
+    ...record,
+    categories: { ...(record.categories || {}), [cat]: fn([...(record.categories?.[cat] || [])]) },
+  })
+
+  // A new row straight after `after`, or at the end - so Enter on a row opens
+  // the next one beneath it
+  const insertRow = (list, row, after) => {
+    const at = after == null ? -1 : list.findIndex((r) => String(r.id) === String(after))
+    list.splice(at === -1 ? list.length : at + 1, 0, row)
+    return list
+  }
+
+  const patchYear = (year, fn) =>
+    setStore(YEARS_KEY, setYears, (all) => {
+      const key = String(year)
+      return { ...all, [key]: fn(all[key] || {}) }
     })
 
-  const addMonthGoal = (key, text = '', { after = null } = {}) => {
+  const addYearLine = (year, cat, { after = null } = {}) => {
     const id = generateId()
-    patchMonth(key, (m) => {
-      const goals = [...(m.goals || [])]
-      const at = after == null ? -1 : goals.findIndex((g) => String(g.id) === String(after))
-      goals.splice(at === -1 ? goals.length : at + 1, 0, { id, text, done: false })
-      return { ...m, goals }
-    })
+    patchYear(year, (y) => withCategory(y, cat, (list) => insertRow(list, { id, text: '' }, after)))
     return id
   }
 
-  const updateMonthGoal = (key, id, patch) =>
-    patchMonth(key, (m) => ({
-      ...m,
-      goals: (m.goals || []).map((g) => String(g.id) === String(id) ? { ...g, ...patch } : g),
-    }))
+  const updateYearLine = (year, cat, id, text) =>
+    patchYear(year, (y) => withCategory(y, cat, (list) =>
+      list.map((l) => String(l.id) === String(id) ? { ...l, text } : l)))
 
-  const deleteMonthGoal = (key, id) =>
-    patchMonth(key, (m) => ({ ...m, goals: (m.goals || []).filter((g) => String(g.id) !== String(id)) }))
+  const deleteYearLine = (year, cat, id) =>
+    patchYear(year, (y) => withCategory(y, cat, (list) =>
+      list.filter((l) => String(l.id) !== String(id))))
 
-  const setMonthNote = (key, note) => patchMonth(key, (m) => ({ ...m, note }))
+  const patchMonth = (key, fn) =>
+    setStore(MONTHS_KEY, setMonths, (all) => ({ ...all, [key]: fn(all[key] || {}) }))
+
+  const addMonthTask = (key, cat, { after = null } = {}) => {
+    const id = generateId()
+    patchMonth(key, (m) => withCategory(m, cat, (list) =>
+      insertRow(list, { id, text: '', done: false, ref: null }, after)))
+    return id
+  }
+
+  const updateMonthTask = (key, cat, id, patch) =>
+    patchMonth(key, (m) => withCategory(m, cat, (list) =>
+      list.map((t) => String(t.id) === String(id) ? { ...t, ...patch } : t)))
+
+  const deleteMonthTask = (key, cat, id) =>
+    patchMonth(key, (m) => withCategory(m, cat, (list) =>
+      list.filter((t) => String(t.id) !== String(id))))
 
   /* Countdowns. A name and a day you are waiting for, stored as an ISO date
      because it happens once - the mirror image of a birthday, which is kept
@@ -950,19 +982,6 @@ export function AppProvider({ children }) {
     ? renameDaily(row.id, text)
     : updatePopup(row.iso, row.id, { text }))
 
-  /* One year, keyed by the number. A theme for the whole year and a line of
-     intent per month - the coarsest layer, read when a month is being set up. */
-  const patchYear = (year, fn) =>
-    setStore(YEARS_KEY, setYears, (all) => {
-      const key = String(year)
-      return { ...all, [key]: fn(all[key] || { theme: '', months: {} }) }
-    })
-
-  const setYearTheme = (year, theme) => patchYear(year, (y) => ({ ...y, theme }))
-
-  const setYearMonthNote = (year, month, text) =>
-    patchYear(year, (y) => ({ ...y, months: { ...(y.months || {}), [month]: text } }))
-
   const reorderProjects = (fromIndex, toIndex) => {
     // Indices come from the visible week, so reorder that slice and lay it back
     // into the week's slots, leaving other weeks untouched
@@ -987,8 +1006,8 @@ export function AppProvider({ children }) {
       profile, setProfileName,
       birthdays, addBirthday, updateBirthday, deleteBirthday,
       contacts, addContact, updateContact, deleteContact,
-      months, addMonthGoal, updateMonthGoal, deleteMonthGoal, setMonthNote,
-      years, setYearTheme, setYearMonthNote,
+      months, addMonthTask, updateMonthTask, deleteMonthTask,
+      years, addYearLine, updateYearLine, deleteYearLine,
       countdowns, addCountdown, updateCountdown, deleteCountdown,
       academics, setActiveTerm,
       addCourse, updateCourse, deleteCourse,

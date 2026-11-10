@@ -67,7 +67,7 @@ function AppContent() {
   // `#/plan…` is the weekly board's old address and still answers.
   const page = route.startsWith('#/weekly') || route.startsWith('#/plan') ? <Board />
     : route.startsWith('#/monthly') ? <MonthlyPage route={route} />
-    : route.startsWith('#/yearly') ? <YearlyPage />
+    : route.startsWith('#/yearly') ? <YearlyPage route={route} />
     : route.startsWith('#/weeks') ? <WeeksPage />
     : route.startsWith('#/stats') ? <StatsPage />
     : route.startsWith('#/academics') ? <AcademicsPage />

@@ -514,7 +514,7 @@ export function CountdownPanel() {
 }
 
 /* ---- Where am I? ----
-   The only thing this app ever asks for, and it asks once. Typed, not sensed:
+   Asked once, and only if the forecast is wanted. Typed, not sensed:
    no geolocation prompt, no IP lookup - a town name goes out to Open-Meteo's
    search and coordinates come back. */
 function PlaceDialog({ current, onPick, onClose }) {
@@ -554,9 +554,8 @@ function PlaceDialog({ current, onPick, onClose }) {
         <div className="modal-divider" />
 
         <p className="modal-copy">
-          Everything else in this planner stays on this machine. The forecast is the
-          one exception — the town you pick is sent to Open-Meteo to look it up,
-          and nothing else goes with it.
+          Your plan stays on this machine. For the forecast, the town you pick is sent
+          to Open-Meteo to look it up, and nothing else goes with it.
         </p>
 
         <div className="place-search">
@@ -626,7 +625,7 @@ export function WeatherPanel() {
           <WeatherIcon name="part" />
           <span>
             <b>Set your location</b>
-            The only thing this planner ever sends anywhere, and only once you ask.
+            Nothing is sent anywhere until you ask.
           </span>
         </button>
       ) : (

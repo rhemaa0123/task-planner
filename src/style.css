@@ -3159,8 +3159,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   margin-bottom: var(--sp-2);
 }
 .panel-head .eyebrow { flex: 1; }
-.panel-count,
-.panel-sub {
+.panel-count {
   font-family: var(--mono);
   font-weight: var(--w-mono);
   font-size: var(--fs-mini);
@@ -3178,27 +3177,8 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   color: var(--ink-faint);
   margin-bottom: var(--sp-3);
 }
-.panel-divider {
-  height: 1px;
-  background: var(--line);
-  margin: var(--sp-4) 0 var(--sp-3);
-}
-textarea.panel-note {
-  width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  padding: var(--sp-3);
-  font-size: var(--fs-body);
-  line-height: 1.6;
-  color: var(--ink);
-  resize: vertical;
-  margin-top: var(--sp-2);
-}
-textarea.panel-note:focus { border-color: var(--accent-fill); }
-textarea.panel-note::placeholder { color: var(--ink-faint); }
 
-/* ---- A list of typed rows (a month's focuses) ---- */
+/* ---- A list of typed rows (a year's lines, a month's tasks, pop-ups) ---- */
 .goal-list { list-style: none; }
 .goal-row {
   display: flex;
@@ -3222,6 +3202,26 @@ input[type="text"].goal-text::placeholder { color: var(--ink-faint); }
 /* Typed in place like a task name in the projects pane: no box on focus.
    Outranks the global input focus border. */
 input[type="text"].goal-text:focus {
+  background: transparent;
+  border-color: transparent;
+}
+/* The same field, wrapping (InlineText's `wrap`): as tall as its words, which
+   InlineText measures, so no scrollbar and no handle */
+textarea.goal-text {
+  flex: 1;
+  min-width: 0;
+  display: block;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0;
+  padding: 3px 6px;
+  font-size: var(--fs-row);
+  color: var(--ink);
+  resize: none;
+  overflow: hidden;
+}
+textarea.goal-text::placeholder { color: var(--ink-faint); }
+textarea.goal-text:focus {
   background: transparent;
   border-color: transparent;
 }
@@ -3277,7 +3277,7 @@ input[type="text"].goal-text:focus {
 
 /* ---- Pop-ups ----
    The day's small things, outside any project. Typed in place like a month's
-   focuses - the rows are `.goal-row`s - under a quiet label, first in the day
+   tasks - the rows are `.goal-row`s - under a quiet label, first in the day
    (asked for, so they are the first thing seen) with a hairline above them
    and another between them and the plan's work below. */
 .popups {
@@ -3371,231 +3371,149 @@ input[type="text"].popup-add-input:focus {
 }
 
 /* ============================================================
-   Monthly
+   Yearly and monthly — the seven category boxes
    ============================================================ */
 
-.month-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--sp-5);
-  align-items: start;
-}
-
-/* ---- The month as a calendar ---- */
-.mcal { margin-top: var(--sp-1); }
-.mcal-dow,
-.mcal-week {
-  display: grid;
-  /* The first, narrow column is the week's own grip - a whole-week target has
-     to live somewhere, and the margin is the one place it does not steal room
-     from a day */
-  grid-template-columns: 14px repeat(7, minmax(0, 1fr));
-  gap: 3px;
-}
-.mcal-dow {
-  margin-bottom: var(--sp-2);
-  /* The grip column plus the gap that follows it, so M sits over Monday
-     rather than three pixels to its left */
-  padding-left: 17px;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-}
-.mcal-dow span {
-  text-align: center;
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-micro);
-  color: var(--ink-faint);
-}
-.mcal-week + .mcal-week { margin-top: 3px; }
-
-.mcal-week-grip {
-  background: transparent;
-  border: none;
-  border-radius: 3px;
-  padding: 0;
-}
-.mcal-week-grip::after {
-  content: "";
-  display: block;
-  width: 3px;
-  height: 100%;
-  margin: 0 auto;
-  border-radius: 999px;
-  background: var(--line);
-}
-.mcal-week-grip:hover::after { background: var(--accent-fill); }
-
-.mcal-day {
-  position: relative;
-  aspect-ratio: 1;
+/* ---- The year's days, counted ----
+   Built like Home's week strip, a line over a bar, with the day itself given
+   the weight - it is what the strip is for. The bar is time gone, not work
+   done, so it takes the accent rather than the green every finished count
+   uses. */
+.year-count {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-4);
+  background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: var(--r-chip);
-  background: var(--bg);
+  border-radius: var(--r-card);
 }
-.mcal-num {
+.year-count-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
+}
+.year-count-day {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: var(--fs-figure);
+  color: var(--ink);
+}
+.year-count-left {
   font-family: var(--mono);
   font-weight: var(--w-mono);
-  font-size: var(--fs-mini);
+  font-size: var(--fs-body);
   color: var(--ink-soft);
-  line-height: 1;
 }
-/* The days either side of the month are drawn, but drawn back */
-.mcal-day.outside { background: transparent; border-color: transparent; }
-.mcal-day.outside .mcal-num { color: var(--ink-faint); opacity: 0.55; }
-.mcal-day.today {
-  border-color: var(--accent-fill);
-  background: var(--accent-soft);
-}
-.mcal-day.today .mcal-num { color: var(--accent); font-weight: 600; }
-.mcal-load {
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-micro);
-  line-height: 1;
-  padding: 1px 4px;
-  border-radius: 999px;
-  background: var(--good-soft);
-  color: var(--good-ink);
-}
-.mcal-load.full { background: var(--good); color: var(--on-accent); }
-
-/* ---- Its weeks ---- */
-.month-weeks { list-style: none; margin-top: var(--sp-2); }
-.mweek {
-  width: 100%;
+.year-count.ahead .year-count-day,
+.year-count.over .year-count-day { color: var(--ink-soft); }
+.year-count-bar {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: var(--sp-2) var(--sp-2);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--r-chip);
-  text-align: left;
 }
-.mweek:hover { background: var(--hover-neutral); border-color: var(--line); }
-.mweek.current { border-color: var(--line-strong); }
-.mweek-title {
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-chrome);
-  color: var(--ink);
-  white-space: nowrap;
-}
-.mweek.current .mweek-title { color: var(--good-ink); }
-.mweek-track {
+.year-count-track {
   flex: 1;
-  height: 5px;
-  min-width: 40px;
+  height: 6px;
   border-radius: 999px;
   background: var(--line);
   overflow: hidden;
 }
-.mweek-fill { display: block; height: 100%; background: var(--good); border-radius: 999px; }
-.mweek-stat {
+.year-count-fill { display: block; height: 100%; background: var(--accent-fill); border-radius: 999px; }
+.year-count-pct {
+  min-width: 36px;
+  text-align: right;
   font-family: var(--mono);
   font-weight: var(--w-mono);
-  font-size: var(--fs-mini);
+  font-size: var(--fs-chrome);
   color: var(--ink-faint);
-  min-width: 42px;
-  text-align: right;
 }
 
-/* ============================================================
-   Yearly
-   ============================================================ */
-
-.year-theme { margin-bottom: var(--sp-5); }
-input[type="text"].year-theme-input {
-  width: 100%;
-  margin-top: var(--sp-2);
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  padding: var(--sp-3) var(--sp-4);
-  font-family: var(--display);
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--ink);
-}
-input[type="text"].year-theme-input::placeholder { color: var(--ink-faint); font-weight: 400; }
-input[type="text"].year-theme-input:focus { border-color: var(--accent-fill); }
-
-.year-grid {
+/* ---- The seven boxes ----
+   As many columns as fit at 260px - three on a desktop, one on a phone - and
+   each box as tall as its own list */
+.cat-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: var(--sp-3);
+  align-items: start;
 }
-.year-month {
+.cat-box { min-width: 0; }
+
+/* Both kinds of row wrap their words, so they are aligned to the top and the
+   dot or the box sits beside the first line rather than the middle of three:
+   the field's first line is centred 4px (border + padding) plus half a line
+   down. */
+.cat-line,
+.cat-task { align-items: flex-start; }
+
+/* A year's line has a dot where a task has its box: a line is read, not
+   ticked. Centred in the room a box would take, so the words line up with
+   the month's tasks. */
+.cat-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  margin: calc(4px + 0.75 * var(--fs-row) - 3px) calc((var(--check-size) - 6px) / 2) 0;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+.cat-line:focus-within .cat-dot { background: var(--accent-fill); }
+
+/* A month's task: its box, then its words with the yearly line it serves
+   underneath */
+.cat-task .task-check { margin-top: calc(4px + 0.75 * var(--fs-row) - var(--check-size) / 2); }
+.cat-task-body {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: var(--r-card);
-  padding: var(--sp-3);
+  align-items: flex-start;
 }
-.year-month.current { border-color: var(--accent-fill); }
-/* A month gone by is not hidden, only quieter - last year is still worth reading */
-.year-month.past { opacity: 0.62; }
-.year-month.past:hover { opacity: 1; }
+.cat-task-body .goal-text { flex: none; width: 100%; }
 
-.year-month-head {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-2);
-}
-.year-month-name {
-  flex: 1;
-  font-size: var(--fs-section);
-  font-weight: 600;
-  color: var(--ink);
-}
-.year-month.current .year-month-name { color: var(--accent); }
-.year-month-marks { display: flex; gap: 4px; }
-.year-chip {
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-micro);
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--good-soft);
-  color: var(--good-ink);
-}
-.year-chip.plain { background: var(--hover-neutral); color: var(--ink-faint); }
-
-textarea.year-month-note {
-  flex: 1;
-  width: 100%;
+/* The line a task serves, picked from its category on its year's page.
+   Quiet until it holds one; a line is prose someone typed, so it keeps the
+   case it was typed in. */
+.cat-ref {
+  max-width: 100%;
+  margin-left: 2px;
+  padding: 2px 4px;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--r-chip);
-  padding: var(--sp-2);
-  margin-left: -8px;
   font-size: var(--fs-chrome);
-  line-height: 1.55;
-  color: var(--ink);
-  resize: none;
+  color: var(--ink-faint);
+  text-overflow: ellipsis;
+  cursor: pointer;
 }
-textarea.year-month-note::placeholder { color: var(--ink-faint); }
-textarea.year-month-note:hover { background: var(--bg); }
-textarea.year-month-note:focus { background: var(--bg); border-color: var(--accent-fill); }
+.cat-ref:hover { background: var(--hover-neutral); }
+.cat-ref:focus-visible { border-color: var(--accent-fill); }
+.cat-ref.linked { color: var(--accent); }
+.cat-task.done .cat-ref { opacity: 0.6; }
 
-.year-month-open {
-  margin-top: var(--sp-2);
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-micro);
+.cat-empty-link {
+  display: block;
+  margin-top: var(--sp-1);
+  padding: var(--sp-1);
+  font-size: var(--fs-chrome);
   color: var(--ink-faint);
   text-decoration: none;
-  opacity: 0;
 }
-.year-month:hover .year-month-open,
-.year-month-open:focus-visible { opacity: 1; color: var(--accent); }
+.cat-empty-link:hover { color: var(--accent); }
+
+/* Touch: iOS zooms the page into a field under 16px, and the picker is a
+   target in its own right. After the base rules above, so these win. */
+@media (hover: none) {
+  .cat-box textarea.goal-text,
+  .cat-ref { font-size: 16px; }
+  .cat-ref { min-height: 40px; }
+  .cat-dot { margin-top: calc(4px + 0.75 * 16px - 3px); }
+  .cat-task .task-check { margin-top: calc(4px + 0.75 * 16px - var(--check-size) / 2); }
+}
 
 /* ============================================================
    People — shared list chrome
@@ -4269,15 +4187,6 @@ button.stat-sub.as-link:hover { color: var(--ink); }
    Narrow
    ============================================================ */
 
-/* Between a phone and a desktop the two monthly columns and the four yearly
-   ones are simply too tight to read */
-@media (max-width: 1180px) {
-  .year-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-@media (max-width: 1020px) {
-  .month-body { grid-template-columns: minmax(0, 1fr); }
-}
-
 /* ---- The sidebar goes off-canvas ----
    There is no room for a rail and a page at once, so below this the sidebar
    is a drawer: it slides in over the page, the scrim takes the next tap, and
@@ -4326,8 +4235,6 @@ button.stat-sub.as-link:hover { color: var(--ink); }
      in track 2 would conjure an implicit second column and push it off screen.
      The menu button sits where the page's first line would start. */
   .main-content { grid-column: 1; padding-top: 64px; }
-
-  .year-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 600px) {
@@ -4340,7 +4247,6 @@ button.stat-sub.as-link:hover { color: var(--ink); }
   .list-tools { flex-wrap: wrap; }
   .search-box { max-width: none; }
 
-  .year-grid { grid-template-columns: minmax(0, 1fr); }
   .panel { padding: var(--sp-3); }
   .stat-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .chart { padding: var(--sp-3); }
@@ -4366,14 +4272,11 @@ button.stat-sub.as-link:hover { color: var(--ink); }
   .ct-table td.ct-from,
   .ct-table td.ct-phone { display: none; }
   .ct-table th, .ct-table td { padding: var(--sp-3); }
-
-  .mcal-day { aspect-ratio: auto; min-height: 36px; }
 }
 
 /* Touch has no hover, so every row's × has to be there from the start */
 @media (hover: none) {
-  .row-del,
-  .year-month-open { opacity: 1; }
+  .row-del { opacity: 1; }
 }
 
 /* ============================================================
@@ -4396,6 +4299,119 @@ button.stat-sub.as-link:hover { color: var(--ink); }
   color: var(--ink-faint);
   margin-top: 4px;
   letter-spacing: 0.02em;
+}
+
+/* ---- Verse of the day ----
+   The first thing on Home, asked for "slightly large and visible every day":
+   a card with a rule of the accent down its left edge, the verse in the body
+   face a few steps up. Upright - only upright weights are loaded, and an
+   italic would be synthesised. The reference and the credit take the small
+   labels every date here uses, and both wrap, so a long copyright line or a
+   long verse can never push the page sideways. */
+.home-verse {
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent-fill);
+  border-radius: var(--r-card);
+}
+.home-verse-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+.home-verse-head .eyebrow { flex: 1; }
+.home-verse-text {
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+.home-verse-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-3);
+  margin-top: var(--sp-3);
+}
+.home-verse-ref {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: var(--fs-body);
+  color: var(--accent);
+  text-decoration: none;
+}
+.home-verse-ref:hover { text-decoration: underline; }
+.home-verse-stale {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.home-verse-credit {
+  flex-basis: 100%;
+  font-size: var(--fs-mini);
+  line-height: 1.5;
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+.home-verse-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--fs-body);
+  color: var(--ink-soft);
+}
+.home-verse-note .panel-link { margin-left: 0; }
+/* Not set up yet: one line offering it, quiet like the weather's own offer */
+.home-verse-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-size: var(--fs-chrome);
+  line-height: 1.55;
+  color: var(--ink-faint);
+}
+.home-verse-setup b { font-size: var(--fs-row); font-weight: 600; color: var(--ink-soft); }
+.home-verse-setup:hover b { color: var(--accent); }
+
+/* Its setup dialog */
+.verse-steps {
+  margin: var(--sp-2) 0 var(--sp-4) var(--sp-5);
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.verse-steps a { color: var(--accent); }
+.verse-key-row { display: flex; align-items: flex-start; gap: var(--sp-2); }
+.verse-key-row .field-input { flex: 1; min-width: 0; font-family: var(--mono); }
+.verse-msg {
+  margin: calc(-1 * var(--sp-1)) 0 var(--sp-3);
+  font-size: var(--fs-chrome);
+  line-height: 1.55;
+  color: var(--ink-faint);
+}
+.verse-msg.warn { color: var(--warn); }
+
+@media (max-width: 600px) {
+  .home-verse { padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-4); }
+  .home-verse-text { font-size: 17px; }
+}
+/* iOS zooms into a field under 16px - here, after the base rules, so it wins */
+@media (hover: none) {
+  .field-input.verse-key,
+  .field-input.verse-version { font-size: 16px; }
 }
 
 /* ---- The week, in one line ----
@@ -5026,7 +5042,7 @@ button.stat-sub.as-link:hover { color: var(--ink); }
 .asg:hover { border-color: var(--line-strong); }
 .asg.overdue { background: var(--overdue-fill); border-color: var(--overdue-line); }
 /* Handed in and faded, but it comes back on hover - last term's work is
-   still worth reading, the same rule a past month follows on the yearly page */
+   still worth reading */
 .asg.submitted { opacity: 0.6; }
 .asg.submitted:hover { opacity: 1; }
 
@@ -5289,7 +5305,7 @@ a, button, [role="button"], [role="tab"], .task-check, .day-toggle, .nav-row {
 
 /* A grip is held, not read. Without this a long press on one raises the text
    selection callout, which is the wrong gesture and hard to dismiss. */
-.task-grip, .sched-sub-grip, .mcal-week-grip, .asg-caret {
+.task-grip, .sched-sub-grip, .asg-caret {
   -webkit-user-select: none;
   user-select: none;
 }
