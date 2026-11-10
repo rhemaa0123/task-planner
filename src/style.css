@@ -3490,38 +3490,31 @@ input[type="text"].popup-add-input:focus {
    Monthly — the focus list and its note, beside the month's calendar
    ============================================================ */
 
-/* The focus block first, under the head - its note beside the list, a
-   hairline between - and under it the calendar and the month's deadlines
-   side by side at the same width. One column under 1020px, in that order. */
+/* Two cards, one under the other, each two cells with a hairline between:
+   the focus list and its note, then the calendar and the month's
+   deadlines. Both split 3fr | 2fr at the same width, so the two hairlines
+   fall in one line down the page. One column under 1020px, in that order. */
 .month-layout {
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
 }
-.month-focus {
+.month-card {
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   padding: 0;
 }
-.month-focus-list {
+.month-cell {
   min-width: 0;
   padding: var(--sp-4);
 }
+.month-cell + .month-cell { border-left: 1px solid var(--line); }
 .month-focus-notes {
-  min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: var(--sp-4);
-  border-left: 1px solid var(--line);
 }
 /* The note fills whatever height the list beside it takes */
 .month-focus-notes textarea.panel-note { flex: 1; min-height: 160px; }
-.month-below {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--sp-4);
-  align-items: start;
-}
 
 /* ---- A focus: its box, its words, then what it serves ---- */
 .focus-row .task-check { margin-top: calc(4px + 0.75 * var(--fs-row) - var(--check-size) / 2); }
@@ -3656,8 +3649,8 @@ textarea.panel-note::placeholder { color: var(--ink-faint); }
 }
 
 /* Too narrow to name anything: each deadline becomes a dot in its colour.
-   At half a desktop page the calendar is ~440px and a day still takes a
-   short title; a phone's ~330px does not. */
+   At three-fifths of a desktop page the calendar is ~545px and a day takes
+   a short title; a phone's ~330px does not. */
 @container mcal (max-width: 400px) {
   .mcal-day { min-height: 44px; align-items: center; }
   .mcal-due { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 3px; }
@@ -3709,9 +3702,8 @@ textarea.panel-note::placeholder { color: var(--ink-faint); }
 
 /* After the base rules above, so these win */
 @media (max-width: 1020px) {
-  .month-focus,
-  .month-below { grid-template-columns: minmax(0, 1fr); }
-  .month-focus-notes { border-left: none; border-top: 1px solid var(--line); }
+  .month-card { grid-template-columns: minmax(0, 1fr); }
+  .month-cell + .month-cell { border-left: none; border-top: 1px solid var(--line); }
 }
 @media (max-width: 600px) {
   .cat-row { grid-template-columns: minmax(0, 1fr); }

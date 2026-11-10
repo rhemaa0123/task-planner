@@ -14,9 +14,10 @@ import {
    Rebuilt again Nov 2026. First, under the head, the month's FOCUS list with
    its note beside it: each focus is ticked here, and may name one of the
    yearly page's seven categories and the line of that category it serves -
-   that pointer is the only tie to the year. Under them, side by side, the
-   month as a calendar of its deadlines (assignments, projects, tasks) and a
-   short list of the same, as a reminder.
+   that pointer is the only tie to the year. Under them, in a second card
+   split the same way, the month as a calendar of its deadlines
+   (assignments, projects, tasks) with a short list of the same beside it,
+   as a reminder.
 
    The calendar is a read and only a read, through the same
    `collectDeadlines()` Home's Deadlines panel uses, so the two cannot
@@ -155,8 +156,8 @@ export function MonthlyPage({ route = '#/monthly' }) {
 
       <div className="month-layout">
         {/* ---- What the month is for: the list, its note beside it ---- */}
-        <section className="panel month-focus">
-          <div className="month-focus-list">
+        <section className="panel month-card month-focus">
+          <div className="month-cell month-focus-list">
             <div className="panel-head">
               <span className="eyebrow">FOCUS</span>
             </div>
@@ -245,7 +246,7 @@ export function MonthlyPage({ route = '#/monthly' }) {
             </button>
           </div>
 
-          <div className="month-focus-notes">
+          <div className="month-cell month-focus-notes">
             <div className="panel-head">
               <span className="eyebrow">NOTES</span>
             </div>
@@ -261,16 +262,17 @@ export function MonthlyPage({ route = '#/monthly' }) {
           </div>
         </section>
 
-        {/* ---- What it owes: the calendar and its list, side by side ---- */}
-        <div className="month-below">
-          <section className="panel">
+        {/* ---- What it owes: the calendar, its list beside it - split as
+            the card above is, so the two hairlines run in one line ---- */}
+        <section className="panel month-card month-owes">
+          <div className="month-cell month-cal-cell">
             <div className="panel-head">
               <span className="eyebrow">THE MONTH</span>
             </div>
             <MonthCalendar year={at.year} month={at.month} byDate={byDate} todayIso={toISODate(now)} />
-          </section>
+          </div>
 
-          <section className="panel">
+          <div className="month-cell month-due-cell">
             <div className="panel-head">
               <span className="eyebrow">DUE THIS MONTH</span>
             </div>
@@ -289,8 +291,8 @@ export function MonthlyPage({ route = '#/monthly' }) {
                 ))}
               </ul>
             )}
-          </section>
-        </div>
+          </div>
+        </section>
       </div>
     </div>
   )
