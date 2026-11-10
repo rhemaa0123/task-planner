@@ -62,14 +62,6 @@ export const YearlyIcon = () => (
   </Svg>
 )
 
-// The archive of past weeks: a stack of rows
-export const WeeksIcon = () => (
-  <Svg>
-    <path d="M4 6.5h16M4 12h16M4 17.5h10" />
-    <circle cx="19" cy="17.5" r="1.4" opacity="0.6" />
-  </Svg>
-)
-
 // Birthdays: a cake with one candle
 export const BirthdayIcon = () => (
   <Svg>

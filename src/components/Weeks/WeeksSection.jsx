@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useLayoutEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import {
   toISODate, fromISODate, addDays, startOfWeek, rollUp, dayLoad, encodePlan,
-  formatWeekTitle, formatShortDate, addTally, popupTally, popupHorizon, weekDates,
+  formatWeekTitle, formatShortDate,
 } from '../../utils'
 import { DashedOutline } from '../Dash'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -111,33 +111,6 @@ function Stat({ week }) {
   )
 }
 
-// The list's left edge sits under the WEEKS tab in the header, and the right
-// edge mirrors it, so the column is centred. Measured, since the tab's place
-// depends on the brand and the two tabs before it; re-measured on resize and
-// once the webfont has settled the brand's width.
-function useWeeksInset(ref) {
-  const [inset, setInset] = useState(0)
-  useLayoutEffect(() => {
-    const measure = () => {
-      const page = ref.current
-      const tab = document.querySelector('.nav-tab[href="#/weeks"]')
-      const parent = page?.parentElement
-      if (!page || !tab || !parent) return
-      const contentLeft = parent.getBoundingClientRect().left + parseFloat(getComputedStyle(parent).paddingLeft)
-      setInset(Math.max(0, Math.round(tab.getBoundingClientRect().left - contentLeft)))
-    }
-    measure()
-    let cancelled = false
-    document.fonts?.ready.then(() => { if (!cancelled) measure() })
-    window.addEventListener('resize', measure)
-    return () => {
-      cancelled = true
-      window.removeEventListener('resize', measure)
-    }
-  }, [ref])
-  return inset
-}
-
 const subtitleFor = (w) => {
   if (w.kind === 'current') return 'THIS WEEK'
   if (w.kind === 'future') return 'UPCOMING'
@@ -156,37 +129,35 @@ const XIcon = ({ size = 12 }) => (
   </svg>
 )
 
-export function WeeksPage() {
-  const { allProjects, weekMeta, setWeekStart, deleteWeek, clearAll, showToast, popups } = useApp()
+/* Every week, listed - the old All weeks page, which since Nov 2026 is the
+   last section of Stats rather than a page of its own. It counts what Stats
+   counts: project work only. Pop-ups were in these figures while it was its
+   own page and came out with the move, so the same week cannot read one
+   figure in a chart and another a few rows below it. */
+export function WeeksSection() {
+  const { allProjects, weekMeta, setWeekStart, deleteWeek, clearAll, showToast } = useApp()
   const thisWeekIso = toISODate(startOfWeek())
   const todayIso = toISODate(new Date())
-  const horizon = popupHorizon(new Date())
   const [futureOpen, setFutureOpen] = useState(false)
   const [confirm, setConfirm] = useState(null)
-  const pageRef = useRef(null)
-  const inset = useWeeksInset(pageRef)
 
   // Every week that holds a plan - the current one included only when it
   // does, so an empty week never sits in the list and removing this week's
-  // plan takes its row with it. Pop-ups alone do not make a week a row (one
-  // daily would put every week in the list), but a listed week's figures
-  // count them, as the board does.
+  // plan takes its row with it
   const isos = new Set(allProjects.map(p => p.week_start).filter(Boolean))
 
   const weeks = [...isos].sort().reverse().map(iso => {
     const projects = allProjects.filter(p => p.week_start === iso)
-    const plan = rollUp(projects.flatMap(p => p.tasks || []))
-    const { done, total, pct } = addTally(plan, popupTally(popups, weekDates(iso), horizon))
+    const { done, total, pct } = rollUp(projects.flatMap(p => p.tasks || []))
     return {
       iso,
       projects,
       done,
       total,
       pct,
-      // What deleting the week takes with it - its projects' work, not the
-      // pop-ups, which stay on their days
-      planTotal: plan.total,
-      days: dayLoad(iso, projects, popups, horizon),
+      // What deleting the week takes with it
+      planTotal: total,
+      days: dayLoad(iso, projects),
       ended: !!weekMeta[iso]?.ended,
       kind: iso > thisWeekIso ? 'future' : iso === thisWeekIso ? 'current' : 'past',
     }
@@ -300,11 +271,11 @@ export function WeeksPage() {
   }
 
   return (
-    <div className="weeks-page" ref={pageRef} style={{ '--weeks-inset': `${inset}px` }}>
+    <section className="stats-weeks" aria-label="All weeks">
       {/* With nothing planned there is nothing to count or clear - only the note stays */}
       {weeks.length > 0 && (
         <div className="weeks-head">
-          <span className="eyebrow">{weeks.length} {weeks.length === 1 ? 'WEEK' : 'WEEKS'}</span>
+          <span className="eyebrow">ALL WEEKS · {weeks.length} {weeks.length === 1 ? 'WEEK' : 'WEEKS'}</span>
           <button type="button" className="clear-all-btn" onClick={() => setConfirm({ kind: 'all' })}>
             <XIcon size={11} /> CLEAR ALL
           </button>
@@ -348,6 +319,6 @@ export function WeeksPage() {
           }}
         />
       )}
-    </div>
+    </section>
   )
 }

@@ -21,9 +21,8 @@ export function AboutPage() {
           is your browser&rsquo;s own storage, and none of it is sent anywhere.
         </p>
         <p className="about-fine">
-          The two exceptions wait to be asked: the weather, once you have named a town,
-          and the verse of the day, once you have added a YouVersion key. Clearing the
-          site&rsquo;s data clears the planner with it.
+          The one exception is the weather, which only goes out once you have named a
+          town. Clearing the site&rsquo;s data clears the planner with it.
         </p>
       </div>
     </div>

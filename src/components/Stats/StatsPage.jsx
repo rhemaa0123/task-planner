@@ -2,6 +2,7 @@ import React, { useMemo } from 'react'
 import { useApp } from '../../context/AppContext'
 import { useToday } from '../../hooks/useToday'
 import { DashedOutline } from '../Dash'
+import { WeeksSection } from '../Weeks/WeeksSection'
 import { buildStats, recentWeeks, heatGrid, heatLevel, heatPeak, STREAK_AT } from './compute'
 import {
   formatWeekTitle, formatShortDate, fromISODate, DAY_NAMES, DAY_INITIALS,
@@ -18,6 +19,7 @@ import {
      week by week     whether it is getting better or worse
      activity         the rhythm — which stretches you kept and which you lost
      follow-through   which weekday you overcommit, which one you clear
+     all weeks        every week, listed - the old All weeks page, moved in
 
    What was cut is as deliberate. A second weekday chart splitting *where
    completions land* says the same thing as follow-through with the axis
@@ -83,6 +85,8 @@ export function StatsPage() {
           <b>Nothing to count yet</b>
           <span>Plan a week and tick something off — the charts build themselves from the plan</span>
         </a>
+        {/* Weeks with projects but no tasks yet are still weeks you planned */}
+        {allProjects.some((p) => p.week_start) && <WeeksSection />}
       </div>
     )
   }
@@ -94,7 +98,6 @@ export function StatsPage() {
           <div className="eyebrow">PLANNING</div>
           <h1 className="page-title">Stats</h1>
         </div>
-        <a className="page-head-link" href="#/weeks">All weeks ↗</a>
       </div>
 
       {/* ---- Where you stand ---- */}
@@ -273,6 +276,9 @@ export function StatsPage() {
           )}
         </section>
       )}
+
+      {/* ---- Every week ---- */}
+      <WeeksSection />
     </div>
   )
 }

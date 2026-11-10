@@ -33,6 +33,15 @@ const EMPTY_ACADEMICS = { activeTerm: '', courses: [], assignments: [] }
    See the note above `popupHorizon()` in utils.js for the shape. */
 const POPUPS_KEY = 'task-planner-popups'
 const EMPTY_POPUPS = { days: {}, daily: [] }
+/* The verse of the day (Nov 2026) was taken back out by request a few days
+   after it went in. Its YouVersion app key and cached verse are forgotten
+   here, once, so a key nothing uses any more does not sit in the browser. */
+try {
+  localStorage.removeItem('task-planner-verse')
+  localStorage.removeItem('task-planner-verse-cache')
+} catch {
+  // Storage blocked - then nothing was kept either
+}
 const readPopups = () => {
   const stored = readKey(POPUPS_KEY, EMPTY_POPUPS)
   const days = stored.days && typeof stored.days === 'object' && !Array.isArray(stored.days) ? stored.days : {}
@@ -611,19 +620,20 @@ export function AppProvider({ children }) {
   const deleteContact = (id) =>
     setStore(CONTACTS_KEY, setContacts, (list) => list.filter((c) => String(c.id) !== String(id)))
 
-  /* The yearly and monthly pages: one list per category (`CATEGORIES` in
-     utils.js) under `categories` in a year's record ("2026") or a month's
-     ("2026-11"). A year's lines are its values and objectives - text, no
-     ticks. A month's are tasks: ticked, and each may name the line of its
-     category on its year's page that it serves (`ref`). The month refers to
-     the year and nothing flows back; a line deleted from the year leaves its
-     tasks unlinked, since the page looks the id up rather than trusting it.
-     Neither is wired into the week: the board reads none of this.
-     What the two pages held before Nov 2026 - a year's theme and twelve
-     month lines, a month's focuses and note - is left in the stores as it
-     was; nothing reads it any more. */
+  /* The yearly and monthly pages. A year's record ("2026") holds one list per
+     category (`CATEGORIES` in utils.js) under `categories` - its values and
+     objectives, text with no ticks. A month's record ("2026-11") holds one
+     `focus` list and a `notes` string: each focus is ticked, and may name a
+     category (`cat`) and the line of that category on its year's page that it
+     serves (`ref`). The month refers to the year and nothing flows back; a
+     line deleted from the year leaves its focuses unlinked, since the page
+     looks the id up rather than trusting it. Neither is wired into the week:
+     the board reads none of this.
+     What the pages held before - a year's theme and twelve month lines, a
+     month's `goals` and `note`, and (for a few days in Nov 2026) a month's
+     `categories` - is left in the stores as it was; nothing reads it. */
 
-  // One category's list inside a year's or a month's record, rewritten by `fn`
+  // One category's list inside a year's record, rewritten by `fn`
   const withCategory = (record, cat, fn) => ({
     ...record,
     categories: { ...(record.categories || {}), [cat]: fn([...(record.categories?.[cat] || [])]) },
@@ -660,20 +670,25 @@ export function AppProvider({ children }) {
   const patchMonth = (key, fn) =>
     setStore(MONTHS_KEY, setMonths, (all) => ({ ...all, [key]: fn(all[key] || {}) }))
 
-  const addMonthTask = (key, cat, { after = null } = {}) => {
+  // The month's focus list, rewritten by `fn`
+  const withFocus = (record, fn) => ({ ...record, focus: fn([...(record.focus || [])]) })
+
+  const addMonthFocus = (key, { after = null } = {}) => {
     const id = generateId()
-    patchMonth(key, (m) => withCategory(m, cat, (list) =>
-      insertRow(list, { id, text: '', done: false, ref: null }, after)))
+    patchMonth(key, (m) => withFocus(m, (list) =>
+      insertRow(list, { id, text: '', done: false, cat: null, ref: null }, after)))
     return id
   }
 
-  const updateMonthTask = (key, cat, id, patch) =>
-    patchMonth(key, (m) => withCategory(m, cat, (list) =>
-      list.map((t) => String(t.id) === String(id) ? { ...t, ...patch } : t)))
+  const updateMonthFocus = (key, id, patch) =>
+    patchMonth(key, (m) => withFocus(m, (list) =>
+      list.map((f) => String(f.id) === String(id) ? { ...f, ...patch } : f)))
 
-  const deleteMonthTask = (key, cat, id) =>
-    patchMonth(key, (m) => withCategory(m, cat, (list) =>
-      list.filter((t) => String(t.id) !== String(id))))
+  const deleteMonthFocus = (key, id) =>
+    patchMonth(key, (m) => withFocus(m, (list) =>
+      list.filter((f) => String(f.id) !== String(id))))
+
+  const setMonthNotes = (key, notes) => patchMonth(key, (m) => ({ ...m, notes }))
 
   /* Countdowns. A name and a day you are waiting for, stored as an ISO date
      because it happens once - the mirror image of a birthday, which is kept
@@ -1006,7 +1021,7 @@ export function AppProvider({ children }) {
       profile, setProfileName,
       birthdays, addBirthday, updateBirthday, deleteBirthday,
       contacts, addContact, updateContact, deleteContact,
-      months, addMonthTask, updateMonthTask, deleteMonthTask,
+      months, addMonthFocus, updateMonthFocus, deleteMonthFocus, setMonthNotes,
       years, addYearLine, updateYearLine, deleteYearLine,
       countdowns, addCountdown, updateCountdown, deleteCountdown,
       academics, setActiveTerm,

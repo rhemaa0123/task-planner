@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
-// One of the two things in this app that leave the machine - the other is the
-// verse of the day (useVerse.js), and both wait to be asked.
+// The one thing in this app that leaves the machine.
 //
 // Everything else - the plan, the birthdays, the contacts - is localStorage and
 // nothing else, and that is worth keeping true on purpose rather than by

@@ -9,11 +9,12 @@ import { CATEGORIES, yearProgress } from '../../utils'
    Yearly planning — what the year is for, in seven boxes.
 
    Rebuilt Nov 2026. It was a theme line and a note per month; it is now the
-   calendar year's days, counted, and one box per category (`CATEGORIES`)
-   holding the year's values and objectives as plain lines. Lines, not tasks:
-   nothing here is ticked.
+   calendar year's days, counted, and one row per category (`CATEGORIES`):
+   the category's name in a narrow cell on the left, the year's values and
+   objectives for it as plain lines in the wide cell on the right. Lines, not
+   tasks: nothing here is ticked.
 
-   The monthly page's tasks point back at these lines, and that is the whole
+   The monthly page's focuses point back at these lines, and that is the whole
    link between the two. This page reads nothing from the months, so deleting
    a month cannot touch a line written here.
    ============================================================ */
@@ -90,45 +91,45 @@ export function YearlyPage({ route = '#/yearly' }) {
         </div>
       </section>
 
-      <div className="cat-grid">
+      <div className="cat-rows">
         {CATEGORIES.map((c) => {
           const lines = data.categories?.[c.key] || []
           return (
-            <section className="panel cat-box" key={c.key}>
-              <div className="panel-head">
-                <span className="eyebrow">{c.name}</span>
+            <section className="panel cat-row" key={c.key} aria-label={`${c.name}, ${year}`}>
+              <h2 className="cat-row-head">{c.name}</h2>
+
+              <div className="cat-row-body">
+                <ul className="goal-list">
+                  {lines.map((l) => (
+                    <li key={l.id} className="goal-row cat-line" onBlur={(e) => dropIfEmpty(e, c.key, l.id)}>
+                      <span className="cat-dot" aria-hidden="true" />
+                      <InlineText
+                        wrap
+                        className="goal-text"
+                        value={l.text}
+                        autoFocus={focusLine === l.id}
+                        placeholder="A value or an objective"
+                        onSave={(text) => updateYearLine(year, c.key, l.id, text)}
+                        onEnter={() => setFocusLine(addYearLine(year, c.key, { after: l.id }))}
+                        aria-label={`${c.name}, ${year}`}
+                      />
+                      <button
+                        type="button"
+                        className="row-del"
+                        onClick={() => deleteYearLine(year, c.key, l.id)}
+                        aria-label="Remove"
+                      >
+                        <TrashIcon />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+
+                <button type="button" className="add-row" onClick={() => setFocusLine(addYearLine(year, c.key))}>
+                  <span className="add-row-plus"><PlusIcon /></span>
+                  Add
+                </button>
               </div>
-
-              <ul className="goal-list">
-                {lines.map((l) => (
-                  <li key={l.id} className="goal-row cat-line" onBlur={(e) => dropIfEmpty(e, c.key, l.id)}>
-                    <span className="cat-dot" aria-hidden="true" />
-                    <InlineText
-                      wrap
-                      className="goal-text"
-                      value={l.text}
-                      autoFocus={focusLine === l.id}
-                      placeholder="A value or an objective"
-                      onSave={(text) => updateYearLine(year, c.key, l.id, text)}
-                      onEnter={() => setFocusLine(addYearLine(year, c.key, { after: l.id }))}
-                      aria-label={`${c.name}, ${year}`}
-                    />
-                    <button
-                      type="button"
-                      className="row-del"
-                      onClick={() => deleteYearLine(year, c.key, l.id)}
-                      aria-label="Remove"
-                    >
-                      <TrashIcon />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-
-              <button type="button" className="add-row" onClick={() => setFocusLine(addYearLine(year, c.key))}>
-                <span className="add-row-plus"><PlusIcon /></span>
-                Add
-              </button>
             </section>
           )
         })}

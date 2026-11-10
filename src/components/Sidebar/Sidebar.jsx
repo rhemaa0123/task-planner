@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext'
 import { useTheme } from '../../hooks/useTheme'
 import { InlineText } from '../InlineText'
 import {
-  HomeIcon, WeeklyIcon, MonthlyIcon, YearlyIcon, WeeksIcon, StatsIcon, BirthdayIcon,
+  HomeIcon, WeeklyIcon, MonthlyIcon, YearlyIcon, StatsIcon, BirthdayIcon,
   ContactsIcon, AboutIcon, CollapseIcon, CogIcon, AcademicsIcon,
 } from '../icons'
 import { useScrollLock } from '../../hooks/useScrollLock'
@@ -39,8 +39,8 @@ const SECTIONS = [
       { href: '#/weekly', label: 'Weekly', Icon: WeeklyIcon, match: (r) => r.startsWith('#/weekly') || r.startsWith('#/plan') },
       { href: '#/monthly', label: 'Monthly', Icon: MonthlyIcon, match: (r) => r.startsWith('#/monthly') },
       { href: '#/yearly', label: 'Yearly', Icon: YearlyIcon, match: (r) => r.startsWith('#/yearly') },
-      { href: '#/weeks', label: 'All weeks', Icon: WeeksIcon, match: (r) => r.startsWith('#/weeks') },
-      { href: '#/stats', label: 'Stats', Icon: StatsIcon, match: (r) => r.startsWith('#/stats') },
+      // All weeks lives inside Stats since Nov 2026; its old address still lands there
+      { href: '#/stats', label: 'Stats', Icon: StatsIcon, match: (r) => r.startsWith('#/stats') || r.startsWith('#/weeks') },
     ],
   },
   {

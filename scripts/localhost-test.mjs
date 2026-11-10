@@ -33,7 +33,7 @@ const ROUTES = [
   ['#/weekly', 'weekly'],
   ['#/monthly', 'monthly'],
   ['#/yearly', 'yearly'],
-  ['#/weeks', 'weeks'],
+  ['#/weeks', 'weeks-alias'],
   ['#/stats', 'stats'],
   ['#/academics', 'academics'],
   ['#/birthdays', 'birthdays'],

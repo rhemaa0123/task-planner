@@ -2396,16 +2396,10 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
 .toast.error { border-color: var(--warn); color: var(--warn); }
 
 /* ============================================================
-   Weeks
+   All weeks - the last section of Stats (it was a page of its own until
+   Nov 2026, centred under a header tab; Stats sets the width now)
    ============================================================ */
-/* The column's left edge sits under the WEEKS tab (WeeksPage measures the
-   tab and sets --weeks-inset) and the right edge mirrors it, so the list is
-   centred whatever the window. Never narrower than a phone's width. */
-.weeks-page {
-  width: 100%;
-  max-width: max(320px, min(1100px, calc(100% - 2 * var(--weeks-inset, 0px))));
-  margin: 0 auto;
-}
+.stats-weeks { margin-top: var(--sp-5); }
 
 .weeks-head {
   display: flex;
@@ -3178,7 +3172,7 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   margin-bottom: var(--sp-3);
 }
 
-/* ---- A list of typed rows (a year's lines, a month's tasks, pop-ups) ---- */
+/* ---- A list of typed rows (a year's lines, a month's focuses, pop-ups) ---- */
 .goal-list { list-style: none; }
 .goal-row {
   display: flex;
@@ -3371,7 +3365,7 @@ input[type="text"].popup-add-input:focus {
 }
 
 /* ============================================================
-   Yearly and monthly — the seven category boxes
+   Yearly — the day count and the seven rows
    ============================================================ */
 
 /* ---- The year's days, counted ----
@@ -3432,27 +3426,43 @@ input[type="text"].popup-add-input:focus {
   color: var(--ink-faint);
 }
 
-/* ---- The seven boxes ----
-   As many columns as fit at 260px - three on a desktop, one on a phone - and
-   each box as tall as its own list */
-.cat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+/* ---- The year's seven rows ----
+   One row per category, all the page's width: the name in a narrow cell on
+   the left, the year's lines for it in the wide one on the right, a hairline
+   between. On a phone the name sits on top of its list instead. */
+.cat-rows {
+  display: flex;
+  flex-direction: column;
   gap: var(--sp-3);
-  align-items: start;
 }
-.cat-box { min-width: 0; }
+.cat-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) minmax(0, 1fr);
+  padding: 0;
+}
+.cat-row-head {
+  padding: var(--sp-4);
+  border-right: 1px solid var(--line);
+  font-size: var(--fs-row);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.cat-row-body {
+  min-width: 0;
+  padding: var(--sp-2) var(--sp-4) var(--sp-3) var(--sp-3);
+}
 
 /* Both kinds of row wrap their words, so they are aligned to the top and the
    dot or the box sits beside the first line rather than the middle of three:
    the field's first line is centred 4px (border + padding) plus half a line
    down. */
 .cat-line,
-.cat-task { align-items: flex-start; }
+.focus-row { align-items: flex-start; }
 
-/* A year's line has a dot where a task has its box: a line is read, not
+/* A year's line has a dot where a focus has its box: a line is read, not
    ticked. Centred in the room a box would take, so the words line up with
-   the month's tasks. */
+   the month's focuses. */
 .cat-dot {
   flex-shrink: 0;
   width: 6px;
@@ -3463,21 +3473,46 @@ input[type="text"].popup-add-input:focus {
 }
 .cat-line:focus-within .cat-dot { background: var(--accent-fill); }
 
-/* A month's task: its box, then its words with the yearly line it serves
-   underneath */
-.cat-task .task-check { margin-top: calc(4px + 0.75 * var(--fs-row) - var(--check-size) / 2); }
-.cat-task-body {
+/* ============================================================
+   Monthly — the focus list and its note, beside the month's calendar
+   ============================================================ */
+
+/* Focus on the left, the calendar - the wider of the two - on the right.
+   Stacked under 1020px, in that same order. */
+.month-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: var(--sp-4);
+  align-items: start;
+}
+.month-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* ---- A focus: its box, its words, then what it serves ---- */
+.focus-row .task-check { margin-top: calc(4px + 0.75 * var(--fs-row) - var(--check-size) / 2); }
+.focus-body {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
 }
-.cat-task-body .goal-text { flex: none; width: 100%; }
+.focus-body .goal-text { flex: none; width: 100%; }
+.focus-picks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--sp-1);
+  max-width: 100%;
+}
 
-/* The line a task serves, picked from its category on its year's page.
-   Quiet until it holds one; a line is prose someone typed, so it keeps the
-   case it was typed in. */
+/* The two pickers - a category, then the yearly line in it. Quiet until they
+   hold something; a line is prose someone typed, so it keeps the case it was
+   typed in. */
 .cat-ref {
   max-width: 100%;
   margin-left: 2px;
@@ -3493,26 +3528,174 @@ input[type="text"].popup-add-input:focus {
 .cat-ref:hover { background: var(--hover-neutral); }
 .cat-ref:focus-visible { border-color: var(--accent-fill); }
 .cat-ref.linked { color: var(--accent); }
-.cat-task.done .cat-ref { opacity: 0.6; }
+.focus-row.done .cat-ref { opacity: 0.6; }
 
 .cat-empty-link {
-  display: block;
-  margin-top: var(--sp-1);
-  padding: var(--sp-1);
+  padding: 2px 6px;
   font-size: var(--fs-chrome);
   color: var(--ink-faint);
   text-decoration: none;
 }
 .cat-empty-link:hover { color: var(--accent); }
 
-/* Touch: iOS zooms the page into a field under 16px, and the picker is a
-   target in its own right. After the base rules above, so these win. */
+/* The month's note */
+textarea.panel-note {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: var(--sp-3);
+  font-size: var(--fs-body);
+  line-height: 1.6;
+  color: var(--ink);
+  resize: vertical;
+}
+textarea.panel-note:focus { border-color: var(--accent-fill); }
+textarea.panel-note::placeholder { color: var(--ink-faint); }
+
+/* ---- The month as a calendar of what is due ----
+   Monday-first; the days either side of the month drawn back. A container,
+   so the cells decide by their own width - not the window's - when a title
+   no longer fits and a dot has to stand in for it. */
+.mcal { container: mcal / inline-size; }
+.mcal-dow,
+.mcal-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+.mcal-dow { margin-bottom: var(--sp-2); }
+.mcal-dow span {
+  text-align: center;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  color: var(--ink-faint);
+}
+.mcal-week + .mcal-week { margin-top: 3px; }
+
+.mcal-day {
+  min-width: 0;
+  min-height: 72px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-chip);
+  background: var(--bg);
+}
+.mcal-num {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  color: var(--ink-soft);
+  line-height: 1;
+}
+.mcal-day.outside { background: transparent; border-color: transparent; }
+.mcal-day.outside .mcal-num { color: var(--ink-faint); opacity: 0.55; }
+.mcal-day.today { border-color: var(--accent-fill); background: var(--accent-soft); }
+.mcal-day.today .mcal-num { color: var(--accent); font-weight: 600; }
+
+.mcal-due {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* A deadline, named: the course's colour for coursework, neutral for the
+   plan - the same chips Home's Deadlines panel wears. The title is prose, so
+   it keeps its case. */
+.mcal-chip.course-chip {
+  display: block;
+  max-width: 100%;
+  padding: 2px 4px;
+  font-family: inherit;
+  font-size: var(--fs-micro);
+  letter-spacing: 0;
+  line-height: 1.3;
+  text-decoration: none;
+}
+.mcal-chip.course-chip:hover { filter: brightness(0.95); text-decoration: underline; }
+.mcal-more {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  color: var(--ink-faint);
+}
+
+/* Too narrow to name anything: each deadline becomes a dot in its colour */
+@container mcal (max-width: 520px) {
+  .mcal-day { min-height: 44px; align-items: center; }
+  .mcal-due { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 3px; }
+  .mcal-chip.course-chip {
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: var(--course-c, var(--ink-faint));
+    font-size: 0;
+  }
+  .mcal-chip.course-chip.plan { background: var(--ink-faint); }
+  .mcal-more { font-size: 9px; }
+}
+
+/* ---- Due this month: a date and a name, nothing counted ---- */
+.month-due { list-style: none; }
+.month-due-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-1);
+  border-radius: var(--r-chip);
+  color: var(--ink);
+  text-decoration: none;
+}
+.month-due-row:hover { background: var(--hover-neutral); }
+.month-due-date {
+  flex-shrink: 0;
+  min-width: 52px;
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-mini);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.month-due-title {
+  min-width: 0;
+  font-size: var(--fs-body);
+  overflow-wrap: anywhere;
+}
+.month-due-row:hover .month-due-title { text-decoration: underline; }
+.month-due-none {
+  font-size: var(--fs-chrome);
+  color: var(--ink-faint);
+  padding: var(--sp-1);
+}
+
+/* After the base rules above, so these win */
+@media (max-width: 1020px) {
+  .month-layout { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 600px) {
+  .cat-row { grid-template-columns: minmax(0, 1fr); }
+  .cat-row-head {
+    padding: var(--sp-3) var(--sp-4) 0;
+    border-right: none;
+  }
+  .cat-row-body { padding: var(--sp-1) var(--sp-3) var(--sp-3); }
+}
+/* Touch: iOS zooms the page into a field under 16px, and a picker is a
+   target in its own right */
 @media (hover: none) {
-  .cat-box textarea.goal-text,
+  .cat-row textarea.goal-text,
+  .focus-row textarea.goal-text,
+  textarea.panel-note,
   .cat-ref { font-size: 16px; }
   .cat-ref { min-height: 40px; }
   .cat-dot { margin-top: calc(4px + 0.75 * 16px - 3px); }
-  .cat-task .task-check { margin-top: calc(4px + 0.75 * 16px - var(--check-size) / 2); }
+  .focus-row .task-check { margin-top: calc(4px + 0.75 * 16px - var(--check-size) / 2); }
 }
 
 /* ============================================================
@@ -4299,119 +4482,6 @@ button.stat-sub.as-link:hover { color: var(--ink); }
   color: var(--ink-faint);
   margin-top: 4px;
   letter-spacing: 0.02em;
-}
-
-/* ---- Verse of the day ----
-   The first thing on Home, asked for "slightly large and visible every day":
-   a card with a rule of the accent down its left edge, the verse in the body
-   face a few steps up. Upright - only upright weights are loaded, and an
-   italic would be synthesised. The reference and the credit take the small
-   labels every date here uses, and both wrap, so a long copyright line or a
-   long verse can never push the page sideways. */
-.home-verse {
-  margin-bottom: var(--sp-5);
-  padding: var(--sp-4) var(--sp-5);
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--accent-fill);
-  border-radius: var(--r-card);
-}
-.home-verse-head {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-2);
-}
-.home-verse-head .eyebrow { flex: 1; }
-.home-verse-text {
-  font-size: 21px;
-  font-weight: 500;
-  line-height: 1.5;
-  color: var(--ink);
-  overflow-wrap: anywhere;
-  text-wrap: pretty;
-}
-.home-verse-foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--sp-1) var(--sp-3);
-  margin-top: var(--sp-3);
-}
-.home-verse-ref {
-  font-family: var(--mono);
-  font-weight: 600;
-  font-size: var(--fs-body);
-  color: var(--accent);
-  text-decoration: none;
-}
-.home-verse-ref:hover { text-decoration: underline; }
-.home-verse-stale {
-  font-family: var(--mono);
-  font-weight: var(--w-mono);
-  font-size: var(--fs-mini);
-  text-transform: uppercase;
-  color: var(--ink-faint);
-}
-.home-verse-credit {
-  flex-basis: 100%;
-  font-size: var(--fs-mini);
-  line-height: 1.5;
-  color: var(--ink-faint);
-  overflow-wrap: anywhere;
-}
-.home-verse-note {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--sp-2);
-  font-size: var(--fs-body);
-  color: var(--ink-soft);
-}
-.home-verse-note .panel-link { margin-left: 0; }
-/* Not set up yet: one line offering it, quiet like the weather's own offer */
-.home-verse-setup {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: 0;
-  background: transparent;
-  border: none;
-  text-align: left;
-  font-size: var(--fs-chrome);
-  line-height: 1.55;
-  color: var(--ink-faint);
-}
-.home-verse-setup b { font-size: var(--fs-row); font-weight: 600; color: var(--ink-soft); }
-.home-verse-setup:hover b { color: var(--accent); }
-
-/* Its setup dialog */
-.verse-steps {
-  margin: var(--sp-2) 0 var(--sp-4) var(--sp-5);
-  font-size: var(--fs-body);
-  line-height: 1.6;
-  color: var(--ink-soft);
-}
-.verse-steps a { color: var(--accent); }
-.verse-key-row { display: flex; align-items: flex-start; gap: var(--sp-2); }
-.verse-key-row .field-input { flex: 1; min-width: 0; font-family: var(--mono); }
-.verse-msg {
-  margin: calc(-1 * var(--sp-1)) 0 var(--sp-3);
-  font-size: var(--fs-chrome);
-  line-height: 1.55;
-  color: var(--ink-faint);
-}
-.verse-msg.warn { color: var(--warn); }
-
-@media (max-width: 600px) {
-  .home-verse { padding: var(--sp-3) var(--sp-4); margin-bottom: var(--sp-4); }
-  .home-verse-text { font-size: 17px; }
-}
-/* iOS zooms into a field under 16px - here, after the base rules, so it wins */
-@media (hover: none) {
-  .field-input.verse-key,
-  .field-input.verse-version { font-size: 16px; }
 }
 
 /* ---- The week, in one line ----
