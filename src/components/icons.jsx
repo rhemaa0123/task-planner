@@ -1,8 +1,8 @@
 import React from 'react'
 
 // One stroked set, drawn on the same 24px grid at the same 1.7 weight, so a
-// row of them in the sidebar reads as one family rather than seven borrowed
-// glyphs. Size comes from CSS (`width`/`height` on `.nav-icon` and friends),
+// row of them in the sidebar reads as one family rather than borrowed glyphs
+// (the three kanji below are the exception, and are sized to sit among them). Size comes from CSS (`width`/`height` on `.nav-icon` and friends),
 // never from the markup, so a rail and an expanded sidebar share these.
 const Svg = ({ children, ...rest }) => (
   <svg
@@ -31,36 +31,15 @@ export const HomeIcon = () => (
   </Svg>
 )
 
-// A week: the month frame with one row picked out
-export const WeeklyIcon = () => (
-  <Svg>
-    <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
-    <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
-    <path d="M6 14.5h12" strokeWidth="2.6" opacity="0.55" />
-  </Svg>
-)
+// The three spans of time are their kanji rather than drawings - 週, 月, 年
+// - asked for in Nov 2026. A span, not an svg: it is set in IBM Plex Sans JP
+// (three glyphs of it, see index.html) and sized by `.nav-kanji`, so it sits
+// in the same 26px box as the stroked icons around it.
+const Kanji = ({ glyph }) => <span className="nav-kanji" aria-hidden="true">{glyph}</span>
 
-// A month: the same frame, filled with days
-export const MonthlyIcon = () => (
-  <Svg>
-    <rect x="3" y="4.5" width="18" height="16" rx="2.5" />
-    <path d="M3 9.5h18M8 2.5v4M16 2.5v4" />
-    <circle cx="8" cy="13.5" r="0.9" fill="currentColor" stroke="none" />
-    <circle cx="12" cy="13.5" r="0.9" fill="currentColor" stroke="none" />
-    <circle cx="16" cy="13.5" r="0.9" fill="currentColor" stroke="none" />
-    <circle cx="8" cy="17" r="0.9" fill="currentColor" stroke="none" />
-    <circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none" />
-  </Svg>
-)
-
-// A year: twelve boxes, stacked back
-export const YearlyIcon = () => (
-  <Svg>
-    <rect x="3" y="7" width="14" height="14" rx="2.5" />
-    <path d="M7 3.5h12a1.5 1.5 0 0 1 1.5 1.5v12" opacity="0.6" />
-    <path d="M3 12h14M10 7v14" />
-  </Svg>
-)
+export const WeeklyIcon = () => <Kanji glyph="週" />
+export const MonthlyIcon = () => <Kanji glyph="月" />
+export const YearlyIcon = () => <Kanji glyph="年" />
 
 // Birthdays: a cake with one candle
 export const BirthdayIcon = () => (

@@ -187,6 +187,10 @@
   --sans: 'Encode Sans Expanded', system-ui, -apple-system, sans-serif;
   --display: var(--sans);
   --mono: 'IBM Plex Mono', ui-monospace, Consolas, monospace;
+  /* IBM Plex Sans JP, three glyphs of it - the sidebar's 週 月 年 (Nov 2026).
+     Requested with `text=` in index.html, so the rest of the face never
+     loads; the device's own Japanese face stands in until it lands. */
+  --kanji: 'IBM Plex Sans JP', 'Yu Gothic', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
   /* The mono face is loaded at regular and semibold only - every mono rule
      below takes its weight from here, so labels never synthesise a weight */
   --w-mono: 400;
@@ -480,6 +484,15 @@ input[type="text"].side-name:focus {
   color: var(--ink-faint);
 }
 .nav-icon svg { width: 17px; height: 17px; }
+/* 週, 月, 年 - a point larger than the icons, since a glyph's strokes are
+   finer than the 1.7px lines beside it, and at Medium so they read at the
+   same weight */
+.nav-kanji {
+  font-family: var(--kanji);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1;
+}
 .nav-row:hover .nav-icon { color: var(--ink-soft); }
 .nav-row.active .nav-icon { color: var(--accent); }
 .nav-label {
@@ -3477,19 +3490,37 @@ input[type="text"].popup-add-input:focus {
    Monthly — the focus list and its note, beside the month's calendar
    ============================================================ */
 
-/* Focus on the left, the calendar - the wider of the two - on the right.
-   Stacked under 1020px, in that same order. */
+/* The focus block first, under the head - its note beside the list, a
+   hairline between - and under it the calendar and the month's deadlines
+   side by side at the same width. One column under 1020px, in that order. */
 .month-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  gap: var(--sp-4);
-  align-items: start;
-}
-.month-col {
-  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
+}
+.month-focus {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  padding: 0;
+}
+.month-focus-list {
+  min-width: 0;
+  padding: var(--sp-4);
+}
+.month-focus-notes {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-4);
+  border-left: 1px solid var(--line);
+}
+/* The note fills whatever height the list beside it takes */
+.month-focus-notes textarea.panel-note { flex: 1; min-height: 160px; }
+.month-below {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-4);
+  align-items: start;
 }
 
 /* ---- A focus: its box, its words, then what it serves ---- */
@@ -3624,8 +3655,10 @@ textarea.panel-note::placeholder { color: var(--ink-faint); }
   color: var(--ink-faint);
 }
 
-/* Too narrow to name anything: each deadline becomes a dot in its colour */
-@container mcal (max-width: 520px) {
+/* Too narrow to name anything: each deadline becomes a dot in its colour.
+   At half a desktop page the calendar is ~440px and a day still takes a
+   short title; a phone's ~330px does not. */
+@container mcal (max-width: 400px) {
   .mcal-day { min-height: 44px; align-items: center; }
   .mcal-due { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 3px; }
   .mcal-chip.course-chip {
@@ -3676,7 +3709,9 @@ textarea.panel-note::placeholder { color: var(--ink-faint); }
 
 /* After the base rules above, so these win */
 @media (max-width: 1020px) {
-  .month-layout { grid-template-columns: minmax(0, 1fr); }
+  .month-focus,
+  .month-below { grid-template-columns: minmax(0, 1fr); }
+  .month-focus-notes { border-left: none; border-top: 1px solid var(--line); }
 }
 @media (max-width: 600px) {
   .cat-row { grid-template-columns: minmax(0, 1fr); }
