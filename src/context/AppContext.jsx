@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useRef } from 'react'
 import { startOfWeek, toISODate, addDays, fromISODate, earliestDay, weeksBetween, sinkCompleted } from '../utils'
+import { useCloudSync } from '../sync/useCloudSync'
+import { weekOf } from '../sync/cloudStore'
 
 const AppContext = createContext(null)
 
@@ -42,23 +44,73 @@ try {
 } catch {
   // Storage blocked - then nothing was kept either
 }
-const readPopups = () => {
-  const stored = readKey(POPUPS_KEY, EMPTY_POPUPS)
-  const days = stored.days && typeof stored.days === 'object' && !Array.isArray(stored.days) ? stored.days : {}
-  return { days, daily: Array.isArray(stored.daily) ? stored.daily : [] }
+// A stored value of the shape `empty` has, or `empty` itself - for a missing
+// key, a half-written value, or anything a hand edit left behind
+const coerce = (stored, empty) => {
+  if (stored == null) return empty
+  if (Array.isArray(empty)) return Array.isArray(stored) ? stored : empty
+  return typeof stored === 'object' && !Array.isArray(stored) ? stored : empty
 }
 
 // Reads one of those keys, falling back to `empty` on anything unexpected -
-// a missing key, a half-written value, a browser refusing to hand it over
+// including a browser refusing to hand it over
 const readKey = (key, empty) => {
   try {
-    const stored = JSON.parse(localStorage.getItem(key))
-    if (stored == null) return empty
-    if (Array.isArray(empty)) return Array.isArray(stored) ? stored : empty
-    return typeof stored === 'object' && !Array.isArray(stored) ? stored : empty
+    return coerce(JSON.parse(localStorage.getItem(key)), empty)
   } catch {
     return empty
   }
+}
+
+const normPopups = (value) => {
+  const stored = coerce(value, EMPTY_POPUPS)
+  const days = stored.days && typeof stored.days === 'object' && !Array.isArray(stored.days) ? stored.days : {}
+  return { days, daily: Array.isArray(stored.daily) ? stored.daily : [] }
+}
+const readPopups = () => normPopups(readKey(POPUPS_KEY, EMPTY_POPUPS))
+
+// Projects saved before weeks existed surface in the real current week
+const normProjects = (value) => {
+  if (!Array.isArray(value)) return []
+  const thisWeekIso = toISODate(startOfWeek())
+  return value.map(p => ({ ...p, week_start: p.week_start || thisWeekIso }))
+}
+
+/* ---- What a Google account keeps (Nov 2026) ----
+   Every store below goes to the account under the name on the right; the
+   plan itself (STORE_KEY) goes too, split one document per week - see
+   src/sync/. What is *not* here stays with this browser on purpose: the
+   theme, the sidebar, the week view, Plan tomorrow and the weather are how
+   this device is set up, not what you planned. */
+const SYNCED = {
+  [WEEKS_KEY]: 'weeks-meta',
+  [PROFILE_KEY]: 'profile',
+  [BIRTHDAYS_KEY]: 'birthdays',
+  [CONTACTS_KEY]: 'contacts',
+  [MONTHS_KEY]: 'months',
+  [YEARS_KEY]: 'years',
+  [COUNTDOWNS_KEY]: 'countdowns',
+  [ACADEMICS_KEY]: 'academics',
+  [POPUPS_KEY]: 'popups',
+}
+const KEY_OF = Object.fromEntries(Object.entries(SYNCED).map(([key, name]) => [name, key]))
+const EMPTIES = {
+  [WEEKS_KEY]: {},
+  [PROFILE_KEY]: { name: '' },
+  [BIRTHDAYS_KEY]: [],
+  [CONTACTS_KEY]: [],
+  [MONTHS_KEY]: {},
+  [YEARS_KEY]: {},
+  [COUNTDOWNS_KEY]: [],
+  [ACADEMICS_KEY]: EMPTY_ACADEMICS,
+  [POPUPS_KEY]: EMPTY_POPUPS,
+}
+// A value that came from the account is checked exactly as one read from
+// localStorage would be
+const normalize = (key, value) => {
+  if (key === POPUPS_KEY) return normPopups(value)
+  if (key === ACADEMICS_KEY) return { ...EMPTY_ACADEMICS, ...coerce(value, EMPTY_ACADEMICS) }
+  return coerce(value, EMPTIES[key])
 }
 
 // Per-week state that is not a project: whether the week has been ended.
@@ -72,15 +124,12 @@ const readWeekMeta = () => {
   }
 }
 
-// Everything lives in this browser. No account, no network - opening the planner
-// on any machine gives that machine its own plan, kept in its own localStorage.
+// The plan, as this browser holds it. Signed out, that is all there is;
+// signed in with Google it is also mirrored to the account (see SYNCED
+// above), but localStorage stays the working copy every page reads.
 const readStore = () => {
   try {
-    const stored = JSON.parse(localStorage.getItem(STORE_KEY)) || []
-    if (!Array.isArray(stored)) return []
-    // Projects saved before weeks existed surface in the real current week
-    const thisWeekIso = toISODate(startOfWeek())
-    return stored.map(p => ({ ...p, week_start: p.week_start || thisWeekIso }))
+    return normProjects(JSON.parse(localStorage.getItem(STORE_KEY)) || [])
   } catch {
     return []
   }
@@ -110,6 +159,7 @@ export function AppProvider({ children }) {
   // reads the value as last written rather than as last rendered, so Enter on
   // a goal (save it, then add the next one) sees its own first write.
   const sideRefs = useRef({
+    [WEEKS_KEY]: weekMeta,
     [PROFILE_KEY]: profile,
     [BIRTHDAYS_KEY]: birthdays,
     [CONTACTS_KEY]: contacts,
@@ -140,10 +190,10 @@ export function AppProvider({ children }) {
     }, 3000)
   }
 
-  // The single write path. Private-browsing modes and full quotas throw here, so
-  // the plan still updates on screen and the user is told once that it will not
-  // outlive the tab.
-  const persist = (key, value) => {
+  // Private-browsing modes and full quotas throw here, so the plan still
+  // updates on screen and the user is told once that it will not outlive
+  // the tab.
+  const writeLocal = (key, value) => {
     try {
       localStorage.setItem(key, JSON.stringify(value))
     } catch {
@@ -154,6 +204,59 @@ export function AppProvider({ children }) {
     }
   }
 
+  /* ---- The account's side of things ----
+     useCloudSync reads every store through `readLocalAll` and writes back
+     through the two apply functions below. Those write state and
+     localStorage but never push - a change that came *from* the account must
+     not be sent straight back to it. */
+  const setters = {
+    [WEEKS_KEY]: setWeekMeta,
+    [PROFILE_KEY]: setProfile,
+    [BIRTHDAYS_KEY]: setBirthdays,
+    [CONTACTS_KEY]: setContacts,
+    [MONTHS_KEY]: setMonths,
+    [YEARS_KEY]: setYears,
+    [COUNTDOWNS_KEY]: setCountdowns,
+    [ACADEMICS_KEY]: setAcademics,
+    [POPUPS_KEY]: setPopups,
+  }
+  const applyStore = (key, value) => {
+    const next = normalize(key, value)
+    sideRefs.current[key] = next
+    setters[key](next)
+    writeLocal(key, next)
+  }
+  const applyProjects = (list) => {
+    const next = normProjects(list)
+    latest.current = next
+    setAllProjects(next)
+    writeLocal(STORE_KEY, next)
+  }
+  const readLocalAll = () => ({
+    projects: latest.current,
+    stores: Object.fromEntries(Object.entries(SYNCED).map(([key, name]) => [name, sideRefs.current[key]])),
+  })
+  const applyLocalAll = ({ projects: list, stores }) => {
+    applyProjects(list)
+    for (const [key, name] of Object.entries(SYNCED)) applyStore(key, stores[name] ?? EMPTIES[key])
+  }
+  // One week of the plan (null: the week was emptied elsewhere), or one store
+  const applyRemote = (kind, id, value) => {
+    if (kind === 'week') {
+      const rest = latest.current.filter(p => weekOf(p) !== id)
+      applyProjects(value ? [...rest, ...value] : rest)
+    } else if (KEY_OF[id]) {
+      applyStore(KEY_OF[id], value)
+    }
+  }
+  const cloud = useCloudSync({ projectsKey: STORE_KEY, storeNames: SYNCED, readLocalAll, applyLocalAll, applyRemote })
+
+  // The single write path: this browser first, then the account when signed in
+  const persist = (key, value) => {
+    writeLocal(key, value)
+    cloud.push(key, value)
+  }
+
   const save = (next) => {
     latest.current = next
     setAllProjects(next)
@@ -162,6 +265,7 @@ export function AppProvider({ children }) {
   const current = () => latest.current
 
   const saveMeta = (next) => {
+    sideRefs.current[WEEKS_KEY] = next
     setWeekMeta(next)
     persist(WEEKS_KEY, next)
   }
@@ -1029,6 +1133,7 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
+      cloud,
       projects, allProjects, weekStart, setWeekStart, toasts, showToast,
       weekMeta, weekEnded, endWeek, reopenWeek, carryForward, moveWeek, deleteWeek, clearAll,
       addProject, updateProjectName, deleteProject, setProjectDeadline, reorderProjects, importPlan,

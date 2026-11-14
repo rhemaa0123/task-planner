@@ -12,6 +12,7 @@ import { YearlyPage } from './components/Yearly/YearlyPage'
 import { BirthdaysPage } from './components/People/BirthdaysPage'
 import { ContactsPage } from './components/People/ContactsPage'
 import { AboutPage } from './components/AboutPage'
+import { MergeDialog } from './components/Account/Account'
 
 const COLLAPSE_KEY = 'task-planner-sidebar'
 
@@ -101,6 +102,10 @@ function AppContent() {
       <main className="main-content">
         {page}
       </main>
+
+      {/* Signing in, when this device and the account both hold a planner -
+          here rather than in the sidebar so it opens wherever you are */}
+      <MergeDialog />
 
       <div className="toast-container">
         {toasts.map(t => (

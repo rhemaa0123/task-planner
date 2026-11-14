@@ -7,6 +7,7 @@ import {
   ContactsIcon, AboutIcon, CollapseIcon, CogIcon, AcademicsIcon,
 } from '../icons'
 import { useScrollLock } from '../../hooks/useScrollLock'
+import { AccountRow, AccountDialog } from '../Account/Account'
 
 const COLLAPSE_KEY = 'task-planner-sidebar'
 
@@ -154,6 +155,7 @@ export function Sidebar({ route, collapsed, onToggle, drawerOpen, onCloseDrawer 
   const { profile, setProfileName } = useApp()
   const { mode, setMode, resolved } = useTheme()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
 
   // Following a link on a phone has to put the drawer away - the page it opens
   // is underneath it
@@ -232,8 +234,11 @@ export function Sidebar({ route, collapsed, onToggle, drawerOpen, onCloseDrawer 
         ))}
       </nav>
 
-      {/* ---- Foot ---- */}
+      {/* ---- Foot ----
+          The account row sits first: Google sign-in, and once signed in, who
+          you are and whether the account has everything (Nov 2026). */}
       <div className="side-foot">
+        <AccountRow collapsed={collapsed} onOpen={() => setAccountOpen(true)} />
         <a
           href="#/about"
           className={`nav-row ${route.startsWith('#/about') ? 'active' : ''}`}
@@ -265,6 +270,7 @@ export function Sidebar({ route, collapsed, onToggle, drawerOpen, onCloseDrawer 
           onClose={() => setSettingsOpen(false)}
         />
       )}
+      {accountOpen && <AccountDialog onClose={() => setAccountOpen(false)} />}
     </aside>
   )
 }

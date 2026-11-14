@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
-// The one thing in this app that leaves the machine.
+// The one thing in this app that leaves the machine without being asked to by
+// signing in.
 //
-// Everything else - the plan, the birthdays, the contacts - is localStorage and
-// nothing else, and that is worth keeping true on purpose rather than by
-// accident. So the weather widget asks for nothing until a place is named: no
+// Signed out, everything else - the plan, the birthdays, the contacts - is
+// localStorage and nothing else; signed in with Google it also goes to the
+// user's own account (src/sync/), and nowhere besides. That is worth keeping
+// true on purpose rather than by accident. So the weather widget asks for
+// nothing until a place is named: no
 // location prompt on first paint, no request to anybody. Once a place is set it
 // is remembered, and only then does the forecast call go out.
 //

@@ -1,7 +1,7 @@
 {
   "project": {
     "name": "task-planner",
-    "description": "A hierarchical task planner (Year -> Month -> Week -> Day) with project-based weekly planning, deadline tracking, and animated progress bars, deployed on Cloudflare's free plan with Supabase as the backend.",
+    "description": "A hierarchical task planner (Year -> Month -> Week -> Day) with project-based weekly planning, deadline tracking, and animated progress bars, deployed on Cloudflare's free plan, with optional Google sign-in on Firebase (Authentication + Cloud Firestore) to keep the planner in the user's account.",
     "primary_view": "weekly_plan",
     "hosting": {
       "platform": "Cloudflare Pages + Cloudflare Workers (free plan)",
@@ -9,17 +9,18 @@
         "Stay within Cloudflare Pages free tier: 500 builds/month, unlimited static requests.",
         "If using Cloudflare Workers for API routes, stay within 100,000 requests/day free tier limit.",
         "Avoid Durable Objects / paid-only Cloudflare features.",
-        "Do not rely on Cloudflare KV/D1 for primary data storage — Supabase is the system of record.",
+        "Do not rely on Cloudflare KV/D1 for primary data storage — the browser's localStorage is the working copy, mirrored to Cloud Firestore when signed in.",
+        "The deployed domain must be listed under Firebase Authentication → Settings → Authorized domains, or Google sign-in refuses.",
         "Keep bundle size small; prefer edge-friendly frameworks (e.g. Astro, SvelteKit, Next.js on Pages, or plain Vite + React)."
       ]
     },
     "backend": {
-      "provider": "Supabase",
+      "provider": "Firebase (replaced Supabase, Nov 2026)",
       "usage": [
-        "Postgres database for all planning data (years, months, weeks, projects, tasks, subtasks, sub-subtasks).",
-        "Supabase Auth for user login (email/password or magic link).",
-        "Row Level Security (RLS) enabled on all tables, scoped to auth.uid().",
-        "Supabase client SDK called directly from the frontend where possible to avoid needing a custom backend server (keeps Cloudflare usage minimal)."
+        "Firebase Authentication with Google sign-in (popup). Signing in is optional; signed out the planner runs on localStorage alone.",
+        "Cloud Firestore as the account's copy: users/{uid}/stores/{name} per localStorage key, users/{uid}/weeks/{mondayIso} for the plan, users/{uid}/backups for what a merge choice replaced.",
+        "Security rules (firestore.rules): each user reads and writes users/{uid}/** only.",
+        "Firebase JS SDK called directly from the frontend, loaded on demand; no custom backend server."
       ]
     }
   },

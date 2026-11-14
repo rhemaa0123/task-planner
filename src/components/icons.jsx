@@ -88,6 +88,16 @@ export const AboutIcon = () => (
   </Svg>
 )
 
+// Account: someone in a circle - the sidebar's way in to signing in with
+// Google (Nov 2026)
+export const AccountIcon = () => (
+  <Svg>
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="10" r="3" />
+    <path d="M6.3 18.2c1.3-2 3.3-3.1 5.7-3.1s4.4 1.1 5.7 3.1" />
+  </Svg>
+)
+
 /* ---- Chrome ---- */
 
 export const CollapseIcon = () => (

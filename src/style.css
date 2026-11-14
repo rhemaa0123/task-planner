@@ -549,6 +549,68 @@ input[type="text"].side-name:focus {
   padding: var(--sp-2) var(--sp-2) calc(var(--sp-4) + env(safe-area-inset-bottom));
   border-top: 1px solid var(--line);
 }
+/* ---- Account row (Nov 2026) ----
+   First in the foot. Two lines when signed in - the email, then the sync
+   state in mono - so the row is a touch taller than its neighbours; on the
+   rail it is the icon alone, with a dot for the state. */
+.account-row { min-height: 42px; }
+.account-icon { position: relative; }
+.account-initial {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: var(--fs-micro);
+  line-height: 1;
+}
+.account-initial.big {
+  width: 40px;
+  height: 40px;
+  font-size: var(--fs-row);
+  flex-shrink: 0;
+}
+/* Grey while anything is on its way, green once the account has it all,
+   red when something went wrong */
+.account-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--ink-faint);
+  flex-shrink: 0;
+}
+.account-icon .account-dot {
+  position: absolute;
+  right: -1px;
+  bottom: 0;
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.is-synced .account-dot { background: var(--good); }
+.is-error .account-dot { background: var(--warn); }
+.account-row .account-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.account-name,
+.account-state {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-state {
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-micro);
+  color: var(--ink-faint);
+  letter-spacing: 0.02em;
+}
+.account-row.is-error .account-state { color: var(--warn); }
+
 .side-blurb {
   padding: var(--sp-3) var(--sp-2) 0;
   font-family: var(--mono);
@@ -2449,6 +2511,137 @@ input[type="text"].sched-sub-input:focus { border-color: var(--accent-fill); }
   font-size: var(--fs-row);
   line-height: 1.55;
   color: var(--ink-soft);
+}
+
+/* ---- Account dialogs (Nov 2026) ---- */
+.account-card { max-width: 420px; }
+.account-card.wide { max-width: 560px; }
+.account-who {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.account-who-text { min-width: 0; }
+.account-who .modal-title { margin: 0; }
+.account-email {
+  font-size: var(--fs-label);
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+.account-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0 var(--sp-2);
+  margin-top: var(--sp-4);
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-label);
+  color: var(--ink-soft);
+}
+.account-status span:not(.account-dot) { color: var(--ink-faint); }
+.account-note {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-label);
+  color: var(--ink-faint);
+}
+.account-error {
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--warn-dim-line);
+  border-radius: var(--r-chip);
+  background: var(--warn-soft);
+  color: var(--warn);
+  font-size: var(--fs-label);
+  line-height: 1.45;
+}
+.account-confirm { margin-top: var(--sp-4); }
+.account-confirm strong { color: var(--ink); font-weight: 600; }
+.google-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+/* The mark keeps its own colours, so it sits on a white disc on the filled
+   button rather than straight on the accent */
+.google-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.btn-primary.google-btn svg {
+  padding: 2px;
+  border-radius: 999px;
+  background: #fff;
+}
+
+/* Both sides hold a planner */
+.merge-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+}
+.merge-side {
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--bg);
+}
+.merge-side-title {
+  margin-bottom: var(--sp-2);
+  font-family: var(--mono);
+  font-weight: var(--w-mono);
+  font-size: var(--fs-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.merge-side ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-label);
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.merge-empty {
+  margin: 0;
+  font-size: var(--fs-label);
+  color: var(--ink-faint);
+}
+.merge-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+.merge-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  transition: 0.15s;
+}
+.merge-option:hover {
+  border-color: var(--accent-fill);
+  background: var(--accent-soft);
+}
+.merge-option-title {
+  font-weight: 600;
+  font-size: var(--fs-row);
+}
+.merge-option-copy {
+  font-size: var(--fs-label);
+  line-height: 1.45;
+  color: var(--ink-soft);
+}
+@media (max-width: 480px) {
+  .merge-sides { grid-template-columns: 1fr; }
 }
 
 .toast-container { position: fixed; bottom: calc(24px + env(safe-area-inset-bottom)); right: calc(24px + env(safe-area-inset-right)); display: flex; flex-direction: column; gap: 8px; z-index: 1000; }
@@ -4589,6 +4782,8 @@ button.stat-sub.as-link:hover { color: var(--ink); }
   .side.collapsed .nav-label,
   .side.collapsed .side-identity,
   .side.collapsed .side-blurb { display: block; }
+  /* ...and the account row keeps its two lines */
+  .side.collapsed .account-row .account-text { display: flex; }
   .side.collapsed .side-initials { display: none; }
   .side.collapsed .side-top { flex-direction: row; padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4); }
   .side.collapsed .nav-row { justify-content: flex-start; padding: 7px var(--sp-2); }

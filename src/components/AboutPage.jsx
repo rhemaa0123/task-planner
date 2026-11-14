@@ -2,7 +2,9 @@ import React from 'react'
 import { useApp } from '../context/AppContext'
 
 export function AboutPage() {
-  const { profile } = useApp()
+  const { profile, cloud } = useApp()
+  const signedIn = Boolean(cloud.account) && cloud.status !== 'signed-out'
+  const whose = profile.name ? `${profile.name}'s planner` : 'This planner'
 
   return (
     <div className="page about">
@@ -13,16 +15,24 @@ export function AboutPage() {
       </h1>
 
       <div className="about-rest">
-        <p>
-          {profile.name
-            ? `${profile.name}'s planner keeps everything on this machine.`
-            : 'This planner keeps everything on this machine.'}{' '}
-          The plan, the birthdays, the contacts, the month and year plans — all of it
-          is your browser&rsquo;s own storage, and none of it is sent anywhere.
-        </p>
+        {signedIn ? (
+          <p>
+            {whose} is kept in your Google account. The plan, the birthdays, the
+            contacts, the month and year plans are stored with Google Firebase and
+            kept the same on every device you sign in on, and this browser holds a
+            copy so it works offline. Only your account can read it.
+          </p>
+        ) : (
+          <p>
+            {whose} keeps everything on this machine. The plan, the birthdays, the
+            contacts, the month and year plans — all of it is your browser&rsquo;s own
+            storage, and none of it is sent anywhere unless you sign in with Google.
+          </p>
+        )}
         <p className="about-fine">
-          The one exception is the weather, which only goes out once you have named a
-          town. Clearing the site&rsquo;s data clears the planner with it.
+          {signedIn
+            ? 'The weather goes out only once you have named a town. Signing out clears this browser’s copy; your account keeps everything.'
+            : 'The weather goes out only once you have named a town. Clearing the site’s data clears the planner with it.'}
         </p>
       </div>
     </div>

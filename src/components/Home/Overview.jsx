@@ -554,9 +554,9 @@ function PlaceDialog({ current, onPick, onClose }) {
         <div className="modal-divider" />
 
         <p className="modal-copy">
-          Everything else in this planner stays on this machine. The forecast is the
-          one exception — the town you pick is sent to Open-Meteo to look it up,
-          and nothing else goes with it.
+          The town you pick is sent to Open-Meteo to look up its forecast, and
+          nothing else goes with it - none of your plan, and nothing about your
+          account if you have signed in.
         </p>
 
         <div className="place-search">
@@ -626,7 +626,7 @@ export function WeatherPanel() {
           <WeatherIcon name="part" />
           <span>
             <b>Set your location</b>
-            The only thing this planner ever sends anywhere, and only once you ask.
+            Only the town you name is sent, to Open-Meteo, and only once you ask.
           </span>
         </button>
       ) : (
