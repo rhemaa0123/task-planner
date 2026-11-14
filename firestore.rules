@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// Each signed-in user reads and writes their own users/{uid}/... and nothing
+// else. Signed-out visitors can touch nothing. These are the rules published
+// in the Firebase console; keep the two the same.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
