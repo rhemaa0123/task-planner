@@ -232,7 +232,9 @@ export function AppProvider({ children }) {
   // A subtask not yet dragged onto a day is kept with no day_date: it counts
   // toward the task, and no day draws it. The task's own day_date follows the
   // earliest placed subtask so the week grid still places it.
-  const setTaskSchedule = (taskId, { subtasks = [], note = '', deadline = null, deadlineTime = null } = {}) => {
+  // A task saved with no subtasks takes `dayDate` - the day picked on the
+  // dialog's week row (null clears it). Left out, the task keeps its day.
+  const setTaskSchedule = (taskId, { subtasks = [], note = '', deadline = null, deadlineTime = null, dayDate } = {}) => {
     const clean = subtasks
       .filter(Boolean)
       .map(s => ({
@@ -249,7 +251,9 @@ export function AppProvider({ children }) {
       deadline: deadline || null,
       deadline_time: deadlineTime || null,
       subtasks: clean,
-      day_date: earliestDay(clean) ?? (clean.length ? null : t.day_date),
+      day_date: clean.length
+        ? earliestDay(clean)
+        : (dayDate === undefined ? t.day_date : dayDate || null),
       // An emptied schedule should not leave the task looking finished
       completed: clean.length ? clean.every(s => s.completed) : t.completed,
     }))
@@ -667,6 +671,20 @@ export function AppProvider({ children }) {
     patchYear(year, (y) => withCategory(y, cat, (list) =>
       list.filter((l) => String(l.id) !== String(id))))
 
+  // The objectives dialog's Save: one category's whole list, in its order, in
+  // one write. A line that was already there keeps its id and anything else
+  // it carries, so the month focuses linked to it (`ref`) stay linked; a line
+  // left out is gone, and those focuses read as unlinked, as after a delete.
+  const setYearCategory = (year, cat, lines) =>
+    patchYear(year, (y) => withCategory(y, cat, (list) => {
+      const was = new Map(list.map((l) => [String(l.id), l]))
+      return (lines || []).map((l) => ({
+        ...(was.get(String(l.id)) || {}),
+        id: l.id ?? generateId(),
+        text: l.text || '',
+      }))
+    }))
+
   const patchMonth = (key, fn) =>
     setStore(MONTHS_KEY, setMonths, (all) => ({ ...all, [key]: fn(all[key] || {}) }))
 
@@ -1022,7 +1040,7 @@ export function AppProvider({ children }) {
       birthdays, addBirthday, updateBirthday, deleteBirthday,
       contacts, addContact, updateContact, deleteContact,
       months, addMonthFocus, updateMonthFocus, deleteMonthFocus, setMonthNotes,
-      years, addYearLine, updateYearLine, deleteYearLine,
+      years, addYearLine, updateYearLine, deleteYearLine, setYearCategory,
       countdowns, addCountdown, updateCountdown, deleteCountdown,
       academics, setActiveTerm,
       addCourse, updateCourse, deleteCourse,

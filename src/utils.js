@@ -417,6 +417,15 @@ export const CATEGORIES = [
   { key: 'relaxation', name: 'Relaxation' },
 ]
 
+// A category's colour, handed to an element as two custom properties: `--cat`
+// (stripes, dots, its name in a dialog) and `--cat-soft` (a quiet tint behind
+// its name). The values are theme tokens, `--cat-<key>` in style.css, so the
+// theme decides the shade - deeper on cream, paler on graphite.
+export const catVars = (key) => ({
+  '--cat': `var(--cat-${key})`,
+  '--cat-soft': `var(--cat-${key}-soft)`,
+})
+
 // Where a calendar year stands today: day N of 365 (366 in a leap year), Jan
 // 1 being day 1, and how many days are left after today. A year not begun yet
 // says how far off it is; one gone by is simply over.

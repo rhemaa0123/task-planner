@@ -84,6 +84,25 @@
   --course-6: #93702a;
   --course-6-soft: rgba(147, 112, 42, 0.14);
 
+  /* ---- Yearly category colours ----
+     One per box in CATEGORIES (utils.js), keyed by its `key` and handed out
+     through catVars(). Same idea as the course pair: a deep shade for the
+     stripe and dots, a soft tint for behind the name. */
+  --cat-spirituality: #7a4fa3;
+  --cat-spirituality-soft: rgba(122, 79, 163, 0.12);
+  --cat-career: #3f6ea8;
+  --cat-career-soft: rgba(63, 110, 168, 0.12);
+  --cat-growth: #1f7f84;
+  --cat-growth-soft: rgba(31, 127, 132, 0.12);
+  --cat-relationships: #b0466a;
+  --cat-relationships-soft: rgba(176, 70, 106, 0.12);
+  --cat-finance: #93702a;
+  --cat-finance-soft: rgba(147, 112, 42, 0.13);
+  --cat-health: #4d9a33;
+  --cat-health-soft: rgba(77, 154, 51, 0.13);
+  --cat-relaxation: #a8533f;
+  --cat-relaxation-soft: rgba(168, 83, 63, 0.12);
+
   --scrim: rgba(48, 54, 79, 0.45);
   --shadow-float: 0 6px 20px rgba(48, 54, 79, 0.18);
   --shadow-card: 0 1px 2px rgba(48, 54, 79, 0.06);
@@ -167,6 +186,24 @@
   --course-5-soft: rgba(124, 198, 202, 0.18);
   --course-6: #d4b96e;
   --course-6-soft: rgba(212, 185, 110, 0.18);
+
+  /* Paler tints for the year's seven categories. The soft step is kept
+     faint - a saturated wash on graphite reads as bright - so the hue is
+     carried by the stripe and the dots, not by the ground. */
+  --cat-spirituality: #bda6e4;
+  --cat-spirituality-soft: rgba(189, 166, 228, 0.1);
+  --cat-career: #87b0e0;
+  --cat-career-soft: rgba(135, 176, 224, 0.1);
+  --cat-growth: #7cc6ca;
+  --cat-growth-soft: rgba(124, 198, 202, 0.1);
+  --cat-relationships: #e29ab3;
+  --cat-relationships-soft: rgba(226, 154, 179, 0.1);
+  --cat-finance: #d4b96e;
+  --cat-finance-soft: rgba(212, 185, 110, 0.1);
+  --cat-health: #a5cf83;
+  --cat-health-soft: rgba(165, 207, 131, 0.1);
+  --cat-relaxation: #e0a08c;
+  --cat-relaxation-soft: rgba(224, 160, 140, 0.1);
 
   --scrim: rgba(5, 5, 8, 0.72);
   --shadow-float: 0 8px 24px rgba(0, 0, 0, 0.55);
@@ -623,8 +660,9 @@ input[type="text"].side-name:focus {
 }
 .icon-btn:hover { color: var(--ink); background: transparent; }
 
-/* The two actions on a project's head - deadline and delete - take the
-   cog's spotlight on hover; delete warms to the warning red */
+/* The two actions on a project's head - deadline and delete. Rounded square
+   with the same neutral hover as the sidebar's collapse button; delete warms
+   to the warning red */
 .proj-action {
   width: 22px;
   height: 22px;
@@ -633,7 +671,7 @@ input[type="text"].side-name:focus {
   place-items: center;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--r-chip);
   color: var(--ink-faint);
   transition: color 0.18s ease, background 0.25s ease, border-color 0.18s ease;
 }
@@ -641,16 +679,12 @@ input[type="text"].side-name:focus {
 .proj-action:hover {
   color: var(--accent);
   border-color: var(--line);
-  background:
-    radial-gradient(circle at 50% 45%, var(--accent-soft), transparent 72%),
-    var(--hover-neutral);
+  background: var(--hover-neutral);
 }
 .proj-action.danger:hover {
   color: var(--warn);
   border-color: var(--warn-dim-line);
-  background:
-    radial-gradient(circle at 50% 45%, var(--warn-soft), transparent 72%),
-    var(--hover-neutral);
+  background: var(--hover-neutral);
 }
 
 .week-title {
@@ -1982,6 +2016,19 @@ input[type="text"].task-name-input.done {
   border-color: var(--line);
   color: var(--ink-faint);
   cursor: not-allowed;
+}
+/* A lit day keeps its text on the fill while hovered (the hover above would
+   otherwise turn it to plain ink) */
+.day-toggle.selected:hover:not(:disabled) { color: var(--on-accent); }
+
+/* The week row in the task dialog, sitting straight above the day boxes */
+.sched-week { margin-bottom: var(--sp-2); }
+/* Subtasks exist and none are left in the tray to file: the row only shows
+   which days hold work, so it neither reacts to hover nor offers a click */
+.day-toggle-row.idle .day-toggle { cursor: default; }
+.day-toggle-row.idle .day-toggle:hover:not(.selected) {
+  border-color: var(--line-strong);
+  color: var(--ink-soft);
 }
 
 /* One section per day of the week, holding that day's subtasks; a hairline
@@ -3448,23 +3495,86 @@ input[type="text"].popup-add-input:focus {
   flex-direction: column;
   gap: var(--sp-3);
 }
+/* Each row carries its category's colour as --cat / --cat-soft (catVars in
+   utils.js): a stripe down its left edge, a tint behind its name, its dots.
+   The rest of the row stays on the plain card. Clipped to the card's corners
+   so the tinted name cell follows them. */
 .cat-row {
   display: grid;
   grid-template-columns: minmax(150px, 220px) minmax(0, 1fr);
-  padding: 0;
+  border-left: 4px solid var(--cat, var(--line));
+  overflow: hidden;
 }
+/* The cells carry their own padding, so the card has none. Written as
+   .panel.cat-row to outrank the phone `.panel { padding }` further down -
+   the tinted name cell has to meet the card's edges at every width. */
+.panel.cat-row { padding: 0; }
 .cat-row-head {
-  padding: var(--sp-4);
+  display: flex;
   border-right: 1px solid var(--line);
+  background: var(--cat-soft, transparent);
   font-size: var(--fs-row);
   font-weight: 600;
   line-height: 1.4;
   color: var(--ink);
 }
+/* The name cell is the block's button: it opens the category's dialog */
+.cat-row-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  padding: var(--sp-4);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+/* Hover lays the tint down a second time, so the cell deepens a step */
+.cat-row-open:hover { background: var(--cat-soft, var(--hover-neutral)); }
+.cat-row-open:focus-visible {
+  outline: 2px solid var(--cat, var(--accent-fill));
+  outline-offset: -2px;
+}
+/* "Edit" under the name, shown wherever a click would open the dialog -
+   the name cell, or the block's open ground (not over a line) */
+.cat-row-hint {
+  font-family: var(--mono);
+  font-size: var(--fs-mini);
+  font-weight: var(--w-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cat, var(--accent));
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.cat-row-open:hover .cat-row-hint,
+.cat-row-open:focus-visible .cat-row-hint { opacity: 1; }
+/* Kept a rule of its own: a browser without :has() drops the whole rule
+   it sits in, and the two above must survive that */
+.cat-row:has(.cat-row-body:hover):not(:has(.goal-row:hover)) .cat-row-hint { opacity: 1; }
+
 .cat-row-body {
   min-width: 0;
   padding: var(--sp-2) var(--sp-4) var(--sp-3) var(--sp-3);
+  cursor: pointer;
 }
+/* Over a line the pointer is for that line - its words, its × */
+.cat-row-body .goal-row { cursor: auto; }
+/* An empty block says what a click on it does */
+.cat-row-empty {
+  display: block;
+  padding: var(--sp-2) var(--sp-1);
+  font-size: var(--fs-body);
+  color: var(--ink-faint);
+  transition: color 0.15s ease;
+}
+.cat-row-body:hover .cat-row-empty { color: var(--cat, var(--accent)); }
 
 /* Both kinds of row wrap their words, so they are aligned to the top and the
    dot or the box sits beside the first line rather than the middle of three:
@@ -3482,9 +3592,54 @@ input[type="text"].popup-add-input:focus {
   height: 6px;
   margin: calc(4px + 0.75 * var(--fs-row) - 3px) calc((var(--check-size) - 6px) / 2) 0;
   border-radius: 50%;
-  background: var(--line-strong);
+  background: var(--cat, var(--line-strong));
 }
-.cat-line:focus-within .cat-dot { background: var(--accent-fill); }
+/* The line being edited: its dot keeps its colour and gains a halo */
+.cat-line:focus-within .cat-dot { box-shadow: 0 0 0 3px var(--cat-soft, var(--accent-soft)); }
+
+/* ---- A category's objectives dialog (ObjectivesDialog.jsx) ----
+   Carries the category's --cat / --cat-soft like its block: the name and the
+   dots take the colour, the rest is the ordinary dialog. */
+.obj-title { color: var(--cat, var(--ink)); }
+.obj-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+.obj-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.obj-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  margin: 0 var(--sp-1);
+  border-radius: 50%;
+  background: var(--cat, var(--line-strong));
+}
+input[type="text"].obj-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--r-chip);
+  color: var(--ink-typed);
+  font-size: var(--fs-body);
+  padding: var(--sp-2) var(--sp-3);
+}
+input[type="text"].obj-input:focus { border-color: var(--cat, var(--accent-fill)); }
+.obj-input::placeholder { color: var(--ink-faint); }
+/* The dialog is the place for removing, so its × is always in view */
+.obj-row .row-del { opacity: 1; }
+.obj-empty {
+  font-size: var(--fs-body);
+  color: var(--ink-faint);
+  margin-bottom: var(--sp-2);
+}
 
 /* ============================================================
    Monthly — the focus list and its note, beside the month's calendar
@@ -3707,9 +3862,17 @@ textarea.panel-note::placeholder { color: var(--ink-faint); }
 }
 @media (max-width: 600px) {
   .cat-row { grid-template-columns: minmax(0, 1fr); }
+  /* The name sits on top of its list as a tinted band, "Edit" at its end */
   .cat-row-head {
-    padding: var(--sp-3) var(--sp-4) 0;
     border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .cat-row-open {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-4);
   }
   .cat-row-body { padding: var(--sp-1) var(--sp-3) var(--sp-3); }
 }
@@ -3719,10 +3882,13 @@ textarea.panel-note::placeholder { color: var(--ink-faint); }
   .cat-row textarea.goal-text,
   .focus-row textarea.goal-text,
   textarea.panel-note,
+  input[type="text"].obj-input,
   .cat-ref { font-size: 16px; }
   .cat-ref { min-height: 40px; }
   .cat-dot { margin-top: calc(4px + 0.75 * 16px - 3px); }
   .focus-row .task-check { margin-top: calc(4px + 0.75 * 16px - var(--check-size) / 2); }
+  /* No hover to reveal it, so the block's "Edit" stays in view */
+  .cat-row-hint { opacity: 1; }
 }
 
 /* ============================================================

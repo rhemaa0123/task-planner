@@ -295,8 +295,10 @@ function TaskRow({
           disabled={frozen}
           title="Schedule across days"
         >
-          {/* Subtasks written but none on a day yet still read as unassigned */}
-          {total > 0 && task.day_date ? (
+          {/* A task is assigned once it has a day - picked for it directly, or
+              taken from its earliest placed subtask. Subtasks written but none
+              on a day yet still read as unassigned. */}
+          {task.day_date ? (
             <span>edit days</span>
           ) : (
             <>
@@ -343,19 +345,17 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
         missedDays: s.missedDays || [],
       })
     }
-    const hasRows = Object.values(seed).some(rows => rows.length)
-    // A task scheduled before subtasks existed still opens on the day it had;
-    // a task with nothing yet opens on a blank row to type into
-    if (!hasRows && task.day_date) seed[task.day_date] = [blankRow()]
-    else if (!hasRows) seed[TRAY] = [blankRow()]
+    // Nothing is made up front: a task with no subtasks opens with an empty
+    // tray, and its day (if it has one) lights on the week row instead
     return seed
   })
-  // The row that takes the caret when it mounts - the blank one a fresh task
-  // opens on, or the one Enter just added
-  const [focusId, setFocusId] = useState(() => {
-    const tray = byDay[TRAY]
-    return tray.length === 1 && !tray[0].title ? tray[0].id : null
-  })
+  // The row that takes the caret when it mounts - the one "+ add subtask" or
+  // Enter just added
+  const [focusId, setFocusId] = useState(null)
+  // The task's own day, for a task with no subtasks: picked on the week row
+  // at the top of DAYS. Once subtasks exist the task's day follows them (the
+  // earliest placed one), so this only counts if none are left at save.
+  const [taskDay, setTaskDay] = useState(task.day_date || null)
   const [note, setNote] = useState(task.note || '')
   const [deadline, setDeadline] = useState(task.deadline || '')
   const [time, setTime] = useState(task.deadline_time || '')
@@ -425,6 +425,44 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
   // on the day it is already on sends it back to the tray
   const pickDay = (id, fromKey, fromIdx, date) =>
     moveRow(id, fromKey, fromKey === date ? TRAY : date, fromIdx, null)
+
+  /* ---- The week row (M T W T F S S) at the top of DAYS ----
+     Always on screen, and it means one of two things. A task with no subtasks
+     is done on one day, so the row picks that day (and a second tap clears
+     it) - no subtask is made for it. Once there are subtasks the row shows the
+     days that hold them, and a tap files every written subtask still in the
+     tray onto that day. A blank tray row is only the line left open for
+     typing, so it neither counts as a subtask here nor gets filed. */
+  const named = (r) => r.title.trim() !== ''
+  const unplaced = (byDay[TRAY] || []).filter(named)
+  const placedCount = Object.entries(byDay)
+    .reduce((n, [key, rows]) => (key === TRAY ? n : n + rows.length), 0)
+  const hasSubtasks = placedCount > 0 || unplaced.length > 0
+
+  const pickTopDay = (date) => {
+    if (!hasSubtasks) {
+      setTaskDay(prev => (prev === date ? null : date))
+      return
+    }
+    if (!unplaced.length) return
+    setByDay(prev => {
+      const tray = prev[TRAY] || []
+      const moving = tray.filter(named)
+      if (!moving.length) return prev
+      return { ...prev, [TRAY]: tray.filter(r => !named(r)), [date]: [...(prev[date] || []), ...moving] }
+    })
+  }
+
+  const topDayOn = (date) => (hasSubtasks ? (byDay[date] || []).length > 0 : taskDay === date)
+
+  const topDayTitle = (d) => {
+    if (!hasSubtasks) return taskDay === d.date ? `Clear ${d.name}` : `Do this task on ${d.name}`
+    if (unplaced.length) {
+      return `Put ${unplaced.length === 1 ? 'the unplaced subtask' : `all ${unplaced.length} unplaced subtasks`} on ${d.name}`
+    }
+    const n = (byDay[d.date] || []).length
+    return n ? `${d.name}: ${n} subtask${n > 1 ? 's' : ''}` : d.name
+  }
 
   /* ---- Dragging a row between days ---- */
 
@@ -559,7 +597,8 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
     // The tray keeps what was written and not yet placed; a blank row in it
     // is only the line left open for typing
     for (const r of byDay[TRAY]) if (r.title.trim()) push(r, null)
-    onSave({ subtasks, note: note.trim(), deadline: deadline || null, deadlineTime: time || null })
+    // `dayDate` only lands when no subtasks are saved - see setTaskSchedule
+    onSave({ subtasks, note: note.trim(), deadline: deadline || null, deadlineTime: time || null, dayDate: taskDay })
   }
 
   // One subtask row, the same in the tray and under a day: grip, name, ×, and
@@ -678,6 +717,28 @@ function TaskScheduleDialog({ task, projectName, weekStartIso, onSave, onClose }
         </div>
 
         <div className="field-label">DAYS</div>
+        {/* The week row: the task's own day when it has no subtasks, or a
+            one-tap way to file the tray's subtasks onto a day when it does
+            (see pickTopDay). Idle - no hover, no effect - when there are
+            subtasks but none left in the tray to file. */}
+        <div
+          className={`day-toggle-row sched-week ${hasSubtasks && !unplaced.length ? 'idle' : ''}`}
+          role="group"
+          aria-label={hasSubtasks ? 'Put unplaced subtasks on a day' : 'The day for this task'}
+        >
+          {days.map(d => (
+            <button
+              type="button"
+              key={d.date}
+              className={`day-toggle ${topDayOn(d.date) ? 'selected' : ''}`}
+              onClick={() => pickTopDay(d.date)}
+              aria-pressed={topDayOn(d.date)}
+              title={topDayTitle(d)}
+            >
+              {d.initial}
+            </button>
+          ))}
+        </div>
         {/* Every day of the week, always: an empty one is a single line that
             lights up when a row is brought over it */}
         <div className="sched-days">

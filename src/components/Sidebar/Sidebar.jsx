@@ -39,8 +39,6 @@ const SECTIONS = [
       { href: '#/weekly', label: 'Weekly', Icon: WeeklyIcon, match: (r) => r.startsWith('#/weekly') || r.startsWith('#/plan') },
       { href: '#/monthly', label: 'Monthly', Icon: MonthlyIcon, match: (r) => r.startsWith('#/monthly') },
       { href: '#/yearly', label: 'Yearly', Icon: YearlyIcon, match: (r) => r.startsWith('#/yearly') },
-      // All weeks lives inside Stats since Nov 2026; its old address still lands there
-      { href: '#/stats', label: 'Stats', Icon: StatsIcon, match: (r) => r.startsWith('#/stats') || r.startsWith('#/weeks') },
     ],
   },
   {
@@ -54,6 +52,14 @@ const SECTIONS = [
     items: [
       { href: '#/birthdays', label: 'Birthdays', Icon: BirthdayIcon, match: (r) => r.startsWith('#/birthdays') },
       { href: '#/contacts', label: 'Contacts', Icon: ContactsIcon, match: (r) => r.startsWith('#/contacts') },
+    ],
+  },
+  {
+    title: 'Others',
+    items: [
+      // All weeks lives inside Stats since Nov 2026; its old address still lands there.
+      // Moved out of Planning into its own group in Nov 2026.
+      { href: '#/stats', label: 'Stats', Icon: StatsIcon, match: (r) => r.startsWith('#/stats') || r.startsWith('#/weeks') },
     ],
   },
 ]
