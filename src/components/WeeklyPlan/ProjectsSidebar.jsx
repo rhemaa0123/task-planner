@@ -812,6 +812,28 @@ export function ProjectsSidebar() {
     return () => window.removeEventListener('mouseup', disarm)
   }, [armedTask])
 
+  // A card drags from anywhere on it - except from inside a name. A press in
+  // a text field inside a draggable element is taken as the start of a drag:
+  // the caret cannot be clicked to a spot in the name (Firefox) and a drag
+  // across it moves the card instead of selecting (every browser). So for the
+  // length of a press that lands in a field the cards stop being draggable.
+  // Set on pointerdown, which comes before mousedown; React applies it before
+  // the browser decides what the press is.
+  const [fieldPress, setFieldPress] = useState(false)
+  useEffect(() => {
+    if (!fieldPress) return
+    const release = () => setFieldPress(false)
+    window.addEventListener('pointerup', release)
+    window.addEventListener('pointercancel', release)
+    return () => {
+      window.removeEventListener('pointerup', release)
+      window.removeEventListener('pointercancel', release)
+    }
+  }, [fieldPress])
+  const noteFieldPress = (e) => {
+    if (e.target.closest?.('input[type="text"], textarea')) setFieldPress(true)
+  }
+
   const deadlineProject = projects.find(p => String(p.id) === String(deadlineFor)) || null
 
   let scheduleTask = null
@@ -966,7 +988,8 @@ export function ProjectsSidebar() {
             key={p.id}
             ref={el => { cardRefs.current[index] = el }}
             className={`project-card ${isDragging ? 'dragging' : ''}`}
-            draggable={!frozen}
+            draggable={!frozen && !fieldPress}
+            onPointerDownCapture={noteFieldPress}
             onDragStart={(e) => onDragStart(e, index)}
             onDragEnd={resetDrag}
             style={{ transform: dragTransform(index) }}
