@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useRef } from 'react'
-import { startOfWeek, toISODate, addDays, fromISODate, earliestDay, weeksBetween, sinkCompleted } from '../utils'
+import React, { createContext, useContext, useState, useRef, useEffect } from 'react'
+import { startOfWeek, toISODate, addDays, fromISODate, earliestDay, weeksBetween, sinkCompleted, dropOverCountdowns } from '../utils'
 import { useCloudSync } from '../sync/useCloudSync'
 import { weekOf } from '../sync/cloudStore'
 
@@ -110,6 +110,8 @@ const EMPTIES = {
 const normalize = (key, value) => {
   if (key === POPUPS_KEY) return normPopups(value)
   if (key === ACADEMICS_KEY) return { ...EMPTY_ACADEMICS, ...coerce(value, EMPTY_ACADEMICS) }
+  // A countdown that is over is not let back in from the account either
+  if (key === COUNTDOWNS_KEY) return dropOverCountdowns(coerce(value, EMPTIES[key]))
   return coerce(value, EMPTIES[key])
 }
 
@@ -149,7 +151,7 @@ export function AppProvider({ children }) {
   const [contacts, setContacts] = useState(() => readKey(CONTACTS_KEY, []))
   const [months, setMonths] = useState(() => readKey(MONTHS_KEY, {}))
   const [years, setYears] = useState(() => readKey(YEARS_KEY, {}))
-  const [countdowns, setCountdowns] = useState(() => readKey(COUNTDOWNS_KEY, []))
+  const [countdowns, setCountdowns] = useState(() => dropOverCountdowns(readKey(COUNTDOWNS_KEY, [])))
   const [academics, setAcademics] = useState(() => ({
     ...EMPTY_ACADEMICS,
     ...readKey(ACADEMICS_KEY, EMPTY_ACADEMICS),
@@ -203,6 +205,19 @@ export function AppProvider({ children }) {
       }
     }
   }
+
+  /* Countdowns that ended while this browser was closed are dropped from its
+     storage at load (they were already left out of state above). This writes
+     the device only and never pushes: run at load, a push would be the first
+     write a linked device makes, before the account's latest has arrived, and
+     that write would replace the account's list - losing a countdown added on
+     another device meanwhile. The account's copy is cleaned by the next save
+     of the list, which goes through the same filter. */
+  useEffect(() => {
+    if (readKey(COUNTDOWNS_KEY, []).length !== sideRefs.current[COUNTDOWNS_KEY].length) {
+      writeLocal(COUNTDOWNS_KEY, sideRefs.current[COUNTDOWNS_KEY])
+    }
+  }, [])
 
   /* ---- The account's side of things ----
      useCloudSync reads every store through `readLocalAll` and writes back
@@ -814,12 +829,16 @@ export function AppProvider({ children }) {
 
   /* Countdowns. A name and a day you are waiting for, stored as an ISO date
      because it happens once - the mirror image of a birthday, which is kept
-     as calendar parts precisely because it comes round again. Nothing here
-     expires on its own either: the day passes, the row says so, and removing
-     it stays a decision rather than a cleanup. */
+     as calendar parts precisely because it comes round again. Once the day
+     has passed it is over and goes (Nov 2026, by request): the panel stops
+     listing it at midnight, and every save of the list drops it from storage
+     and the account through `dropOverCountdowns`. */
+  const saveCountdowns = (fn) =>
+    setStore(COUNTDOWNS_KEY, setCountdowns, (list) => dropOverCountdowns(fn(list)))
+
   const addCountdown = (entry = {}) => {
     const id = generateId()
-    setStore(COUNTDOWNS_KEY, setCountdowns, (list) => [...list, {
+    saveCountdowns((list) => [...list, {
       id,
       name: (entry.name || '').trim(),
       date: entry.date || null,
@@ -828,11 +847,11 @@ export function AppProvider({ children }) {
   }
 
   const updateCountdown = (id, patch) =>
-    setStore(COUNTDOWNS_KEY, setCountdowns, (list) =>
+    saveCountdowns((list) =>
       list.map((c) => String(c.id) === String(id) ? { ...c, ...patch } : c))
 
   const deleteCountdown = (id) =>
-    setStore(COUNTDOWNS_KEY, setCountdowns, (list) => list.filter((c) => String(c.id) !== String(id)))
+    saveCountdowns((list) => list.filter((c) => String(c.id) !== String(id)))
 
   /* ---- Academics ----
      One store, three lists, and the app's only foreign key: an assignment

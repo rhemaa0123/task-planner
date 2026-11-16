@@ -5203,11 +5203,25 @@ button.stat-sub.as-link:hover { color: var(--ink); }
 .home-cd.today .home-cd-name,
 .home-cd.today .home-cd-date,
 .home-cd.today .home-cd-days { color: var(--attention); font-weight: 600; }
-/* Been and gone. It stays on the list until it is cleared - nothing here
-   deletes itself - but it stops competing with what is still ahead. */
-.home-cd.past .home-cd-name,
-.home-cd.past .home-cd-date,
-.home-cd.past .home-cd-days { color: var(--ink-faint); }
+/* The part of the row that opens the edit: a bare button laid out exactly as
+   the three spans were when they sat straight in the row */
+.home-cd-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+/* The row being edited is the add form, in the list's place */
+.home-cd.editing { display: block; padding: 0; }
+.home-cd.editing .cd-add { margin-top: 0; }
 
 /* Two fields on the spot rather than a dialog: a countdown is a name and a
    day, and anything heavier to open than that would not get used */

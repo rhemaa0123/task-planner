@@ -505,20 +505,27 @@ export function daysUntil(iso, now = new Date()) {
   return Math.round((fromISODate(iso) - today) / DAY_MS)
 }
 
-// Soonest first; anything already past drops to the bottom, most recent of
-// those first — the day just gone is the one you are most likely looking for
-// in order to clear it. Nothing is ever removed on its own: a date that has
-// been and gone is still yours to delete, or to leave there.
+// A countdown is over once its day has gone. One dated today still reads
+// "Today" and is over at the next local midnight; there is no "ago" - an
+// over countdown is not kept (Nov 2026, by request: it used to sink and grey
+// until you deleted it).
+export const countdownOver = (c, now = new Date()) =>
+  Boolean(c?.date) && daysUntil(c.date, now) < 0
+
+// The list without the ones that are over. This is what keeps the stored list
+// clean: it filters what is read at load and what arrives from the account,
+// and every save of the list goes through it.
+export function dropOverCountdowns(list, now = new Date()) {
+  return (Array.isArray(list) ? list : []).filter((c) => !countdownOver(c, now))
+}
+
+// Soonest first, and only what is still ahead. The panel calls this with the
+// clock from `useToday()`, so a row leaves the list at midnight by itself.
 export function sortCountdowns(list, now = new Date()) {
-  return (list || [])
+  return dropOverCountdowns(list, now)
     .filter((c) => c && c.date)
     .map((c) => ({ ...c, days: daysUntil(c.date, now) }))
-    .sort((a, b) => {
-      const aPast = a.days < 0
-      const bPast = b.days < 0
-      if (aPast !== bPast) return aPast ? 1 : -1
-      return aPast ? b.days - a.days : a.days - b.days
-    })
+    .sort((a, b) => a.days - b.days)
 }
 
 /* ---- Academics ----

@@ -260,7 +260,7 @@ try {
 
   // ============ 11. Merge: Cancel ============
   const F = await device('F')
-  await seed(F, { 'task-planner-countdowns': [{ id: 'k1', name: 'Trip', date: '2027-01-01' }] })
+  await seed(F, { 'task-planner-countdowns': [{ id: 'k1', name: 'Trip', date: '2099-01-01' }] })
   await signIn(F)
   await F.page.waitForSelector('.merge-option')
   await F.page.locator('button', { hasText: 'Cancel and sign out' }).click()
@@ -273,7 +273,7 @@ try {
   // session must not resume by itself, and the next sign-in must use the
   // account chosen then - not race the old one.
   const G = await device('G')
-  await seed(G, { 'task-planner-countdowns': [{ id: 'k2', name: 'Exam', date: '2027-02-01' }] })
+  await seed(G, { 'task-planner-countdowns': [{ id: 'k2', name: 'Exam', date: '2099-02-01' }] })
   await signIn(G)
   await G.page.waitForSelector('.merge-option')
   const noaWeeks = (await listDocs(`users/${uid}/weeks`)).map(idOf).join()

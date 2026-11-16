@@ -404,34 +404,57 @@ export function BirthdayPanel() {
    notes, no categories, and adding one is two fields on the spot rather than
    a dialog, because anything heavier than that and you would not bother.
 
-   A date that has passed is not swept away. It drops below the upcoming ones
-   and says how long ago it was, and clearing it stays your decision - the
-   same rule the rest of the app follows about never quietly binning
-   something you typed. */
+   A date that has passed is over and goes (Nov 2026, by request): the row
+   leaves the list at midnight, on its own, and is dropped from storage - see
+   `dropOverCountdowns`. One that is still ahead can be changed in place:
+   click the row and it becomes the same two fields the add form uses. */
 const countWords = (days) => {
   if (days === 0) return 'Today'
   if (days === 1) return 'Tomorrow'
-  if (days === -1) return 'Yesterday'
-  if (days < 0) return `${-days} days ago`
   return `${days} days`
 }
 
 export function CountdownPanel() {
-  const { countdowns, addCountdown, deleteCountdown } = useApp()
+  const { countdowns, addCountdown, updateCountdown, deleteCountdown } = useApp()
   const now = useToday()
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [date, setDate] = useState('')
+  // The row being changed, and its fields as typed so far
+  const [editId, setEditId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [editDate, setEditDate] = useState('')
 
   const rows = sortCountdowns(countdowns, now)
+  const todayIso = toISODate(now)
   const valid = name.trim() && date
+  // A past date would make the row over the moment it is saved
+  const editValid = editName.trim() && editDate && editDate >= todayIso
 
   useEffect(() => {
-    if (!adding) return
-    const onKey = (e) => { if (e.key === 'Escape') setAdding(false) }
+    if (!adding && editId == null) return
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      setAdding(false)
+      setEditId(null)
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [adding])
+  }, [adding, editId])
+
+  const startEdit = (c) => {
+    setAdding(false)
+    setEditId(c.id)
+    setEditName(c.name || '')
+    setEditDate(c.date)
+  }
+
+  const saveEdit = (e) => {
+    e.preventDefault()
+    if (!editValid) return
+    updateCountdown(editId, { name: editName.trim(), date: editDate })
+    setEditId(null)
+  }
 
   // The form stays open after a save: these tend to be entered in twos and
   // threes - a trip, the flight back, the thing it is all for
@@ -456,14 +479,49 @@ export function CountdownPanel() {
 
       {rows.length > 0 && (
         <ul className="home-cd-list">
-          {rows.map((c) => (
+          {rows.map((c) => (c.id === editId ? (
+            <li key={c.id} className="home-cd editing">
+              <form className="cd-add" onSubmit={saveEdit}>
+                <input
+                  type="text"
+                  className="field-input"
+                  placeholder="What are you counting down to?"
+                  value={editName}
+                  autoFocus
+                  onChange={(e) => setEditName(e.target.value)}
+                  aria-label="Name"
+                />
+                <div className="cd-add-row">
+                  <input
+                    type="date"
+                    className="field-input"
+                    value={editDate}
+                    min={todayIso}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    aria-label="Date"
+                  />
+                  <span className="cd-add-btns">
+                    <button type="button" className="btn-ghost" onClick={() => setEditId(null)}>Cancel</button>
+                    <button type="submit" className="btn-primary" disabled={!editValid}>Save</button>
+                  </span>
+                </div>
+              </form>
+            </li>
+          ) : (
             <li
               key={c.id}
-              className={`home-cd ${c.days === 0 ? 'today' : ''} ${c.days < 0 ? 'past' : ''}`}
+              className={`home-cd ${c.days === 0 ? 'today' : ''}`}
             >
-              <span className="home-cd-date">{formatShortDate(c.date)}</span>
-              <span className="home-cd-name">{c.name || 'Untitled'}</span>
-              <span className="home-cd-days">{countWords(c.days)}</span>
+              <button
+                type="button"
+                className="home-cd-main"
+                onClick={() => startEdit(c)}
+                aria-label={`Edit ${c.name || 'countdown'}`}
+              >
+                <span className="home-cd-date">{formatShortDate(c.date)}</span>
+                <span className="home-cd-name">{c.name || 'Untitled'}</span>
+                <span className="home-cd-days">{countWords(c.days)}</span>
+              </button>
               <button
                 type="button"
                 className="row-del"
@@ -473,7 +531,7 @@ export function CountdownPanel() {
                 <TrashIcon />
               </button>
             </li>
-          ))}
+          )))}
         </ul>
       )}
 
@@ -504,7 +562,7 @@ export function CountdownPanel() {
           </div>
         </form>
       ) : (
-        <button type="button" className="add-row" onClick={() => setAdding(true)}>
+        <button type="button" className="add-row" onClick={() => { setEditId(null); setAdding(true) }}>
           <span className="add-row-plus"><PlusIcon /></span>
           Add a countdown
         </button>
